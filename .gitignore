@@ -1,3 +1,7 @@
+*~
+setup.sh
+.julia
+.juliahistory
 *.jl.cov
 *.jl.*.cov
 *.jl.mem

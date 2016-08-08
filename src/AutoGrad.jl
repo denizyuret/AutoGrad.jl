@@ -1,5 +1,7 @@
-module AutoGrad
+# module AutoGrad
 
-# package code goes here
+importall Base  # defining getindex, sin, etc.
 
-end # module
+include("core.jl")
+
+# end # module
