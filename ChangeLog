@@ -1,14 +1,10 @@
-2016-08-11  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-08-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# @primitive should be type specific.
-	# sum_outgrads should not overwrite its arguments: e.g. + may have passed the same dy back to multiple places.
-	# separate tests, examples, and gradients.
-	# (w,b)=params does not work, implement iterators?
+	# write gradcheck.
 
 	* TODO:
-	# write gradcheck.
-	# implement 2arg functions.
+	# implement/test 2arg functions.
 	# implement broadcasting functions.
 	# implement arraymath functions (transpose etc)
 	# implement 3arg (overwriting) functions.
@@ -19,3 +15,12 @@
 	# handle broadcast.jl.
 	# copying, reshaping, subarrays and concatenation?
 	# finish 1arg functions.
+
+2016-08-11  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# @primitive should be type specific.
+	# sum_outgrads should not overwrite its arguments: e.g. + may have passed the same dy back to multiple places.
+	# separate tests, examples, and gradients.
+	# (w,b)=params does not work, implement iterators?
+

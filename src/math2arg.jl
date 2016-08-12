@@ -20,23 +20,25 @@
 # transpose, reshape, concat, copy?
 
 math2arg = Dict{Symbol,Any}(
-### :$
-### :&
-:* => (:x2,:x1),
 :+ => (1,1),
-:- => (1,-1),
-:/ => (:(1./x2),:(-x1./abs2(x2))),
-### :.%
-:.* => (:x2,:x1),
 :.+ => (1,1),
+:- => (1,-1),
 :.- => (1,-1),
+#:% => (1,-1), # this is wrong when x1<x2
+#:.% => (1,-1),
+:* => (:x2,:x1),
+:.* => (:x2,:x1),
+:/ => (:(1./x2),:(-x1./abs2(x2))),
 :./ => (:(1./x2),:(-x1./abs2(x2))),
-### :.<<
-### :.>>
-### :.\
-:.^ => (:(x2.*x1.^(x2-1)),:(y.*log(x1))),
-### :|
+:\ => (:(-x2./abs2(x1)),:(1./x1)), # equivalent to x2/x1
+:.\ => (:(-x2./abs2(x1)),:(1./x1)), # equivalent to x2/x1
 :^ => (:(x2.*x1.^(x2-1)),:(y.*log(x1))),
+:.^ => (:(x2.*x1.^(x2-1)),:(y.*log(x1))),
+# :$ => bitwise xor
+# :& => bitwise and
+# :.<< => left bit shift
+# :.>> => right bit shift
+# :(|) => bitwise or
 # # besselh
 # # besseli
 # # besselix
@@ -56,9 +58,9 @@ math2arg = Dict{Symbol,Any}(
 ## :flipsign
 ## :hypot
 ## :log
-## :max
-## :min
-## :minmax
+# :max => (:(x1>=x2?1:0),:(x2>=x1?1:0)), # <= not implemented
+# :min => (:(x1<=x2?1:0),:(x2<=x1?1:0)),
+#minmax => returns a tuple, cannot multiply dy with .*
 ## airy
 ## airyx
 ## lbeta

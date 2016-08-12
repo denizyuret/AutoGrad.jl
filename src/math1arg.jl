@@ -10,8 +10,8 @@
 math1arg = Dict{Symbol,Any}(
 :(+) => +1.0,
 :(-) => -1.0,
-# :(~)
-# :(!)
+# :(~) => bitwise not
+# :(!) => boolean not
 :abs2 => :(2x),
 :abs => :(sign(x)),
 :acos => :(-1./sqrt(1-abs2(x))),
