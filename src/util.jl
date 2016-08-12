@@ -1,11 +1,11 @@
 EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
 
 function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL)
-    dbg(:check_grads,(:fun,fun,:args,args...))
+    dbg(:check_grads,(name(fun),:args,args...))
     isempty(args) && error("No args given")
     exact = ntuple(i->grad(fun,i)(args...), length(args))
     numeric = nd(fun, args...; eps=eps)
-    dbg(:check_grads,(fun,:exact,exact,:numeric,numeric))
+    dbg(:check_grads,(name(fun),:exact,exact,:numeric,numeric))
     isapprox(exact, numeric; rtol=rtol, atol=atol)
 end
 
@@ -54,5 +54,32 @@ function float{T}(x::AbstractArray{T})
         reshape([ float(x[i]) for i in eachindex(x) ], size(x))
     else
         convert(AbstractArray{typeof(float(zero(T)))}, x)
+    end
+end
+
+# The way broadcasting works in Julia:
+# y = f(x...) where f is a broadcasting operation.
+# size(y) = broadcast_shape(x...)
+# ndims(y) = max ndims(x)
+# size(y,i) = max size(x,i)
+# size(x,i) = 1 or size(y,i) for all x and i<=ndims(x)
+# if ndims(x) < ndims(y) the extra dimensions of x are treated as 1
+
+function unbroadcast(ynode, xnode, gradfun)
+    x, y = getval(xnode), getval(ynode)
+    if isa(x, AbstractArray)
+        if (size(x)==size(y))
+            return gradfun
+        else
+            function new_fun(dy)
+                result = gradfun(dy)
+                error("still did not implement unbroadcast completely")
+            end
+            return new_fun
+        end
+    elseif isa(y, AbstractArray)
+        return (dy->sum(gradfun(dy)))
+    else
+        return gradfun
     end
 end

@@ -68,7 +68,7 @@ function forward_pass(fun, args, kwargs, argnum)
     start_node = Node(float(getval(arg_wrt)), Any[tape])
     args = Any[args...] # to make args writeable
     args[argnum] = merge_tapes(start_node, arg_wrt)
-    dbg(:core,(:call, fun, args..., kwargs...))
+    dbg(:core,(:call, name(fun), args..., kwargs...))
     end_node = fun(args...; kwargs...)
     return start_node, end_node, tape
 end

@@ -12,11 +12,11 @@ math1arg = Dict{Symbol,Any}(
 :(-) => -1.0,
 # :(~) => bitwise not
 # :(!) => boolean not
-:abs2 => :(2x),
+:abs2 => :(2.*x),
 :abs => :(sign(x)),
 :acos => :(-1./sqrt(1-abs2(x))),
 :acosd => :(-(180/pi)./sqrt(1-abs2(x))),
-# acosh => :(1./sqrt(abs2(x)-1)),
+#:acosh => :(1./sqrt(abs2(x)-1)),
 :acot => :(-1./(1+abs2(x))),
 :acotd => :(-(180/pi)./(1+abs2(x))),
 # acoth => :(1./(1-abs2(x))),
@@ -44,14 +44,14 @@ math1arg = Dict{Symbol,Any}(
 # besselj1
 # bessely0
 # bessely1
-:cbrt => :(1./(3*abs2(y))),
+:cbrt => :(1./(3.*abs2(y))),
 # ceil
 # cis
 # conj
 # cosc
 # cosd
 # cosh
-# :cospi => :(-sinpi(x)*pi),
+# :cospi => :(-sinpi(x).*pi),
 :cos => :(-sin(x)),
 # cot
 # cotd
@@ -69,8 +69,8 @@ math1arg = Dict{Symbol,Any}(
 # erfi
 # erfinv
 # eta
-:exp10 => :(y*log(10)),
-:exp2 => :(y*log(2)),
+:exp10 => :(y.*log(10)),
+:exp2 => :(y.*log(2)),
 :expm1 => :(1+y),
 # exponent
 :exp => :y,
@@ -84,10 +84,10 @@ math1arg = Dict{Symbol,Any}(
 # isnan
 # lfact
 # lgamma
-:log10 => :(1./(log(10)*x)),
+:log10 => :(1./(log(10).*x)),
 :log1p => :(1./(1+x)),
 :log => :(1./x),
-:log2 => :(1./(log(2)*x)),
+:log2 => :(1./(log(2).*x)),
 :rad2deg => :(180/pi),
 # real
 # round
@@ -100,8 +100,8 @@ math1arg = Dict{Symbol,Any}(
 :sin => :(cos(x)),
 # sind
 # sinh
-# :sinpi => :(cospi(x)*pi),
-:sqrt => :(1./2y),
+# :sinpi => :(cospi(x).*pi),
+:sqrt => :(1./(2.*y)),
 :tan => :(1+abs2(y)),
 # tand
 :tanh => :(1-abs2(y)),

@@ -4,6 +4,8 @@
 	# write gradcheck.
 
 	* TODO:
+	# implement unbroadcast
+	# use Grad or some other name instead of Val.
 	# implement/test 2arg functions.
 	# implement broadcasting functions.
 	# implement arraymath functions (transpose etc)

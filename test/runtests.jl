@@ -4,18 +4,29 @@ using Base.Test
 # write your own tests here
 @test 1 == 1
 
+function runtests()
+    test1arg(rand())
+    test1arg(rand(2))
+    test2arg(rand(),rand())
+    test2arg(rand(),rand(2))
+    test2arg(rand(2),rand())
+    test2arg(rand(2),rand(2))
+end
+
 function test1arg(x; o...)
     for k in keys(math1arg)
         fx = eval(k)
         f = isa(x,Number) ? fx : a->sum(fx(a))
+        (f===fx) || name(f,(:sum,k))
         @test check_grads(f, x; o...)
     end
 end
 
-function test2arg(x1,x2; o...)
-    for k in keys(math2arg)
+function test2arg(x1,x2; flist=keys(math2arg), o...)
+    for k in flist
         fx = eval(k)
         f = isa(x1,Number) && isa(x2,Number) ? fx : (a,b)->sum(fx(a,b))
+        (f===fx) || name(f,(:sum,k))
         @test check_grads(f, x1, x2; o...)
     end
 end
