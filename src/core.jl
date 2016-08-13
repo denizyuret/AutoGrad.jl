@@ -144,7 +144,7 @@ function recorder(f)
 # parent_grad_ops.
 
             for (tape, argnum, parent) in ops                       
-                gradfun = f(Val{argnum}, result, args...; kwargs...) # Creates a node specific gradfun (dy->dx) with x,y in a closure
+                gradfun = f(Grad{argnum}, result, args...; kwargs...) # Creates a node specific gradfun (dy->dx) with x,y in a closure
                 gradfun == nothing && continue # indicates zero_grad arguments
                 name(gradfun,(symbol("D$argnum"),f,:out,result,:args,args...,kwargs...)) # Record for debugging
                 rnode = result.tapes[tape]
@@ -178,7 +178,7 @@ function backward_pass(start_node, end_node, tape)
 # A: Should zeros_like return a Node if the input is a Node?  No need, it is a constant.
 
     if !isa(end_node, Node) || !haskey(end_node.tapes, tape)    # This may happen e.g. if the function returns a constant
-        warn("Output seems independent of input. Returning zero gradient.")
+        dbg(:core, "Output seems independent of input. Returning zero gradient.")
         return zeros_like(start_node)
     end
     if !isa(getval(end_node), Number)
@@ -416,19 +416,22 @@ end
 # through a closure.  Julia has multiple-dispatch, which means each
 # argument type combination for a function might end up calling a
 # different method, each potentially requiring different gradients.
-# So we store gradmakers in methods called with `f(Val{N}, y, x...)`.
-# `Val{N}` represents the gradient wrt the N'th argument, y is the
+# So we store gradmakers in methods called with `f(Grad{N}, y, x...)`.
+# `Grad{N}` represents the gradient wrt the N'th argument, y is the
 # output and x... are the inputs of the original function.  This way
 # we can use method dispatch to find the appropriate gradient by
 # specifying types for x.  Example:
-# `sin(::Type{Val{1}},y,x::Float32)=(dy->dy*cos(x))`
+# `sin(::Type{Grad{1}},y,x::Float32)=(dy->dy*cos(x))`
 
-# It gets tiresome to write `Type{Val{1}}` after a while, here are
+# It gets tiresome to write `Type{Grad{1}}` after a while, here are
 # some convenient aliases:
 
-typealias D1 Type{Val{1}}
-typealias D2 Type{Val{2}}
-typealias Dn{N} Type{Val{N}}
+if !isdefined(:Grad)
+    immutable Grad{N}; end          # Gradient wrt N'th argument
+end
+typealias D1 Type{Grad{1}}
+typealias D2 Type{Grad{2}}
+typealias Dn{N} Type{Grad{N}}
 
 # Some functions do not have gradients wrt some arguments.  Example:
 # getindex(array, index) is not differentiable wrt index.  We indicate
