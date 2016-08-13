@@ -1,22 +1,29 @@
-2016-08-12  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-08-13  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# write gradcheck.
+	# use Grad or some other name instead of Val.
+	# split functions based on what type of args they accept.
+	# implement broadcasting functions (finish unbroadcast).
 
 	* TODO:
-	# implement unbroadcast
-	# use Grad or some other name instead of Val.
-	# implement/test 2arg functions.
-	# implement broadcasting functions.
+	# implement matrix multiplication.
+	# test mnist etc. more examples.
 	# implement arraymath functions (transpose etc)
 	# implement 3arg (overwriting) functions.
-	# test mnist etc. more examples.
 	# work on overwriting and efficiency (are closures efficient? nothing instead of zero arrays?).
 	# support CudaArrays.
 	# implement convenience_wrappers (jacobian etc)?
 	# handle broadcast.jl.
 	# copying, reshaping, subarrays and concatenation?
 	# finish 1arg functions.
+	# finish 2arg functions.
+
+2016-08-12  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# write gradcheck.
+	# implement unbroadcast
+	# implement/test 2arg functions.
 
 2016-08-11  Deniz Yuret  <dyuret@ku.edu.tr>
 

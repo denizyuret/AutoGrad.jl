@@ -1,8 +1,40 @@
 using AutoGrad
 using Base.Test
+# Uncomment these if you want lots of messages:
+import Base.Test: default_handler, Success, Failure, Error
+# default_handler(r::Success) = info("$(r.expr)")
+default_handler(r::Failure) = warn("FAIL: $(r.expr)")
+default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 
 # write your own tests here
 @test 1 == 1
+
+"See which scalar/array args f accepts."
+function testargs(k)
+    print("$k:")
+    f = eval(k)
+    try f(rand()); print(" (N,)"); end
+    try f(rand(2)); print(" (V,)"); end
+    try f(rand(2,2)); print(" (M,)"); end
+    try f(rand(2,2,2)); print(" (T,)"); end
+    try f(rand(),rand()); print(" (N,N)"); end
+    try f(rand(),rand(2)); print(" (N,V)"); end
+    try f(rand(),rand(2,2)); print(" (N,M)"); end
+    try f(rand(),rand(2,2,2)); print(" (N,T)"); end
+    try f(rand(2),rand()); print(" (V,N)"); end
+    try f(rand(2),rand(2)); print(" (V,V)"); end
+    try f(rand(2),rand(2,2)); print(" (V,M)"); end
+    try f(rand(2),rand(2,2,2)); print(" (V,T)"); end
+    try f(rand(2,2),rand()); print(" (M,N)"); end
+    try f(rand(2,2),rand(2)); print(" (M,V)"); end
+    try f(rand(2,2),rand(2,2)); print(" (M,M)"); end
+    try f(rand(2,2),rand(2,2,2)); print(" (M,T)"); end
+    try f(rand(2,2,2),rand()); print(" (T,N)"); end
+    try f(rand(2,2,2),rand(2)); print(" (T,V)"); end
+    try f(rand(2,2,2),rand(2,2)); print(" (T,M)"); end
+    try f(rand(2,2,2),rand(2,2,2)); print(" (T,T)"); end
+    println()
+end
 
 function runtests()
     test1arg(rand())
@@ -22,7 +54,7 @@ function test1arg(x; o...)
     end
 end
 
-function test2arg(x1,x2; flist=keys(math2arg), o...)
+function test2arg(x1,x2,flist=keys(math2arg); o...)
     for k in flist
         fx = eval(k)
         f = isa(x1,Number) && isa(x2,Number) ? fx : (a,b)->sum(fx(a,b))
