@@ -68,7 +68,7 @@ function forward_pass(fun, args, kwargs, argnum)
     start_node = Node(float(getval(arg_wrt)), Any[tape])
     args = Any[args...] # to make args writeable
     args[argnum] = merge_tapes(start_node, arg_wrt)
-    dbg(:core,(:call, name(fun), args..., kwargs...))
+    dbg(:core,(:fcall, name(fun), args..., kwargs...))
     end_node = fun(args...; kwargs...)
     return start_node, end_node, tape
 end
@@ -122,7 +122,7 @@ function recorder(f)
         found_node || throw(MethodError(f, argvals))            # Otherwise undefined methods lead to infinite loop
 
 # 3.4 The primitive is called with unboxed arguments.
-        
+        dbg(:core, (:rcall,name(f),argvals...,kwargs...))
         result = f(argvals...; kwargs...)
 
 # 3.5 ops can be empty if no Nodes, zero_grads, or iscomplete(tape).
@@ -144,6 +144,7 @@ function recorder(f)
 # parent_grad_ops.
 
             for (tape, argnum, parent) in ops                       
+                dbg(:core,(:gcall,name(f),argnum,result,args...,kwargs...))
                 gradfun = f(Grad{argnum}, result, args...; kwargs...) # Creates a node specific gradfun (dy->dx) with x,y in a closure
                 gradfun == nothing && continue # indicates zero_grad arguments
                 name(gradfun,(symbol("D$argnum"),f,:out,result,:args,args...,kwargs...)) # Record for debugging

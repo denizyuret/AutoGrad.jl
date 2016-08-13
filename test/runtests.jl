@@ -43,6 +43,9 @@ function runtests()
     test2arg(rand(),rand(2))
     test2arg(rand(2),rand())
     test2arg(rand(2),rand(2))
+    test2arg(rand(2,2),rand(2))
+    test2arg(rand(2),rand(2,2))
+    test2arg(rand(2,2),rand(2,2))
 end
 
 function test1arg(x; o...)

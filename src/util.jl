@@ -52,13 +52,7 @@ import Base: float
 isfloat(x)=isa(x,AbstractFloat)
 float(x::Tuple)=(all(isfloat,x) ? x : ntuple(i->float(x[i]), length(x)))
 float(x::Associative)=(all(isfloat,values(x)) ? x : [k=>float(v) for (k,v) in x])
-function float{T}(x::AbstractArray{T})
-    if !isleaftype(T)
-        reshape([ float(x[i]) for i in eachindex(x) ], size(x))
-    else
-        convert(AbstractArray{typeof(float(zero(T)))}, x)
-    end
-end
+float{T<:Number}(x::AbstractArray{T})=reshape([ float(x[i]) for i in eachindex(x) ], size(x))
 
 # The way broadcasting works in Julia:
 # y = f(x...) where f is a broadcasting operation.
