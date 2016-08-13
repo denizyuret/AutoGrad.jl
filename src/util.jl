@@ -1,12 +1,15 @@
 EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
 
 function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL)
+    dbg(:cfun,name(fun))
     dbg(:check_grads,(name(fun),:args,args...))
     isempty(args) && error("No args given")
     exact = ntuple(i->grad(fun,i)(args...), length(args))
     numeric = nd(fun, args...; eps=eps)
     dbg(:check_grads,(name(fun),:exact,exact,:numeric,numeric))
-    isapprox(exact, numeric; rtol=rtol, atol=atol)
+    same = isapprox(exact, numeric; rtol=rtol, atol=atol)
+    same || warn((:check_grads,name(fun),:args,args,:exact,exact,:numeric,numeric))
+    return same
 end
 
 function nd(f, args...; eps=EPS)
@@ -73,7 +76,13 @@ function unbroadcast(ynode, xnode, gradfun)
         else
             function new_fun(dy)
                 result = gradfun(dy)
-                error("still did not implement unbroadcast completely")
+                d = []
+                for i=1:ndims(result)
+                    size(x,i) == size(result,i) && continue
+                    size(x,i) != 1 && throw(DimensionMismatch())
+                    push!(d,i)
+                end
+                return sum(result, d)
             end
             return new_fun
         end
