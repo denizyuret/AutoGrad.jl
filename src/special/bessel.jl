@@ -12,9 +12,17 @@ bessel1arg = Dict{Symbol,Any}(
 #:bessely1 => :todo,		# bessel,operators
 )
 
+for (_f,_d) in bessel1arg
+    @eval begin
+        @primitive $_f{T<:Number}(x::Node{T})
+        @primitive $_f{A<:AbstractArray}(x::Node{A})
+        $_f(::D1,y::Node,x)=(dy->dy.*$_d)
+    end
+end
+
 bessel2arg = Dict{Symbol,Any}(
-#:airy => :todo,                  # first arg should be an integer; bessel,operators
-#:airyx => :todo,                 # first arg should be an integer; bessel,operators
+:airy => :todo,                  # first arg should be an integer; bessel,operators
+:airyx => :todo,                 # first arg should be an integer; bessel,operators
 :besselh => :todo,                       # bessel,operators
 :besseli => :todo,                       # bessel,operators
 :besselix => :todo,                      # bessel,operators

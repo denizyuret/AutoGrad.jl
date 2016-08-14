@@ -346,7 +346,8 @@ that the recorder method will give an error unless one of the
 arguments is a Node. Examples:
 
 `@primitive log(x...; o...)` will cause all calls to `log` not matched
-by any other method to call the recorder method.
+by any other method to call the recorder method.  This is not
+recommended, it is usually better to specify argument types.
 
 `@primitive log` is defined as syntactic sugar for `@primitive log(x...; o...)`.
 
@@ -422,7 +423,7 @@ end
 # output and x... are the inputs of the original function.  This way
 # we can use method dispatch to find the appropriate gradient by
 # specifying types for x.  Example:
-# `sin(::Type{Grad{1}},y,x::Float32)=(dy->dy*cos(x))`
+# `sin{T<:Number}(::Type{Grad{1}},y::Node{T},x::Node{T})=(dy->dy*cos(x))`
 
 # It gets tiresome to write `Type{Grad{1}}` after a while, here are
 # some convenient aliases:

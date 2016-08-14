@@ -9,6 +9,28 @@ default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 # write your own tests here
 @test 1 == 1
 
+testgrads(broadcast2arg, Number, Number)
+testgrads(broadcast2arg, AbstractArray, Number)
+testgrads(broadcast2arg, Number, AbstractArray)
+testgrads(broadcast2arg, AbstractArray, AbstractArray)
+testgrads(float1arg, Number)
+testgrads(float1arg, AbstractArray)
+testgrads(float2arg, Number, Number)
+testgrads(float2arg, AbstractArray, Number)
+testgrads(float2arg, Number, AbstractArray)
+testgrads(float2arg, AbstractArray, AbstractArray)
+#BUG testgrads(float2arg1, Number, Number) # causes segfault?
+testgrads(math1arg, Number)
+testgrads(math1arg, AbstractArray)
+testgrads(math2arg, Number, Number)
+testgrads(math2arg, AbstractArray, Number)
+testgrads(math2arg, Number, AbstractArray)
+testgrads(math2arg, AbstractArray, AbstractArray)
+testgrads(math2arg, Number, Number)
+testgrads(number1arg, Number)
+testgrads(number1arg, AbstractArray)
+
+
 "Find out where different methods are."
 function where(k)
     f = eval(k)
