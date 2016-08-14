@@ -56,12 +56,13 @@ function testgrads(grads::Dict{Symbol,Any}, argtypes...)
         try 
             check_grads(ftest, test...)
         catch e
-            println(e)
+            warn((name(ftest),test...,e))
         end
     end
 end
 
 function testargs(f, a...)
+    dbg(:testargs,(f,a...))
     ntuple(length(a)) do i
         a[i] <: Number ? randn() :
         a[i] <: AbstractArray ? randn(2) :

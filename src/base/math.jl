@@ -40,16 +40,16 @@ defgrads(math1arg, Number)
 defgrads(math1arg, AbstractArray)
 
 for f in (:acosh,)
-    testargs(::Fn{:acosh},a...)=map(x->1+abs(x), testargs(nothing,a))
+    testargs(::Fn{f},a...)=map(x->1+abs(x), testargs(f,a...))
 end
 for f in (:log1p,)
-    testargs(::Fn{:acosh},a...)=map(x->-1+abs(x), testargs(nothing,a))
+    testargs(::Fn{f},a...)=map(x->-1+abs(x), testargs(f,a...))
 end
-for f in (:log, :log2, :log10)
-    testargs(::Fn{f},a...)=map(x->abs(x), testargs(nothing,a))
+for f in (:log, :log2, :log10, :sqrt)
+    testargs(::Fn{f},a...)=map(x->abs(x), testargs(f,a...))
 end
 for f in (:acos, :asin)
-    testargs(::Fn{f},a...)=map(x->sin(x), testargs(nothing,a))
+    testargs(::Fn{f},a...)=map(x->sin(x), testargs(f,a...))
 end
 
 # math2arg: These are functions that can handle mixing scalar and array
