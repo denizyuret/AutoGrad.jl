@@ -1,4 +1,4 @@
-using AutoGrad
+# using AutoGrad
 using Base.Test
 # Uncomment these if you want lots of messages:
 import Base.Test: default_handler, Success, Failure, Error
@@ -8,6 +8,18 @@ default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 
 # write your own tests here
 @test 1 == 1
+
+"Find out where different methods are."
+function where(k)
+    f = eval(k)
+    a = (rand(), rand(2), rand(2,2), rand(2,2,2))
+    for x in a
+        try println(@which f(x)); end
+        for y in a
+            try println(@which f(x,y)); end
+        end
+    end
+end
 
 "See which scalar/array args f accepts."
 function testargs(k)
