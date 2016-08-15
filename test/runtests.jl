@@ -1,4 +1,3 @@
-# using AutoGrad
 using Base.Test
 # Uncomment these if you want lots of messages:
 import Base.Test: default_handler, Success, Failure, Error
@@ -34,7 +33,8 @@ testgrads(math2arg, AbstractArray, AbstractArray)
 testgrads(math2arg1, Number, Number)
 testgrads(number1arg, Number)
 testgrads(number1arg, AbstractArray)
-testgrads(reduce1arg, AbstractArray)
+testgrads(reduce1sum, AbstractArray)
+#testgrads(reduce1sum, AbstractArray, Integer) # TODO: add this
 testgrads(matmul2arg, AbstractMatrix, AbstractVector)
 testgrads(matmul2arg, AbstractVector, AbstractMatrix)
 testgrads(matmul2arg, AbstractMatrix, AbstractMatrix)

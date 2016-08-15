@@ -12,16 +12,21 @@ function defgrads(grads::Dict{Symbol,Any}, argtypes...; dymul=true)
             @eval @zerograd $fsig # This defines gradient=0 for all args
         else
             @eval @primitive $fsig
-            for i=1:length(argtypes)
+            isa(_d,Union{AbstractArray,Tuple}) || (_d = (_d,))
+            for i=1:length(_d)  # _d could be shorter than argtypes in which case the other gradients will be undefined
                 gsig = addtypes(:($_f{}(::Type{Grad{$i}},y::Node)), argtypes...)
-                if length(argtypes) == 1
-                    gexp = dymul ? :(dy->dy.*$_d) : _d
-                    @eval $gsig=$gexp
+                if _d[i] == 0
+                    gexp = nothing # This defines gradient=0 for one arg
+                elseif dymul
+                    gexp = :(dy->dy.*$(_d[i]))
+                    if length(_d) > 1
+                        xi = symbol(:x,i)
+                        gexp = :(unbroadcast(y, $xi, $gexp))
+                    end
                 else
-                    xi = symbol(:x,i)
-                    gexp = dymul ? :(dy->dy.*$(_d[i])) : _d[i]
-                    @eval $gsig=unbroadcast(y, $xi, $gexp)
+                    gexp = _d[i]
                 end
+                @eval $gsig=$gexp
             end
         end
     end

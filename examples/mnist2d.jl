@@ -1,26 +1,32 @@
-isdefined(:MNIST) || include(Pkg.dir("Knet/examples/mnist.jl"))
+module MNIST2D
+using AutoGrad
+using GZip
 
-#module MNIST2D
-#using AutoGrad: dbg, grad
-#using Main: MNIST
-# TODO: get this independent of Knet at some point
-
-function test()
-    loaddata()
-    dbg(:core)
-    global w = weights(64)
-    global g = grad(loss)
-    # TODO: This is too slow, need quick version:
-    # check_grads(loss, w)
+function predict(w, x)
+    i = 1
+    while i+2 < length(w)
+        x = max(0, w[i]*x .+ w[i+1])
+        i += 2
+    end
+    return w[i]*x .+ w[i+1]
 end
 
-# TODO: take number of layers as an argument? no actually we can just pass the parameters.  have a utility function that computes parameters for a given shape.
-# TODO: check grads, and check loss with Knet.
+function loss(w, x, ygold)
+    ypred = predict(w, x)
+    ynorm = ypred .- log(sum(exp(ypred),1))
+    -sum(ygold .* ynorm) / size(ygold,2)
+end
 
-function train(w=weights(); lr=.1, epochs=20)
+function accuracy(w, x, ygold)
+    ypred = predict(w, x)
+    sum((ypred .== maximum(ypred,1)) & (ygold .== maximum(ygold,1))) / size(ygold,2)
+end
+
+function train(hidden...; lr=.1, epochs=20, seed=nothing)
+    w = weights(hidden...; seed=seed)
     isdefined(:dtrn) || loaddata()
+    println((0, loss(w,xtrn,ytrn), loss(w,xtst,ytst), accuracy(w,xtrn,ytrn), accuracy(w,xtst,ytst)))
     gradfun = grad(loss)
-    println((0, loss(w,xtrn,ytrn), loss(w,xtst,ytst)))
     for epoch=1:epochs
         for (x,y) in dtrn
             g = gradfun(w, x, y)
@@ -28,42 +34,10 @@ function train(w=weights(); lr=.1, epochs=20)
                 w[i] -= lr * g[i]
             end
         end
-        println((epoch, loss(w,xtrn,ytrn), loss(w,xtst,ytst)))
+        println((epoch, loss(w,xtrn,ytrn), loss(w,xtst,ytst), accuracy(w,xtrn,ytrn), accuracy(w,xtst,ytst)))
     end
     return w
 end
-
-function loss(w, x=xtst, ygold=ytst)
-    i = 1
-    while i+2 < length(w)
-        x = max(0, w[i]*x .+ w[i+1])
-        i += 2
-    end
-    ypred = w[i]*x .+ w[i+1]
-    ynorm = ypred .- log(sum(exp(ypred),1))
-    -sum(ygold .* ynorm) / size(ygold,2)
-end
-
-function loaddata()
-    global xtrn, xtst, ytrn, ytst, dtrn
-    xtrn = reshape2(MNIST.xtrn)
-    xtst = reshape2(MNIST.xtst)
-    ytrn = MNIST.ytrn
-    ytst = MNIST.ytst
-    dtrn = minibatch(xtrn, ytrn, 100)
-end
-
-function minibatch(x, y, batchsize)
-    data = Any[]
-    nx = size(x,2)
-    for i=1:batchsize:nx
-        j=min(i+batchsize-1,nx)
-        push!(data, (x[:,i:j], y[:,i:j]))
-    end
-    return data
-end
-
-reshape2(a)=reshape(a,div(length(a),size(a,ndims(a))),size(a,ndims(a)))
 
 function weights(h...; seed=nothing)
     seed==nothing || srand(seed)
@@ -77,4 +51,34 @@ function weights(h...; seed=nothing)
     return w
 end
 
-#end # module
+function loaddata()
+    global xtrn, xtst, ytrn, ytst, dtrn
+    xshape(a)=reshape(a./255f0,784,div(length(a),784))
+    yshape(a)=(a[a.==0]=10; full(sparse(convert(Vector{Int},a),1:length(a),1f0)))
+    xtrn = xshape(gzread("train-images-idx3-ubyte.gz")[17:end])
+    xtst = xshape(gzread("t10k-images-idx3-ubyte.gz")[17:end])
+    ytrn = yshape(gzread("train-labels-idx1-ubyte.gz")[9:end])
+    ytst = yshape(gzread("t10k-labels-idx1-ubyte.gz")[9:end])
+    dtrn = minibatch(xtrn, ytrn, 100)
+end
+
+function gzread(file; dir=Pkg.dir("AutoGrad/data/"), url="http://yann.lecun.com/exdb/mnist/")
+    path = dir*file
+    isfile(path) || download(url*file, path)
+    f = gzopen(path)
+    a = readbytes(f)
+    close(f)
+    return(a)
+end
+
+function minibatch(x, y, batchsize)
+    data = Any[]
+    nx = size(x,2)
+    for i=1:batchsize:nx
+        j=min(i+batchsize-1,nx)
+        push!(data, (x[:,i:j], y[:,i:j]))
+    end
+    return data
+end
+
+end # module

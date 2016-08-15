@@ -1,13 +1,17 @@
 2016-08-15  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-
-	* TODO:
 	# extend defgrads so it can handle manual definitions as well.
-	# implement quick_grad_check for mnist.
-	# test mnist etc. more examples.
 	# implement reductions: sum, vecnorm
 	# implement arraymath functions (transpose etc)
+	# test mnist etc. more examples.
+	# implement zero-one loss.
+	# write mnist loader.
+	# implement zerograd for one of the arguments.
+
+	* TODO:
+	# implement quick_grad_check for mnist.
+	# fix namespace for runtests.jl.
 	# support CudaArrays.
 	# implement 3arg (overwriting) functions.
 	# work on overwriting and efficiency (are closures efficient? nothing instead of zero arrays?).

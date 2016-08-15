@@ -1,12 +1,12 @@
-reduce1arg = Dict{Symbol,Any}(
+reduce1sum = Dict{Symbol,Any}(
 :sum => :(dy->dy.+zeros_like(x)),
 )
 
-defgrads(reduce1arg, AbstractArray; dymul=false)
+defgrads(reduce1sum, AbstractArray; dymul=false)
 
-reduce2arg = Dict{Symbol,Any}(
-:sum => (:(dy->dy.+zeros_like(x1)),0),
+reduce2sum = Dict{Symbol,Any}(
+:sum => :(dy->dy.+zeros_like(x1)),
 )
-defgrads(reduce2arg, AbstractArray, Integer; dymul=false)
+defgrads(reduce2sum, AbstractArray, Integer; dymul=false)
 
 # TODO: implement more general sum ops
