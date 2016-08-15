@@ -147,7 +147,7 @@ function recorder(f)
                 dbg(:core,(:gcall,name(f),argnum,name(result),map(name,args)...,map(name,kwargs)...))
                 gradfun = f(Grad{argnum}, result, args...; kwargs...) # Creates a node specific gradfun (dy->dx) with x,y in a closure
                 gradfun == nothing && continue # indicates zero_grad arguments
-                name(gradfun,(symbol("D$argnum"),f,:out,result,:args,args...,kwargs...)) # Record for debugging
+                name(gradfun,(symbol("D$argnum"),f,:out,name(result),:args,map(name,args)...,map(name,kwargs)...)) # Record for debugging
                 rnode = result.tapes[tape]
                 push!(rnode.parent_grad_ops, (gradfun, parent))
                 dbg(:core,(:deps,name(tape),rnode))
@@ -204,10 +204,11 @@ function backward_pass(start_node, end_node, tape)
     cur_outgrad = nothing
     for node in tape[end-1:-1:1]                                # note the end-1 because we pushed nothing to complete
         if !isempty(node.outgrads)
+            dbg(:core,(:sum1,name(node),:args,map(name,node.outgrads)...))
             cur_outgrad = sum_outgrads(node.outgrads...)
             # This bombs when we have different types of Dict or Array
             # typeof(getval(cur_outgrad)) == typeof(node.node.value) || error("Type mismatch: y=$(node.node.value) dy=$(getval(cur_outgrad))")
-            dbg(:core,(:sum,name(node),:out,name(cur_outgrad),:args,map(name,node.outgrads)...))
+            dbg(:core,(:sum2,name(node),:out,name(cur_outgrad)))
             for (gradfun, parent) in node.parent_grad_ops
                 dbg(:core,(:back1,name(cur_outgrad),name(gradfun)))
                 og = gradfun(cur_outgrad)
@@ -561,7 +562,7 @@ sum_outgrads(x)=x
 sum_outgrads(a::Number, b::Number, c::Number...)=sum([a,b,c...])
 sum_outgrads(a::Tuple, b::Tuple, c::Tuple...)=tuple([sum_outgrads(e...) for e in zip(a,b,c...)]...)
 sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T},c::AbstractArray{T}...) =
-    (isbits(T) ? broadcast!(+,similar(a),a,b,c...) : [sum_outgrads(e...) for e in zip(a,b,c...)])
+    (isbits(T) ? broadcast(+,a,b,c...) : [sum_outgrads(e...) for e in zip(a,b,c...)])
 sum_outgrads(a::Associative, b::Associative, c::Associative...) =
     (z=similar(a); for d in (a,b,c...), (k,v) in d; z[k]=v+get(z,k,0); end; z)
 sum_outgrads{N}(::Dn{N}, y, x...)=(dy->dy)
@@ -573,9 +574,9 @@ name(f,n)=(_name[f]=n)
 name(f)=get(_name,f,f)
 name(x::ReverseNode)=symbol("R$(href(x))")
 name(x::Node)=symbol("N$(href(x))")
-name(x::Array)=symbol("A$(href(Ref(x)))")
+name(x::Array)=symbol("A$(join([href(Ref(x)),size(x)...],'x'))")
 name(x::Tuple)=map(name,x)
 href(x)=Int(hash(x)%100)
 
-Base.show(io::IO, n::Node) = print(io,"$(name(n))$((n.value,[(name(t),name(r)) for (t,r) in n.tapes]...))")
-Base.show(io::IO, n::ReverseNode) = print(io,"$(name(n))$((n.node.value,n.outgrads,[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")
+Base.show(io::IO, n::Node) = print(io,"$(name(n))$((name(n.value),[(name(t),name(r)) for (t,r) in n.tapes]...))")
+Base.show(io::IO, n::ReverseNode) = print(io,"$(name(n))$((name(n.node.value),map(name,n.outgrads),[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")

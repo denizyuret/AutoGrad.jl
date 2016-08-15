@@ -3,6 +3,8 @@
 	* DONE:
 
 	* TODO:
+	# extend defgrads so it can handle manual definitions as well.
+	# implement quick_grad_check for mnist.
 	# test mnist etc. more examples.
 	# implement reductions: sum, vecnorm
 	# implement arraymath functions (transpose etc)

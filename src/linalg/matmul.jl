@@ -1,5 +1,5 @@
 matmul2arg = Dict{Symbol,Any}(
-:* => :manualdefinition,
+:* => (:(dy->dy*x2'), :(dy->x1'*dy)),
 )
 
 # Methods for multiplication:
@@ -16,9 +16,7 @@ matmul2arg = Dict{Symbol,Any}(
 # defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat)
 # grad1=dy*x2' grad2=x1'*dy
 
-@primitive *{T1<:AbstractVecOrMat,T2<:AbstractVecOrMat}(x1::Nval{T1}, x2::Nval{T2})
-*{T1<:AbstractVecOrMat,T2<:AbstractVecOrMat}(::D1,y::Node,x1::Nval{T1}, x2::Nval{T2})=(dy->dy*x2')
-*{T1<:AbstractVecOrMat,T2<:AbstractVecOrMat}(::D2,y::Node,x1::Nval{T1}, x2::Nval{T2})=(dy->x1'*dy)
+defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat; dymul=false)
 
 function testargs(::Fn{:*}, a...)
     x = map(a) do ai

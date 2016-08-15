@@ -1,4 +1,4 @@
-module AutoGrad
+#module AutoGrad
 
 importall Base  # defining getindex, sin, etc.
 # importall Knet  # quadloss etc.
@@ -11,6 +11,8 @@ dbg(k)=(DBG[k]=!get(DBG,k,false))
 include("core.jl")
 include("util.jl")
 include("collections.jl")
+include("base/abstractarray.jl")
+include("base/arraymath.jl")
 include("base/number.jl")
 include("base/float.jl")
 include("base/floatfuncs.jl")
@@ -27,4 +29,4 @@ include("special/gamma.jl")
 include("special/trig.jl")
 :ok
 
-end # module
+#end # module

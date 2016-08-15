@@ -3,7 +3,7 @@
 # f{T<:Number,A<:AbstractArray{T}}(x::Node{A})
 # f{T<:Number,A<:AbstractArray}(x::Node{A{T}})
 
-function defgrads(grads::Dict{Symbol,Any}, argtypes...)
+function defgrads(grads::Dict{Symbol,Any}, argtypes...; dymul=true)
     for (_f,_d) in grads
         fsig = addtypes(:($_f{}()), argtypes...)
         if _d == :todo
@@ -15,10 +15,12 @@ function defgrads(grads::Dict{Symbol,Any}, argtypes...)
             for i=1:length(argtypes)
                 gsig = addtypes(:($_f{}(::Type{Grad{$i}},y::Node)), argtypes...)
                 if length(argtypes) == 1
-                    @eval $gsig=(dy->dy.*$_d)
+                    gexp = dymul ? :(dy->dy.*$_d) : _d
+                    @eval $gsig=$gexp
                 else
                     xi = symbol(:x,i)
-                    @eval $gsig=unbroadcast(y, $xi, (dy->dy.*$(_d[i])))
+                    gexp = dymul ? :(dy->dy.*$(_d[i])) : _d[i]
+                    @eval $gsig=unbroadcast(y, $xi, $gexp)
                 end
             end
         end
