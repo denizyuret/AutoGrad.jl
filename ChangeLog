@@ -1,19 +1,23 @@
-2016-08-14  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-08-15  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
 
 	* TODO:
-	# reorganize gradients mirroring base.
 	# test mnist etc. more examples.
+	# implement reductions: sum, vecnorm
 	# implement arraymath functions (transpose etc)
 	# support CudaArrays.
 	# implement 3arg (overwriting) functions.
 	# work on overwriting and efficiency (are closures efficient? nothing instead of zero arrays?).
 	# implement convenience_wrappers (jacobian etc)?
-	# handle broadcast.jl.
 	# copying, reshaping, subarrays and concatenation?
-	# finish 1arg functions.
-	# finish 2arg functions.
+	# finish all functions.
+
+2016-08-14  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# reorganize gradients mirroring base.
+	# handle broadcast.jl.
 
 2016-08-13  Deniz Yuret  <dyuret@ku.edu.tr>
 

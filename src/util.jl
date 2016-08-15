@@ -126,6 +126,7 @@ isfloat(x)=isa(x,AbstractFloat)
 float(x::Tuple)=(all(isfloat,x) ? x : ntuple(i->float(x[i]), length(x)))
 float(x::Associative)=(all(isfloat,values(x)) ? x : [k=>float(v) for (k,v) in x])
 float{T<:Number}(x::AbstractArray{T})=reshape([ float(x[i]) for i in eachindex(x) ], size(x))
+float(x::AbstractArray{Any})=map(float,x)
 
 # The way broadcasting works in Julia:
 # y = f(x...) where f is a broadcasting operation.

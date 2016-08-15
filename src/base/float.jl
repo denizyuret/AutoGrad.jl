@@ -44,6 +44,18 @@ defgrads(float2mul, Number, Number)
 defgrads(float2mul, AbstractArray, Number)
 defgrads(float2mul, Number, AbstractArray)
 
+# Methods for division:
+# /(x::Float64, y::Float64) at float.jl:214
+# /(A::AbstractArray{T,N}, B::Number) at abstractarraymath.jl:57
+# The Array-Array case is handled by linalg/generic.
+
+float2div = Dict{Symbol,Any}(
+:/ => (:(1./x2),:(-x1./abs2(x2))), # (N,N) (A,N)
+)                             
+
+defgrads(float2div, Number, Number)
+defgrads(float2div, AbstractArray, Number)
+
 float2arg1 = Dict{Symbol,Any}(
 :< => 0,                         # only supports (N,N), arrays not supported; float,operators
 :<= => 0,                        # only supports (N,N), arrays not supported; float,operators

@@ -62,13 +62,13 @@ This is the only place where a tape is created.  Multiple tapes only
 enter the picture for higher order derivatives.
 """    
 function forward_pass(fun, args, kwargs, argnum)
-    dbg(:core,(:forw, argnum, name(fun), args..., kwargs...))
+    dbg(:core,(:forw, argnum, name(fun), map(name,args)..., map(name,kwargs)...))
     tape = CalculationTape()
     arg_wrt = args[argnum]
     start_node = Node(float(getval(arg_wrt)), Any[tape])
     args = Any[args...] # to make args writeable
     args[argnum] = merge_tapes(start_node, arg_wrt)
-    dbg(:core,(:fcall, name(fun), args..., kwargs...))
+    dbg(:core,(:fcall, name(fun), map(name,args)..., map(name,kwargs)...))
     end_node = fun(args...; kwargs...)
     return start_node, end_node, tape
 end
@@ -93,7 +93,7 @@ invocations that have at least one Node argument.
 function recorder(f)
     #dbg(:core,(:recorder,f))
     function r(args...; kwargs...)
-        dbg(:core,(:call, name(f), args..., kwargs...))
+        dbg(:core,(:call, name(f), map(name,args)..., map(name,kwargs)...))
         argvals = Any[args...]
         ops = []
         tapes = Set()
@@ -122,7 +122,7 @@ function recorder(f)
         found_node || throw(MethodError(f, argvals))            # Otherwise undefined methods lead to infinite loop
 
 # 3.4 The primitive is called with unboxed arguments.
-        dbg(:core, (:rcall,name(f),argvals...,kwargs...))
+        dbg(:core, (:rcall,name(f),map(name,argvals)...,map(name,kwargs)...))
         result = f(argvals...; kwargs...)
 
 # 3.5 ops can be empty if no Nodes, zero_grads, or iscomplete(tape).
@@ -144,7 +144,7 @@ function recorder(f)
 # parent_grad_ops.
 
             for (tape, argnum, parent) in ops                       
-                dbg(:core,(:gcall,name(f),argnum,result,args...,kwargs...))
+                dbg(:core,(:gcall,name(f),argnum,name(result),map(name,args)...,map(name,kwargs)...))
                 gradfun = f(Grad{argnum}, result, args...; kwargs...) # Creates a node specific gradfun (dy->dx) with x,y in a closure
                 gradfun == nothing && continue # indicates zero_grad arguments
                 name(gradfun,(symbol("D$argnum"),f,:out,result,:args,args...,kwargs...)) # Record for debugging
@@ -207,12 +207,12 @@ function backward_pass(start_node, end_node, tape)
             cur_outgrad = sum_outgrads(node.outgrads...)
             # This bombs when we have different types of Dict or Array
             # typeof(getval(cur_outgrad)) == typeof(node.node.value) || error("Type mismatch: y=$(node.node.value) dy=$(getval(cur_outgrad))")
-            dbg(:core,(:sum,name(node),:out,cur_outgrad,:args,node.outgrads...))
+            dbg(:core,(:sum,name(node),:out,name(cur_outgrad),:args,map(name,node.outgrads)...))
             for (gradfun, parent) in node.parent_grad_ops
-                dbg(:core,(:back1,cur_outgrad,name(gradfun)))
+                dbg(:core,(:back1,name(cur_outgrad),name(gradfun)))
                 og = gradfun(cur_outgrad)
                 push!(parent.outgrads, og)
-                dbg(:core,(:back2,og,name(gradfun)))
+                dbg(:core,(:back2,name(og),name(gradfun)))
             end
         end
     end
@@ -538,7 +538,7 @@ zeros_check(x, d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=zeros_internal(x,d))
 zeros_internal(x::Node,d::ObjectIdDict)=zeros_check(x.value,d)
 zeros_internal(x::Tuple,d::ObjectIdDict)=ntuple(i->zeros_check(x[i],d), length(x))
 zeros_internal(x::Associative,d::ObjectIdDict)=[ k => zeros_check(v,d) for (k,v) in x ]
-zeros_internal{T}(x::AbstractArray{T},d::ObjectIdDict)=(isbits(T) ? zeros(x) : T[zeros_check(e) for e in x])
+zeros_internal{T}(x::AbstractArray{T},d::ObjectIdDict)=(isbits(T) ? zeros(x) : T[zeros_check(e,d) for e in x])
 zeros_internal{T}(x::T,d::ObjectIdDict)=(isbits(T) ? zero(x) : error("zeros_like cannot handle $T"))
 
 

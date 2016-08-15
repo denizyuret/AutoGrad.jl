@@ -1,7 +1,8 @@
-# module AutoGrad
+module AutoGrad
 
 importall Base  # defining getindex, sin, etc.
 # importall Knet  # quadloss etc.
+export grad, @primitive, D1, D2, Dn, check_grads
 
 isdefined(:DBG) || (DBG=Dict())
 dbg(k,x)=get(DBG,k,false)&&println(k,": ",x)
@@ -16,6 +17,7 @@ include("base/floatfuncs.jl")
 include("base/complex.jl")
 include("base/broadcast.jl")
 include("base/math.jl")
+include("base/reduce.jl")
 include("linalg/matmul.jl")
 include("linalg/dense.jl")
 include("linalg/generic.jl")
@@ -25,4 +27,4 @@ include("special/gamma.jl")
 include("special/trig.jl")
 :ok
 
-# end # module
+end # module
