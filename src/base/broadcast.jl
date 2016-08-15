@@ -26,4 +26,4 @@ defgrads(broadcast2arg, AbstractArray, Number)
 defgrads(broadcast2arg, Number, AbstractArray)
 defgrads(broadcast2arg, AbstractArray, AbstractArray)
 
-testargs(::Type{Val{:.^}},x...)=map(abs,testargs(nothing,x...))
+testargs(::Fn{:.^},x...)=map(abs,testargs(Fn2(:.^),x...))

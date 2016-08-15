@@ -27,5 +27,25 @@ trig1arg = Dict{Symbol,Any}(
 #:sind => :todo,  # trig,operators
 :sinpi => :(cospi(x).*pi),      # trig,operators
 #:tand => :todo,  # trig,operators
-
 )
+
+defgrads(trig1arg, Number)
+defgrads(trig1arg, AbstractArray)
+
+for (f,g) in ((:acosd, :cosd),
+              (:acotd, :cotd),
+              (:acscd, :cscd),
+              (:asecd, :secd))
+    gx = eval(g)
+    testargs(::Fn{f},a...)=map(x->gx(180x/pi), testargs(Fn2(f),a...))
+end
+
+for (f,g) in ((:acot, :cot),
+              (:acoth, :coth),
+              (:acsc, :csc),
+              (:acsch, :csch),
+              (:asec, :sec),
+              (:asech, :sech))
+    gx = eval(g)
+    testargs(::Fn{f},a...)=map(x->gx(x), testargs(Fn2(f),a...))
+end

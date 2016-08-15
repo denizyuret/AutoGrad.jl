@@ -1,5 +1,5 @@
 matmul2arg = Dict{Symbol,Any}(
-:* => (:x2,:x1),                   # (N,) (M,) (N,*) (*,N) (M,V) (M,M)
+:* => :manualdefinition,
 )
 
 # Methods for multiplication:
@@ -9,25 +9,26 @@ matmul2arg = Dict{Symbol,Any}(
 # *(A::AbstractArray{T,2}, B::AbstractArray{T,1}) at linalg/matmul.jl:82
 # *(A::AbstractArray{T,1}, B::AbstractArray{T,2}) at linalg/matmul.jl:89  (works only if size(B,1)==1)
 # *(A::AbstractArray{T,2}, B::AbstractArray{T,2}) at linalg/matmul.jl:131
-
-@primitive *(x1::Node, x2::Node)
-@primitive *(x1::Node, x2::Union{Number,AbstractArray})
-@primitive *(x1::Union{Number,AbstractArray},x2::Node)
-
-# Gradients:
-# For the first three cases the gradient is identical to .*
-# i.e. grad1=dy.*x2, grad2=dy.*x1
-
-*{A<:Number,B<:Number,C<:Number}(::D1, y::Node{A}, x1::Nval{B}, x2::Nval{C})=(dy->dy*x2)
-*{A<:Number,B<:Number,C<:Number}(::D2, y::Node{A}, x1::Nval{B}, x2::Nval{C})=(dy->dy*x1)
-
-*{A<:AbstractArray,B<:Number}(::D1, y::Node{A}, x1::Nval{B}, x2::Nval{A})=unbroadcast(y, x1, (dy->dy.*x2))
-*{A<:AbstractArray,B<:Number}(::D1, y::Node{A}, x1::Nval{A}, x2::Nval{B})=unbroadcast(y, x1, (dy->dy.*x2))
-*{A<:AbstractArray,B<:Number}(::D2, y::Node{A}, x1::Nval{B}, x2::Nval{A})=unbroadcast(y, x2, (dy->dy.*x1))
-*{A<:AbstractArray,B<:Number}(::D2, y::Node{A}, x1::Nval{A}, x2::Nval{B})=unbroadcast(y, x2, (dy->dy.*x1))
-
-# For the last three cases we have matrix multiplication:
+#
+# The first three are handled by base/float.
+# The final three implement matrix multiplication.
+# We need to handle these manually instead of calling defgrads because of the different gradient form.
+# defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat)
 # grad1=dy*x2' grad2=x1'*dy
 
-*{A<:AbstractArray,B<:AbstractArray,C<:AbstractArray}(::D1, y::Node{A}, x1::Nval{B}, x2::Nval{C})=(dy->dy*x2')
-*{A<:AbstractArray,B<:AbstractArray,C<:AbstractArray}(::D2, y::Node{A}, x1::Nval{B}, x2::Nval{C})=(dy->x1'*dy)
+@primitive *{T1<:AbstractVecOrMat,T2<:AbstractVecOrMat}(x1::Nval{T1}, x2::Nval{T2})
+*{T1<:AbstractVecOrMat,T2<:AbstractVecOrMat}(::D1,y::Node,x1::Nval{T1}, x2::Nval{T2})=(dy->dy*x2')
+*{T1<:AbstractVecOrMat,T2<:AbstractVecOrMat}(::D2,y::Node,x1::Nval{T1}, x2::Nval{T2})=(dy->x1'*dy)
+
+function testargs(::Fn{:*}, a...)
+    x = map(a) do ai
+        ai <: AbstractVector ? rand(2) :
+        ai <: AbstractMatrix ? (a[1] <: AbstractVector ? rand(1,2) : rand(2,2)) :
+        nothing
+    end
+    if in(nothing, x)
+        return testargs(Fn2(:*), a...)
+    else
+        return x
+    end
+end

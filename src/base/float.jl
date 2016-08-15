@@ -31,6 +31,19 @@ defgrads(float2arg, AbstractArray, Number)
 defgrads(float2arg, Number, AbstractArray)
 defgrads(float2arg, AbstractArray, AbstractArray)
 
+# Methods for multiplication:
+# *(x::Float64, y::Float64) at float.jl:212  (same as .*)
+# *(A::Number, B::AbstractArray{T,N}) at abstractarraymath.jl:54  (calls .*)
+# *(A::AbstractArray{T,N}, B::Number) at abstractarraymath.jl:55  (calls .*)
+# The Array-Array case is handled by linalg/matmul.
+float2mul = Dict{Symbol,Any}(
+:* => (:x2,:x1),                   # (N,) (M,) (N,*) (*,N) (M,V) (M,M)
+)                             
+
+defgrads(float2mul, Number, Number)
+defgrads(float2mul, AbstractArray, Number)
+defgrads(float2mul, Number, AbstractArray)
+
 float2arg1 = Dict{Symbol,Any}(
 :< => 0,                         # only supports (N,N), arrays not supported; float,operators
 :<= => 0,                        # only supports (N,N), arrays not supported; float,operators

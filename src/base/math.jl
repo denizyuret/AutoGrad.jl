@@ -40,16 +40,16 @@ defgrads(math1arg, Number)
 defgrads(math1arg, AbstractArray)
 
 for f in (:acosh,)
-    testargs(::Fn{f},a...)=map(x->1+abs(x), testargs(f,a...))
+    testargs(::Fn{f},a...)=map(x->1+abs(x), testargs(Fn2(f),a...))
 end
 for f in (:log1p,)
-    testargs(::Fn{f},a...)=map(x->-1+abs(x), testargs(f,a...))
+    testargs(::Fn{f},a...)=map(x->-1+abs(x), testargs(Fn2(f),a...))
 end
 for f in (:log, :log2, :log10, :sqrt)
-    testargs(::Fn{f},a...)=map(x->abs(x), testargs(f,a...))
+    testargs(::Fn{f},a...)=map(x->abs(x), testargs(Fn2(f),a...))
 end
 for f in (:acos, :asin)
-    testargs(::Fn{f},a...)=map(x->sin(x), testargs(f,a...))
+    testargs(::Fn{f},a...)=map(x->sin(x), testargs(Fn2(f),a...))
 end
 
 # math2arg: These are functions that can handle mixing scalar and array
@@ -93,8 +93,9 @@ math2arg1 = Dict{Symbol,Any}(
 #:minmax => :todo, # only supports (N,N); returns a tuple, cannot multiply dy with .*; math,operators
 )                             
 
-@primitive ^(x1::Node,x2::Integer) # to avoid clash with intfuncs:108
-defgrads(math2arg, Number, Number)
+@primitive ^{T<:Number}(x1::Node{T},x2::Integer) # to avoid clash with intfuncs:108
+defgrads(math2arg1, Number, Number)
+testargs(::Fn{:^},x...)=map(abs,testargs(Fn2(:^),x...))
 
 # DEAD CODE:
 

@@ -25,8 +25,6 @@ function defgrads(grads::Dict{Symbol,Any}, argtypes...)
     end
 end
 
-typealias Fn{F} Type{Val{F}}
-
 function addtypes(ex::Expr, types...)
     # construct method signature
     # example input: :(exp{}()), Number, Number
@@ -60,6 +58,9 @@ function testgrads(grads::Dict{Symbol,Any}, argtypes...)
         end
     end
 end
+
+typealias Fn{F} Type{Val{F}}    # used to create the first argument of testargs
+Fn2(F)=Type{Val{symbol(F,2)}}   # used for fallback in type specific testargs
 
 function testargs(f, a...)
     dbg(:testargs,(f,a...))

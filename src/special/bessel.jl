@@ -12,28 +12,33 @@ bessel1arg = Dict{Symbol,Any}(
 #:bessely1 => :todo,		# bessel,operators
 )
 
-for (_f,_d) in bessel1arg
-    @eval begin
-        @primitive $_f{T<:Number}(x::Node{T})
-        @primitive $_f{A<:AbstractArray}(x::Node{A})
-        $_f(::D1,y::Node,x)=(dy->dy.*$_d)
-    end
-end
+defgrads(bessel1arg, Number)
+defgrads(bessel1arg, AbstractArray)
 
 bessel2arg = Dict{Symbol,Any}(
-:airy => :todo,                  # first arg should be an integer; bessel,operators
-:airyx => :todo,                 # first arg should be an integer; bessel,operators
-:besselh => :todo,                       # bessel,operators
-:besseli => :todo,                       # bessel,operators
-:besselix => :todo,                      # bessel,operators
-:besselj => :todo,                       # bessel,operators
-:besseljx => :todo,                      # bessel,operators
-:besselk => :todo,                       # bessel,operators
-:besselkx => :todo,                      # bessel,operators
-:bessely => :todo,                       # bessel,operators
-:besselyx => :todo,                      # bessel,operators
-:hankelh1 => :todo,                      # bessel,operators
-:hankelh1x => :todo,                     # bessel,operators
-:hankelh2 => :todo,                      # bessel,operators
-:hankelh2x => :todo,                     # bessel,operators
+:airy => 0, # TODO: cannot handle single nondifferentiable arg but we need 2-arg airy to accept Nodes, so this is a temporary workaround for now. # (0,:(airy(x1+1,x2))), # first arg should be an integer; bessel,operators
+# :airyx => :todo,                 # first arg should be an integer; bessel,operators
+# :besselh => :todo,                       # bessel,operators
+# :besseli => :todo,                       # bessel,operators
+# :besselix => :todo,                      # bessel,operators
+# :besselj => :todo,                       # bessel,operators
+# :besseljx => :todo,                      # bessel,operators
+# :besselk => :todo,                       # bessel,operators
+# :besselkx => :todo,                      # bessel,operators
+# :bessely => :todo,                       # bessel,operators
+# :besselyx => :todo,                      # bessel,operators
+# :hankelh1 => :todo,                      # bessel,operators
+# :hankelh1x => :todo,                     # bessel,operators
+# :hankelh2 => :todo,                      # bessel,operators
+# :hankelh2x => :todo,                     # bessel,operators
 )
+
+defgrads(bessel2arg, Number, Number)
+defgrads(bessel2arg, AbstractArray, Number)
+defgrads(bessel2arg, Number, AbstractArray)
+defgrads(bessel2arg, AbstractArray, AbstractArray)
+
+# k must be between 0 and 3 so we test with 0:2 since grad requires k+1
+# testargs(::Fn{:airy},k,x) =
+#     ((k<:AbstractArray ? rand(0:2,2) : rand(0:2)),
+#      (x<:AbstractArray ? randn(2) : randn()))
