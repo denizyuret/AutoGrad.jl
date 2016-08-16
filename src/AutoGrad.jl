@@ -1,4 +1,4 @@
-module AutoGrad
+# module AutoGrad
 
 importall Base  # defining getindex, sin, etc.
 # importall Knet  # quadloss etc.
@@ -29,4 +29,4 @@ include("special/gamma.jl")
 include("special/trig.jl")
 :ok
 
-end # module
+# end # module

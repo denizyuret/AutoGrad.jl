@@ -534,13 +534,15 @@ Can handle bits types, Array, Tuple, Associative, and Node.
 Implementation similar to deepcopy.
 TODO: avoid allocating large arrays using `nothing` like Knet.
 """
-zeros_like(x) = zeros_internal(x, ObjectIdDict())
-zeros_check(x, d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=zeros_internal(x,d))
-zeros_internal(x::Node,d::ObjectIdDict)=zeros_check(x.value,d)
-zeros_internal(x::Tuple,d::ObjectIdDict)=ntuple(i->zeros_check(x[i],d), length(x))
-zeros_internal(x::Associative,d::ObjectIdDict)=[ k => zeros_check(v,d) for (k,v) in x ]
-zeros_internal{T}(x::AbstractArray{T},d::ObjectIdDict)=(isbits(T) ? zeros(x) : T[zeros_check(e,d) for e in x])
-zeros_internal{T}(x::T,d::ObjectIdDict)=(isbits(T) ? zero(x) : error("zeros_like cannot handle $T"))
+zeros_like(x) = fill_similar(x,0)
+fill_similar(x,v) = fill_internal(x,v,ObjectIdDict())
+fill_internal(x::Node,v,d::ObjectIdDict)=fill_check(x.value,v,d)
+fill_internal(x::Tuple,v,d::ObjectIdDict)=ntuple(i->fill_check(x[i],v,d), length(x))
+fill_internal(x::Associative,v,d::ObjectIdDict)=[ key => fill_check(val,v,d) for (key,val) in x ]
+fill_internal{T}(x::AbstractArray{T},v,d::ObjectIdDict)=
+    (isbits(T) ? fill!(similar(x),T(v)) : T[fill_check(e,v,d) for e in x])
+fill_internal{T}(x::T,v,d::ObjectIdDict)=(isbits(T) ? T(v) : error("fill_similar cannot handle $T"))
+fill_check(x,v,d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=fill_internal(x,v,d))
 
 
 # 8.5 sum_outgrads: only used in backward_pass to produce the input to

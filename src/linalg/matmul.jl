@@ -16,17 +16,12 @@ matmul2arg = Dict{Symbol,Any}(
 # defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat)
 # grad1=dy*x2' grad2=x1'*dy
 
-defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat; dymul=false)
+defgrads(matmul2arg, AbstractVector, AbstractMatrix; dymul=false)
+defgrads(matmul2arg, AbstractMatrix, AbstractVector; dymul=false)
+defgrads(matmul2arg, AbstractMatrix, AbstractMatrix; dymul=false)
 
-function testargs(::Fn{:*}, a...)
-    x = map(a) do ai
-        ai <: AbstractVector ? rand(2) :
-        ai <: AbstractMatrix ? (a[1] <: AbstractVector ? rand(1,2) : rand(2,2)) :
-        nothing
-    end
-    if in(nothing, x)
-        return testargs(Fn2(:*), a...)
-    else
-        return x
-    end
+function testargs{T1<:AbstractVecOrMat,T2<:AbstractVecOrMat}(::Fn{:*},t1::Type{T1},t2::Type{T2})
+    x1 = t1 <: AbstractVector ? rand(2) : rand(2,2)
+    x2 = t2 <: AbstractVector ? rand(2) : t1 <: AbstractVector ? rand(1,2) : rand(2,2)
+    return (x1,x2)
 end

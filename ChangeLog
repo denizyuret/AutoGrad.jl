@@ -1,3 +1,19 @@
+2016-08-16  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# fix namespace for runtests.jl.
+
+	* TODO:
+	# solve testing problem with zerograd args (sum, airy)
+	# profile mnist
+	# implement quick_grad_check for mnist.
+	# support CudaArrays.
+	# implement 3arg (overwriting) functions.
+	# work on overwriting and efficiency (are closures efficient? nothing instead of zero arrays?).
+	# implement convenience_wrappers (jacobian etc)?
+	# copying, reshaping, subarrays and concatenation?
+	# finish all functions.
+
 2016-08-15  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
@@ -8,16 +24,6 @@
 	# implement zero-one loss.
 	# write mnist loader.
 	# implement zerograd for one of the arguments.
-
-	* TODO:
-	# implement quick_grad_check for mnist.
-	# fix namespace for runtests.jl.
-	# support CudaArrays.
-	# implement 3arg (overwriting) functions.
-	# work on overwriting and efficiency (are closures efficient? nothing instead of zero arrays?).
-	# implement convenience_wrappers (jacobian etc)?
-	# copying, reshaping, subarrays and concatenation?
-	# finish all functions.
 
 2016-08-14  Deniz Yuret  <dyuret@ku.edu.tr>
 

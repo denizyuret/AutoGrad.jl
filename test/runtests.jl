@@ -1,3 +1,4 @@
+using AutoGrad
 using Base.Test
 # Uncomment these if you want lots of messages:
 import Base.Test: default_handler, Success, Failure, Error
@@ -8,40 +9,7 @@ default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
 # write your own tests here
 @test 1 == 1
 
-testgrads(broadcast2arg, Number, Number)
-testgrads(broadcast2arg, AbstractArray, Number)
-testgrads(broadcast2arg, Number, AbstractArray)
-testgrads(broadcast2arg, AbstractArray, AbstractArray)
-testgrads(float1arg, Number)
-testgrads(float1arg, AbstractArray)
-testgrads(float2arg, Number, Number)
-testgrads(float2arg, AbstractArray, Number)
-testgrads(float2arg, Number, AbstractArray)
-testgrads(float2arg, AbstractArray, AbstractArray)
-testgrads(float2mul, Number, Number)
-testgrads(float2mul, AbstractArray, Number)
-testgrads(float2mul, Number, AbstractArray)
-testgrads(float2div, Number, Number)
-testgrads(float2div, AbstractArray, Number)
-#BUG testgrads(float2arg1, Number, Number) # causes segfault?
-testgrads(math1arg, Number)
-testgrads(math1arg, AbstractArray)
-testgrads(math2arg, Number, Number)
-testgrads(math2arg, AbstractArray, Number)
-testgrads(math2arg, Number, AbstractArray)
-testgrads(math2arg, AbstractArray, AbstractArray)
-testgrads(math2arg1, Number, Number)
-testgrads(number1arg, Number)
-testgrads(number1arg, AbstractArray)
-testgrads(reduce1sum, AbstractArray)
-#testgrads(reduce1sum, AbstractArray, Integer) # TODO: add this
-testgrads(matmul2arg, AbstractMatrix, AbstractVector)
-testgrads(matmul2arg, AbstractVector, AbstractMatrix)
-testgrads(matmul2arg, AbstractMatrix, AbstractMatrix)
-testgrads(bessel1arg, Number)
-testgrads(bessel1arg, AbstractArray)
-testgrads(trig1arg, Number)
-testgrads(trig1arg, AbstractArray)
+runtests()
 
 "Find out where different methods are."
 function where(k)
@@ -80,18 +48,6 @@ function testargs(k)
     try f(rand(2,2,2),rand(2,2)); print(" (T,M)"); end
     try f(rand(2,2,2),rand(2,2,2)); print(" (T,T)"); end
     println()
-end
-
-function runtests()
-    test1arg(rand())
-    test1arg(rand(2))
-    test2arg(rand(),rand())
-    test2arg(rand(),rand(2))
-    test2arg(rand(2),rand())
-    test2arg(rand(2),rand(2))
-    test2arg(rand(2,2),rand(2))
-    test2arg(rand(2),rand(2,2))
-    test2arg(rand(2,2),rand(2,2))
 end
 
 function test1arg(x; o...)

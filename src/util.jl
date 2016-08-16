@@ -4,6 +4,7 @@
 # f{T<:Number,A<:AbstractArray}(x::Node{A{T}})
 
 function defgrads(grads::Dict{Symbol,Any}, argtypes...; dymul=true)
+    addtests(grads, argtypes...)
     for (_f,_d) in grads
         fsig = addtypes(:($_f{}()), argtypes...)
         if _d == :todo
@@ -49,6 +50,19 @@ function addtypes(ex::Expr, types...)
         end
     end
     ex
+end
+
+function addtests(grads::Dict{Symbol,Any}, argtypes...)
+    global _tests
+    isdefined(:_tests) || (_tests = Any[])
+    push!(_tests, (grads, argtypes...))
+end
+
+function runtests()
+    global _tests
+    for test in _tests
+        testgrads(test...)
+    end
 end
 
 function testgrads(grads::Dict{Symbol,Any}, argtypes...)
@@ -132,8 +146,9 @@ import Base: float
 isfloat(x)=isa(x,AbstractFloat)
 float(x::Tuple)=(all(isfloat,x) ? x : ntuple(i->float(x[i]), length(x)))
 float(x::Associative)=(all(isfloat,values(x)) ? x : [k=>float(v) for (k,v) in x])
-float{T<:Number}(x::AbstractArray{T})=reshape([ float(x[i]) for i in eachindex(x) ], size(x))
-float(x::AbstractArray{Any})=map(float,x)
+float(x::AbstractArray{Any})=(all(isfloat,x) ? x : map(float,x))
+# This is already covered in Base:
+#float{T<:Number}(x::AbstractArray{T})=reshape([ float(x[i]) for i in eachindex(x) ], size(x))
 
 # The way broadcasting works in Julia:
 # y = f(x...) where f is a broadcasting operation.

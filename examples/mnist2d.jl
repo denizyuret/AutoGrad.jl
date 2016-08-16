@@ -1,6 +1,7 @@
 module MNIST2D
 using AutoGrad
 using GZip
+using Main
 
 function predict(w, x)
     i = 1
@@ -22,8 +23,7 @@ function accuracy(w, x, ygold)
     sum((ypred .== maximum(ypred,1)) & (ygold .== maximum(ygold,1))) / size(ygold,2)
 end
 
-function train(hidden...; lr=.1, epochs=20, seed=nothing)
-    w = weights(hidden...; seed=seed)
+function train(w=weights(); lr=.1, epochs=20)
     isdefined(:dtrn) || loaddata()
     println((0, loss(w,xtrn,ytrn), loss(w,xtst,ytst), accuracy(w,xtrn,ytrn), accuracy(w,xtst,ytst)))
     gradfun = grad(loss)

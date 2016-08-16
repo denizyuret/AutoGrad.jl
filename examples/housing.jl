@@ -1,5 +1,6 @@
 module Housing
 using AutoGrad
+using Main
 
 function loss(wb, x=xtrn, ygold=ytrn)
     (w,b) = wb
