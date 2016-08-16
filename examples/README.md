@@ -19,7 +19,7 @@ following keyword arguments: `lr` specifies the learning rate,
 number seed.  The quadratic loss for the train and test sets will be
 printed at every epoch and optimized parameters will be returned.
 
-## MNIST(https://github.com/denizyuret/AutoGrad.jl/blob/master/examples/mnist.jl)
+## [MNIST](https://github.com/denizyuret/AutoGrad.jl/blob/master/examples/mnist.jl)
 
 This example learns to classify hand-written digits from the MNIST
 dataset.  There are 60000 training and 10000 test examples. Each input
