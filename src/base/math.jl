@@ -7,49 +7,52 @@
 math1arg = Dict{Symbol,Any}(
 :acos => :(-1./sqrt(1-abs2(x))),	# domain: abs(x) <= 1; math,operators
 :acosh => :(1./sqrt(abs2(x)-1)),        # domain: x >= 1; math,operators
+:asin => :(1./sqrt(1-abs2(x))),         # domain: abs(x) <= 1; math,operators
+:asinh => :(1./sqrt(1+abs2(x))),        # math,operators
+:atan => :(1./(1+abs2(x))),             # math,operators
+:atanh => :(1./(1-abs2(x))),            # math,operators
 :cbrt => :(1./(3.*abs2(y))),            # math,operators
 :cos => :(-sin(x)),                     # math,operators
+:cosh => :(sinh(x)),                    # math,operators
 :deg2rad => :(pi/180),                  # math,operators
+:erf => :(2exp(-abs2(x))/sqrt(pi)),     # math,operators
+:erfc => :(-2exp(-abs2(x))/sqrt(pi)),   # math,operators
 :exp => :y,                             # math,operators
 :exp10 => :(y.*log(10)),                # math,operators
 :exp2 => :(y.*log(2)),                  # math,operators
 :expm1 => :(1+y),                       # math,operators
 :exponent => 0,                         # returns int; math,operators
+:lgamma => :(digamma(x)),               # math,operators
+:log => :(1./x),                        # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); math,operators
 :log10 => :(1./(log(10).*x)),           # math,operators
 :log1p => :(1./(1+x)),                  # math,operators
-:log => :(1./x),                        # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); math,operators
 :log2 => :(1./(log(2).*x)),             # math,operators
 :rad2deg => :(180/pi),                  # math,operators
+:significand => :(0.5.^exponent(x)),    # math,operators
 :sin => :(cos(x)),                      # math,operators
+:sinh => :(cosh(x)),                    # math,operators
 :sqrt => :(1./(2.*y)),                  # math,operators
 :tan => :(1+abs2(y)),                   # math,operators
 :tanh => :(1-abs2(y)),                  # math,operators
-:asin => :todo,   # domain: abs(x) <= 1; math,operators
-:asinh => :todo,  # math,operators
-:atan => :todo,   # math,operators
-:atanh => :todo,  # math,operators
-:cosh => :todo,   # math,operators
-:erf => :todo,  # math,operators
-:erfc => :todo, # math,operators
-:lgamma => :todo, # math,operators
-:significand => :todo, # math,operators
-:sinh => :todo,  # math,operators
 )
 
 defgrads(math1arg, Number)
 defgrads(math1arg, AbstractArray)
 
-for f in (:acosh,)
-    testargs(::Fn{f},a...)=map(x->1+abs(x), testargs(Fn2(f),a...))
+for (f,g) in ((:acos, :cos),
+              (:acosh, :cosh),
+              (:asin, :sin),
+              (:asinh, :sinh),
+              (:atan, :tan),
+              (:atanh, :tanh))
+    gx = eval(g)
+    testargs(::Fn{f},a...)=map(x->gx(x), testargs(Fn2(f),a...))
 end
 for f in (:log1p,)
     testargs(::Fn{f},a...)=map(x->-1+abs(x), testargs(Fn2(f),a...))
 end
 for f in (:log, :log2, :log10, :sqrt)
     testargs(::Fn{f},a...)=map(x->abs(x), testargs(Fn2(f),a...))
-end
-for f in (:acos, :asin)
-    testargs(::Fn{f},a...)=map(x->sin(x), testargs(Fn2(f),a...))
 end
 
 # math2arg: These are functions that can handle mixing scalar and array
@@ -76,11 +79,11 @@ end
 # where N:number, A:array, (A,B) different sized arrays.
 
 math2arg = Dict{Symbol,Any}(
-#:atan2 => :todo,                         # math,operators
-#:hypot => :todo,                         # math,operators
-#:log => :todo,                           # extra (N,) (A,); math,operators
-:max => (:(y.==x1),:(y.==x2)),           # math,operators
-:min => (:(y.==x1),:(y.==x2)),           # math,operators
+:atan2 => (:(x2./(abs2(x1)+abs2(x2))), :(-x1./(abs2(x1)+abs2(x2)))), # math,operators
+:hypot => (:(x1./y),:(x2./y)),    # math,operators
+:log => (:(-log(x2)./(x1.*abs2(log(x1)))),:(1./(x2.*log(x1)))), # extra (N,) (A,); math,operators
+:max => (:(y.==x1),:(y.==x2)),    # math,operators
+:min => (:(y.==x1),:(y.==x2)),    # math,operators
 )
 
 defgrads(math2arg, Number, Number)
