@@ -6,7 +6,7 @@ have been normalized to [0,1]. Each output y is a ten-dimensional
 one-hot vector (a vector that has a single non-zero component)
 indicating the correct class (0-9) for a given image.
 
-To run the demo, simply include this file and run `MNIST.train()`.
+To run the demo, simply `include("mnist.jl")` and run `MNIST.train()`.
 The dataset will be automatically downloaded.  You can provide the
 initial weights as an optional argument to `train`, which should have
 the form [w0,b0,w1,b1,...] where wi (with size = output x input) is

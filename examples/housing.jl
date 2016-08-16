@@ -7,7 +7,7 @@ first 13, such as average number of rooms per house, or distance to
 employment centers, to predict the 14’th attribute: median dollar
 value of the houses.
 
-To run the demo, simply include this file and run `Housing.train()`.
+To run the demo, simply `include("housing.jl")` and run `Housing.train()`.  
 The dataset will be automatically downloaded.  You can provide the
 initial weights as an optional argument, which should be a pair of
 1x13 weight matrix and a scalar bias.  `train` also accepts the
