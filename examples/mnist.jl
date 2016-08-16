@@ -1,4 +1,26 @@
-module MNIST2D
+"""
+This example learns to classify hand-written digits from the MNIST
+dataset.  There are 60000 training and 10000 test examples. Each input
+x consists of 784 pixels representing a 28x28 image.  The pixel values
+have been normalized to [0,1]. Each output y is a ten-dimensional
+one-hot vector (a vector that has a single non-zero component)
+indicating the correct class (0-9) for a given image.
+
+To run the demo, simply include this file and run `MNIST.train()`.
+The dataset will be automatically downloaded.  You can provide the
+initial weights as an optional argument to `train`, which should have
+the form [w0,b0,w1,b1,...] where wi (with size = output x input) is
+the weight matrix and bi (with size = output) is the bias vector for
+layer i.  The function `MNIST.weights(h...)` can be used to create
+random starting weights for a neural network with hidden sizes (h...).
+If not specified, default weights are created using `MNIST.weights()`
+which correspond to a 0 hidden layer network, i.e. a softmax model.
+`train` also accepts the following keyword arguments: `lr` specifies
+the learning rate, `epochs` gives number of epochs.  The cross entropy
+loss and accuracy for the train and test sets will be printed at every
+epoch and optimized parameters will be returned.
+"""
+module MNIST
 using AutoGrad
 using GZip
 using Main
@@ -25,7 +47,7 @@ end
 
 function train(w=weights(); lr=.1, epochs=20)
     isdefined(:dtrn) || loaddata()
-    println((0, loss(w,xtrn,ytrn), loss(w,xtst,ytst), accuracy(w,xtrn,ytrn), accuracy(w,xtst,ytst)))
+    println((0, :ltrn, loss(w,xtrn,ytrn), :ltst, loss(w,xtst,ytst), :atrn, accuracy(w,xtrn,ytrn), :atst, accuracy(w,xtst,ytst)))
     gradfun = grad(loss)
     for epoch=1:epochs
         for (x,y) in dtrn
@@ -34,7 +56,7 @@ function train(w=weights(); lr=.1, epochs=20)
                 w[i] -= lr * g[i]
             end
         end
-        println((epoch, loss(w,xtrn,ytrn), loss(w,xtst,ytst), accuracy(w,xtrn,ytrn), accuracy(w,xtst,ytst)))
+        println((epoch, :ltrn, loss(w,xtrn,ytrn), :ltst, loss(w,xtst,ytst), :atrn, accuracy(w,xtrn,ytrn), :atst, accuracy(w,xtst,ytst)))
     end
     return w
 end
