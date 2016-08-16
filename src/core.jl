@@ -106,7 +106,7 @@ function recorder(f)
             if isa(arg, Node)
                 found_node = true
                 argvals[i] = arg.value
-                # if i in p.zero_grads; continue; end               # we represent zero_grads using gradmakers that return `nothing`
+                # if i in p.zero_grads; continue; end               # we represent zero_grads using gradmakers that return 0 instead of a function
                 for (tape, parent_rnode) in arg.tapes               # Node.tapes is a Dict{Tape,ReverseNode}
                     if !iscomplete(tape)                            # why do we need iscomplete? to prevent recording during the backward_pass unless we are doing higher order derivatives.
                         push!(ops, (tape, i, parent_rnode))         # ops should be called args or inputs!
@@ -146,7 +146,7 @@ function recorder(f)
             for (tape, argnum, parent) in ops                       
                 dbg(:core,(:gcall,name(f),argnum,name(result),map(name,args)...,map(name,kwargs)...))
                 gradfun = f(Grad{argnum}, result, args...; kwargs...) # Creates a node specific gradfun (dy->dx) with x,y in a closure
-                gradfun == nothing && continue # indicates zero_grad arguments
+                gradfun == 0 && (warn("gradfun=0"); continue) # indicates zero_grad arguments
                 name(gradfun,(symbol("D$argnum"),f,:out,name(result),:args,map(name,args)...,map(name,kwargs)...)) # Record for debugging
                 rnode = result.tapes[tape]
                 push!(rnode.parent_grad_ops, (gradfun, parent))
@@ -202,7 +202,7 @@ function backward_pass(start_node, end_node, tape)
 # primitive recorders.
 
     cur_outgrad = nothing
-    for node in tape[end-1:-1:1]                                # note the end-1 because we pushed nothing to complete
+    for node in tape[end-1:-1:1]                                # note the end-1 because we pushed a marker to complete
         if !isempty(node.outgrads)
             dbg(:core,(:sum1,name(node),:args,map(name,node.outgrads)...))
             cur_outgrad = sum_outgrads(node.outgrads...)
@@ -411,7 +411,7 @@ end
 # arguments, zero for others.  My untested method (TODO: test): use
 # @primitive, when defining gradients, define the non-zero ones
 # normally with f(::Di,y,x...)=(dy->...), and mark the zero gradients
-# with a `nothing` gradmaker: f(::Di,y,x...)=nothing.
+# with gradmaker returning 0 instead of a function: f(::Di,y,x...)=0.
 
 # 6.3 Gradients: For gradients we define a gradmaker for each
 # primitive method p and argnum.  The gradmaker returns a gradient
@@ -438,8 +438,8 @@ typealias Dn{N} Type{Grad{N}}
 
 # Some functions do not have gradients wrt some arguments.  Example:
 # getindex(array, index) is not differentiable wrt index.  We indicate
-# this using a gradmaker function that returns `nothing` (serving the
-# same role as zero_grads in Python autograd).
+# this using a gradmaker function that returns 0 (serving the same
+# role as zero_grads in Python autograd).
 
 # 7. How higher order gradients work.
 

@@ -16,12 +16,18 @@ matmul2arg = Dict{Symbol,Any}(
 # defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat)
 # grad1=dy*x2' grad2=x1'*dy
 
-defgrads(matmul2arg, AbstractVector, AbstractMatrix; dymul=false)
-defgrads(matmul2arg, AbstractMatrix, AbstractVector; dymul=false)
-defgrads(matmul2arg, AbstractMatrix, AbstractMatrix; dymul=false)
+defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat; dymul=false)
 
 function testargs{T1<:AbstractVecOrMat,T2<:AbstractVecOrMat}(::Fn{:*},t1::Type{T1},t2::Type{T2})
-    x1 = t1 <: AbstractVector ? rand(2) : rand(2,2)
-    x2 = t2 <: AbstractVector ? rand(2) : t1 <: AbstractVector ? rand(1,2) : rand(2,2)
+    x1 = (t1 <: AbstractVecOrMat ? (randn() < 0.5 ? randn(2) : randn(2,2)) :
+          t1 <: AbstractMatrix ? randn(2,2) :
+          t1 <: AbstractVector ? randn(2) :
+          error("testargs(*,$t1,$t2)"))
+    x2 = (ndims(x1)==1 ? rand(1,2) : 
+          t2 <: AbstractVecOrMat ? (randn() < 0.5 ? randn(2) : randn(2,2)) :
+          t2 <: AbstractMatrix ? randn(2,2) :
+          t2 <: AbstractVector ? randn(2) : 
+          error("testargs(*,$t1,$t2)"))
     return (x1,x2)
 end
+

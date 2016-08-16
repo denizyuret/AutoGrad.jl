@@ -4,7 +4,7 @@ reduce1sum = Dict{Symbol,Any}(
 defgrads(reduce1sum, AbstractArray; dymul=false)
 
 reduce2sum = Dict{Symbol,Any}(
-:sum => :(dy->dy.+zeros_like(x1))
+:sum => (:(dy->dy.+zeros_like(x1)),0)
 )
 defgrads(reduce2sum, AbstractArray, Integer; dymul=false)
 

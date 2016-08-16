@@ -2,9 +2,9 @@
 
 	* DONE:
 	# fix namespace for runtests.jl.
+	# solve testing problem with zerograd args (sum, airy)
 
 	* TODO:
-	# solve testing problem with zerograd args (sum, airy)
 	# profile mnist
 	# implement quick_grad_check for mnist.
 	# support CudaArrays.

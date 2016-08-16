@@ -17,7 +17,7 @@ function defgrads(grads::Dict{Symbol,Any}, argtypes...; dymul=true)
             for i=1:length(_d)  # _d could be shorter than argtypes in which case the other gradients will be undefined
                 gsig = addtypes(:($_f{}(::Type{Grad{$i}},y::Node)), argtypes...)
                 if _d[i] == 0
-                    gexp = nothing # This defines gradient=0 for one arg
+                    gexp = 0  # This defines gradient=0 for one arg
                 elseif dymul
                     gexp = :(dy->dy.*$(_d[i]))
                     if length(_d) > 1
@@ -68,20 +68,37 @@ end
 function testgrads(grads::Dict{Symbol,Any}, argtypes...)
     for (_f,_d) in grads
         _d == :todo && continue
-        feval = eval(_f)
-        ftest(x...)=sum(feval(x...))
-        name(ftest,(:sum,_f))   # for debug output
-        test = testargs(Val{_f}, argtypes...) # so we can handle functions like acos with restricted domains
+        f = eval(_f)
+        args = testargs(Val{_f}, argtypes...) # so we can handle functions like acos with restricted domains
+        # if f has non-scalar output, sum it
+        y = f(args...)
+        if !isa(y,Number)
+            f1 = f
+            f = (x...)->sum(f1(x...))
+        end
+        # detect and prevent testing of zero grads
+        if isa(_d,Tuple) && length(_d)>1 && in(0,_d)
+            alist = Any[args...]
+            plist = Any[]
+            args = Any[]
+            for i=1:length(_d)
+                if _d[i] != 0
+                    push!(args, alist[i])
+                    alist[i] = symbol(:x,i)
+                    push!(plist, alist[i])
+                end
+            end
+            ex = Expr(:->, Expr(:tuple, plist...), Expr(:call, f, alist...))
+            f = eval(ex)
+        end
+        f != eval(_f) && name(f,(:test,_f))   # for debug output
         try 
-            check_grads(ftest, test...)
+            check_grads(f, args...)
         catch e
-            warn((name(ftest),test...,e))
+            warn((name(f),args...,e))
         end
     end
 end
-
-typealias Fn{F} Type{Val{F}}    # used to create the first argument of testargs
-Fn2(F)=Type{Val{symbol(F,2)}}   # used for fallback in type specific testargs
 
 function testargs(f, a...)
     dbg(:testargs,(f,a...))
@@ -92,8 +109,12 @@ function testargs(f, a...)
     end
 end
 
+typealias Fn{F} Type{Val{F}}    # used to create the first argument of testargs
+Fn2(F)=Type{Val{symbol(F,2)}}   # used for fallback in type specific testargs
+
 EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
 
+# TODO: do sampling or random direction for large args
 function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL)
     dbg(:cfun,name(fun))
     dbg(:check_grads,(name(fun),:args,args...))

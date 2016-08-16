@@ -12,7 +12,7 @@ import Base: getindex
 @primitive getindex{T<:Associative}(x::Node{T},i,j...)
 @primitive getindex{T<:Tuple}(x::Node{T},i)
 getindex(::D1,y,x,i...) = dy->ungetindex(x,dy,i...) # y=x[i], dy=df/dy
-getindex{N}(::Dn{N},a...) = nothing                 # only the first argument has a gradient
+getindex{N}(::Dn{N},a...) = 0                 # only the first argument has a gradient
 
 # If y=getindex(x,i...) and we receive dy, we need to create dx as
 # with zeros similar to x, with only dx[i] set to dy.  This is what
@@ -33,7 +33,7 @@ ungetindex(x::Tuple, dy, i)             = ntuple(j->(j==i ? dy : zeros_like(x[j]
 # gradient wrt its dy input, we just need to extract ddx[i].  It is
 # not differentiable wrt other inputs.
 ungetindex(::D2, dx, x, dy, i...) = ddx->getindex(ddx,i...)
-ungetindex{N}(::Dn{N}, dx...) = nothing # only arg 2 has a gradient
+ungetindex{N}(::Dn{N}, dx...) = 0 # only arg 2 has a gradient
 
 # Let's try to handle iteration for arrays and tuples:
 
