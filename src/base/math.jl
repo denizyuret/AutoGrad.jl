@@ -46,13 +46,13 @@ for (f,g) in ((:acos, :cos),
               (:atan, :tan),
               (:atanh, :tanh))
     gx = eval(g)
-    testargs(::Fn{f},a...)=map(x->gx(x), testargs(Fn2(f),a...))
+    testargs(::Fn{f},a...)=map(gx, testargs(Fn2(f),a...))
 end
 for f in (:log1p,)
     testargs(::Fn{f},a...)=map(x->-1+abs(x), testargs(Fn2(f),a...))
 end
 for f in (:log, :log2, :log10, :sqrt)
-    testargs(::Fn{f},a...)=map(x->abs(x), testargs(Fn2(f),a...))
+    testargs(::Fn{f},a...)=map(abs, testargs(Fn2(f),a...))
 end
 
 # math2arg: These are functions that can handle mixing scalar and array

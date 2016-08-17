@@ -52,7 +52,7 @@ function loaddata()
     data = readdlm(file)'
     @show size(data) # (14,506)
     x = data[1:13,:]
-    y = data[14,:]
+    y = data[14:14,:]
     x = (x .- mean(x,2)) ./ std(x,2) # Data normalization
     r = randperm(size(x,2))          # trn/tst split
     xtrn=x[:,r[1:400]]

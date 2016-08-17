@@ -35,7 +35,7 @@ function grad(fun::Function, argnum::Int=1)
     function gradfun(args...; kwargs...)
         backward_pass(forward_pass(fun, args, kwargs, argnum)...)
     end
-    dbg(:core,(:grad,name(gradfun,(symbol("D$argnum"),name(fun)))))
+    dbg(:core,(:grad,name(gradfun,(Symbol("D$argnum"),name(fun)))))
     return gradfun
 end
 
@@ -147,7 +147,7 @@ function recorder(f)
                 dbg(:core,(:gcall,name(f),argnum,name(result),map(name,args)...,map(name,kwargs)...))
                 gradfun = f(Grad{argnum}, result, args...; kwargs...) # Creates a node specific gradfun (dy->dx) with x,y in a closure
                 gradfun == 0 && (warn("gradfun=0"); continue) # indicates zero_grad arguments
-                name(gradfun,(symbol("D$argnum"),f,:out,name(result),:args,map(name,args)...,map(name,kwargs)...)) # Record for debugging
+                name(gradfun,(Symbol("D$argnum"),f,:out,name(result),:args,map(name,args)...,map(name,kwargs)...)) # Record for debugging
                 rnode = result.tapes[tape]
                 push!(rnode.parent_grad_ops, (gradfun, parent))
                 dbg(:core,(:deps,name(tape),rnode))
@@ -273,6 +273,7 @@ function Node(value, tapes=Any[CalculationTape()])     # arg tapes is an Array
     return self
 end
 
+if !isdefined(:Nval)
 """
 Nval stands for Node or Value.  Convenience type useful when
 defining gradmakers f(::D{N},y,x...).  We need to be able to define
@@ -281,7 +282,7 @@ at least one of the x's is a Node, but other x's may or may not be
 Nodes.  So it is useful to have a type that represents that:
 """
 typealias Nval{T} Union{T,Node{T}}
-
+end
 
 # 5.2 ReverseNode: Each result Node created by a primitive keeps track
 # of the argument Nodes of that primitive (the non-Node arguments need
@@ -434,7 +435,9 @@ if !isdefined(:Grad)
 end
 typealias D1 Type{Grad{1}}
 typealias D2 Type{Grad{2}}
+if !isdefined(:Dn)
 typealias Dn{N} Type{Grad{N}}
+end
 
 # Some functions do not have gradients wrt some arguments.  Example:
 # getindex(array, index) is not differentiable wrt index.  We indicate
@@ -538,7 +541,8 @@ zeros_like(x) = fill_similar(x,0)
 fill_similar(x,v) = fill_internal(x,v,ObjectIdDict())
 fill_internal(x::Node,v,d::ObjectIdDict)=fill_check(x.value,v,d)
 fill_internal(x::Tuple,v,d::ObjectIdDict)=ntuple(i->fill_check(x[i],v,d), length(x))
-fill_internal(x::Associative,v,d::ObjectIdDict)=[ key => fill_check(val,v,d) for (key,val) in x ]
+fill_internal(x::Associative,v,d::ObjectIdDict)=
+    (a=similar(x); for (key,val) in x; a[key]=fill_check(val,v,d); end; a)
 fill_internal{T}(x::AbstractArray{T},v,d::ObjectIdDict)=
     (isbits(T) ? fill!(similar(x),T(v)) : T[fill_check(e,v,d) for e in x])
 fill_internal{T}(x::T,v,d::ObjectIdDict)=(isbits(T) ? T(v) : error("fill_similar cannot handle $T"))
@@ -574,9 +578,9 @@ sum_outgrads{N}(::Dn{N}, y, x...)=(dy->dy)
 _name=ObjectIdDict()
 name(f,n)=(_name[f]=n)
 name(f)=get(_name,f,f)
-name(x::ReverseNode)=symbol("R$(href(x))")
-name(x::Node)=symbol("N$(href(x))")
-name(x::Array)=symbol("A$(join([href(Ref(x)),size(x)...],'x'))")
+name(x::ReverseNode)=Symbol("R$(href(x))")
+name(x::Node)=Symbol("N$(href(x))")
+name(x::Array)=Symbol("A$(join([href(Ref(x)),size(x)...],'x'))")
 name(x::Tuple)=map(name,x)
 href(x)=Int(hash(x)%100)
 

@@ -3,4 +3,4 @@ arraymath1arg = Dict{Symbol,Any}(
 :ctranspose => :ctranspose,
 )
 
-defgrads(arraymath1arg, StridedMatrix, dymul=false)
+defgrads(arraymath1arg, AbstractVecOrMat, dymul=false)

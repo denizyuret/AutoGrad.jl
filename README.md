@@ -3,8 +3,8 @@
 [![Build Status](https://travis-ci.org/denizyuret/AutoGrad.jl.svg?branch=master)](https://travis-ci.org/denizyuret/AutoGrad.jl)
 
 AutoGrad.jl is an automatic differentiation package for Julia.  It can
-differentiate native Julia code that include loops, conditionals,
-closures etc. and can handle higher order derivatives.
+differentiate native Julia code that includes loops, conditionals,
+closures etc. and it can handle higher order derivatives.
 
 ## Example
 
@@ -92,7 +92,7 @@ Yuret](http://www.denizyuret.com). Large parts of the code are
 directly ported from the Python
 [autograd](https://github.com/HIPS/autograd) package.  I'd like to
 thank autograd author Dougal Maclaurin for his support.  See [(Baydin
-et al. 2015)](https://arxiv.org/pdf/1502.05767.pdf) for a general
+et al. 2015)](https://arxiv.org/abs/1502.05767) for a general
 review of automatic differentiation, [autograd
 tutorial](https://github.com/HIPS/autograd/blob/master/docs/tutorial.md)
 for some Python examples, and Dougal's PhD thesis for design

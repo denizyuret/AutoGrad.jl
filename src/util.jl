@@ -21,7 +21,7 @@ function defgrads(grads::Dict{Symbol,Any}, argtypes...; dymul=true)
                 elseif dymul
                     gexp = :(dy->dy.*$(_d[i]))
                     if length(_d) > 1
-                        xi = symbol(:x,i)
+                        xi = Symbol("x$i")
                         gexp = :(unbroadcast(y, $xi, $gexp))
                     end
                 else
@@ -44,7 +44,7 @@ function addtypes(ex::Expr, types...)
         push!(ex.args, :(x::Node{T}))
     else
         for i=1:length(types)
-            Ti = symbol(:T,i); xi = symbol(:x,i)
+            Ti = Symbol("T$i"); xi = Symbol("x$i")
             push!(ex.args[1].args, Expr(:<:, Ti, types[i]))
             push!(ex.args, :($xi::Nval{$Ti}))
         end
@@ -84,7 +84,7 @@ function testgrads(grads::Dict{Symbol,Any}, argtypes...)
             for i=1:length(_d)
                 if _d[i] != 0
                     push!(args, alist[i])
-                    alist[i] = symbol(:x,i)
+                    alist[i] = Symbol("x$i")
                     push!(plist, alist[i])
                 end
             end
@@ -109,8 +109,10 @@ function testargs(f, a...)
     end
 end
 
+if !isdefined(:Fn)
 typealias Fn{F} Type{Val{F}}    # used to create the first argument of testargs
-Fn2(F)=Type{Val{symbol(F,2)}}   # used for fallback in type specific testargs
+end
+Fn2(F)=Type{Val{Symbol("$(F)2")}}   # used for fallback in type specific testargs
 
 EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
 
@@ -134,18 +136,17 @@ function nd(f, args...; eps=EPS)
 end
 
 unary_nd(f, x::Tuple, eps)         = ntuple(i->unary_nd(indexed_function(f, x, i), x[i], eps), length(x))
-unary_nd(f, x::Associative, eps)   = [k => unary_nd(indexed_function(f, x, k), v, eps) for (k,v) in x]
+unary_nd(f, x::Associative, eps)   = (a=similar(x); for(k,v) in x; a[k] = unary_nd(indexed_function(f, x, k), v, eps); end; a)
 unary_nd(f, x::AbstractArray, eps) = reshape(eltype(x)[unary_nd(indexed_function(f, x, i), v, eps) for (i,v) in enumerate(x)], size(x))
 unary_nd(f, x::Complex, eps)       = ((f(x + eps/2) - f(x - eps/2)) / eps - im*(f(x + im*eps/2) - f(x - im*eps/2)) / eps)
 unary_nd(f, x::Real, eps)          = ((f(x + eps/2) - f(x - eps/2)) / eps)
 
 function indexed_function(fun, arg, index)
     function partial_function(x)
-        local_arg = copy(arg)
-        if isa(local_arg, Tuple)
-            local_arg = (local_arg[1:index-1]..., x, local_arg[index+1:end]...)
+        if isa(arg, Tuple)
+            local_arg = (arg[1:index-1]..., x, arg[index+1:end]...)
         else
-            local_arg[index] = x
+            local_arg = copy(arg); local_arg[index] = x
         end
         return fun(local_arg)
     end
@@ -166,7 +167,7 @@ isapprox(x::AbstractArray, y::AbstractArray; o...)=(length(x)==length(y) && all(
 import Base: float
 isfloat(x)=isa(x,AbstractFloat)
 float(x::Tuple)=(all(isfloat,x) ? x : ntuple(i->float(x[i]), length(x)))
-float(x::Associative)=(all(isfloat,values(x)) ? x : [k=>float(v) for (k,v) in x])
+float(x::Associative)=(all(isfloat,values(x)) ? x : (a=similar(x); for (k,v) in x; a[k]=float(v); end; a))
 float(x::AbstractArray{Any})=(all(isfloat,x) ? x : map(float,x))
 # This is already covered in Base:
 #float{T<:Number}(x::AbstractArray{T})=reshape([ float(x[i]) for i in eachindex(x) ], size(x))

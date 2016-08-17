@@ -1,14 +1,14 @@
-2016-08-16  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-08-17  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# fix namespace for runtests.jl.
-	# solve testing problem with zerograd args (sum, airy)
+	# Julia v5.0 compatibility.
 
 	* TODO:
+	# check out JuliaDiff/ReverseDiffSource: cannot handle while loops? http://www.juliadiff.org/
+	# profile mnist
 	# implement quick_grad_check for mnist.
 	# rnn example?
 	# work on overwriting: 3arg (overwriting) functions or julia v0.5 overwrite syntax or InplaceOps.
-	# profile mnist
 	# work on efficiency (are closures efficient? nothing instead of zero arrays?).
 	# support CudaArrays.
 	# rnn example?
@@ -16,6 +16,34 @@
 	# copying, reshaping, subarrays and concatenation?
 	# finish all functions.
 	# write documentation and publish.
+
+	* q: Node{Float32} vs Float32Node
+
+	We chose the first (a single parametric type) whereas the Python
+	implementation uses the second (many types, I don't think python
+	supports parametric types).  Today Emre Yolcu suggested a possible
+	advantage of the second approach: in cases where one Julia
+	function calls a lower level Julia function in Base, we could get
+	away with defining only the lower level function as primitive as
+	long as we make Float32Node a subtype of AbstractFloat, and the
+	Julia functions are written for a supertype of AbstractFloat, for
+	example.  It is not possible to make Node{Float32} a subtype of
+	anything other than Node and Any.  This would make it easier to
+	cover groups of functions such as (*)->A_mul_B!->gemm_wrapper! or
+	vcat->cat by only letting us define the lowest level one.  We'd
+	need to cover arrays, matrices, vectors, tuples, dicts, floats.
+	It would also solve the problem of not being able to define
+	Node{A<:AbstractArray{T<:Number}}.  The current Node type used by
+	core.jl would have to be a big union instead of a supertype, which
+	may effect efficiency.  On the downside we may have to define many
+	types and the "lowest level" we depend on may change in the next
+	Julia version.
+
+2016-08-16  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# fix namespace for runtests.jl.
+	# solve testing problem with zerograd args (sum, airy)
 
 2016-08-15  Deniz Yuret  <dyuret@ku.edu.tr>
 

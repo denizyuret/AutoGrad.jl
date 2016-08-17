@@ -37,7 +37,8 @@ for (f,g) in ((:acosd, :cosd),
               (:acscd, :cscd),
               (:asecd, :secd))
     gx = eval(g)
-    testargs(::Fn{f},a...)=map(x->gx(180x/pi), testargs(Fn2(f),a...))
+    fx = x->gx(180x/pi)
+    testargs(::Fn{f},a...)=map(fx, testargs(Fn2(f),a...))
 end
 
 for (f,g) in ((:acot, :cot),
@@ -47,5 +48,5 @@ for (f,g) in ((:acot, :cot),
               (:asec, :sec),
               (:asech, :sech))
     gx = eval(g)
-    testargs(::Fn{f},a...)=map(x->gx(x), testargs(Fn2(f),a...))
+    testargs(::Fn{f},a...)=map(gx, testargs(Fn2(f),a...))
 end

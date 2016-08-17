@@ -24,6 +24,7 @@ module MNIST
 using AutoGrad
 using GZip
 using Main
+using Compat
 
 function predict(w, x)
     i = 1
@@ -88,7 +89,7 @@ function gzread(file; dir=Pkg.dir("AutoGrad/data/"), url="http://yann.lecun.com/
     path = dir*file
     isfile(path) || download(url*file, path)
     f = gzopen(path)
-    a = readbytes(f)
+    a = @compat read(f)
     close(f)
     return(a)
 end

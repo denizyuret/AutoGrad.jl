@@ -1,5 +1,6 @@
 module AutoGrad
 
+using Compat
 importall Base  # defining getindex, sin, etc.
 # importall Knet  # quadloss etc.
 export grad, @primitive, D1, D2, Dn, check_grads
