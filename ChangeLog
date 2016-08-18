@@ -1,15 +1,110 @@
-2016-08-17  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-08-18  Deniz Yuret  <dyuret@ku.edu.tr>
 
-	* DONE:
-	# Julia v5.0 compatibility.
+	* profiling:
+
+	(1) AutoGrad: Testing 1 epoch h=64 mnist with minibatch=100, best out of 3 on ural from fresh start.
+	0. Regular train (record, update)
+	1. Forward back (record, no update)
+	2. Nonrecording, no update, just forward (computes softloss)
+	3. Just predict, no softloss.
+	4. forward_pass(loss) (recording version of #2)
+
+	0. 13.944595 seconds (3.95 M allocations: 2.299 GB, 18.09% gc time)
+	1. 13.100620 seconds (3.93 M allocations: 1.844 GB, 15.03% gc time)
+	2. 4.288226 seconds (64.38 k allocations: 114.196 MB, 0.17% gc time)
+	3. 4.242340 seconds (33.18 k allocations: 98.294 MB, 0.12% gc time)
+
+	(2) Problem: mixing Float64 weigths with Float32 data!
+
+	(3) AutoGrad: Use Float64 weights and data
+	0. 6.512184 seconds (3.94 M allocations: 2.299 GB, 38.67% gc time)
+	1. 5.719212 seconds (3.92 M allocations: 1.843 GB, 34.23% gc time)
+	2. 0.483972 seconds (60.78 k allocations: 114.032 MB, 1.31% gc time)
+	3. 0.444158 seconds (29.58 k allocations: 98.129 MB, 1.01% gc time)
+
+	(4) AutoGrad: Use Float32 weights and data
+	0. 4.275396 seconds (3.94 M allocations: 1.237 GB, 33.43% gc time)
+	1. 3.702224 seconds (3.92 M allocations: 1.008 GB, 32.20% gc time)
+	2. 0.269955 seconds (60.78 k allocations: 58.239 MB, 1.22% gc time)
+	3. 0.242950 seconds (29.58 k allocations: 49.606 MB, 1.13% gc time)
+
+	(5) Continue with Float32.
+
+	(6) AutoGrad: gc_enable(false) while measuring time:
+	0. 2.760838 seconds (3.94 M allocations: 1.236 GB)
+	1. 2.489116 seconds (3.92 M allocations: 1.007 GB)
+	2. 0.266896 seconds (60.78 k allocations: 58.239 MB)
+	3. 0.240501 seconds (29.58 k allocations: 49.606 MB)
+
+	(7) AutoGrad: use axpy! during update:
+	0. 2.559526 seconds (3.92 M allocations: 1.008 GB)
+
+	(8) Compare with Knet: same task.
+	0. 1.128186 seconds (8.94 M allocations: 141.341 MB, 1.63% gc time) Forw-back-update
+	1. 1.244718 seconds (10.76 M allocations: 168.832 MB, 1.70% gc time) Forward-back (no update)
+	2. 0.590746 seconds (5.39 M allocations: 84.441 MB, 1.41% gc time) Forward only
+
+	(9) broadcast vs vectorized ops. (testing exp(a) where a=rand(10000,10000))
+	2.989990 seconds (2 allocations: 762.940 MB): exp(a)
+	2.920066 seconds (12 allocations: 762.940 MB, 0.22% gc time): broadcast(exp,a)
+	2.725942 seconds (1 allocation: 32 bytes): broadcast!(exp,b,a)
+	2.724059 seconds (1 allocation: 32 bytes): broadcast!(exp,a,a)
+	Not much difference, vectorized ops to be deprecated in favor of broadcast in v6.0.
+
+	(10) Julia v0.5 is not faster (but maybe it hasn't been compiled optimally).
+	0. 2.858207 seconds (3.78 M allocations: 1.011 GB)
+
+	(11) Profile1
+    2276 ...AutoGrad/src/core.jl; gradfun; line: 36  backward_pass(forward_pass(fun, args, kwargs, argnum)...)
+     242 ...AutoGrad/src/core.jl; backward_pass; line: 208  cur_outgrad = sum_outgrads(node.outgrads...)
+      237 ...utoGrad/src/core.jl; sum_outgrads; line: 570
+       192 ...utoGrad/src/core.jl; sum_outgrads; line: 570
+        187 broadcast.jl; broadcast; line: 253
+         142 broadcast.jl; broadcast!; line: 246
+     711 ...AutoGrad/src/core.jl; backward_pass; line: 214  og = gradfun(cur_outgrad)
+      415 .../src/collections.jl; anonymous; line: 14       getindex(::D1,y,x,i...) = dy->ungetindex(x,dy,i...)
+       412 no file; ungetindex; line: 0
+        298 ...utoGrad/src/core.jl; r; line: 126
+         298 .../src/collections.jl; ungetindex; line: 21
+          297 ...toGrad/src/core.jl; fill_internal; line: 546
+           295 ...oGrad/src/core.jl; fill_check; line: 549
+            291 ...oGrad/src/core.jl; fill_internal; line: 546
+             264 array.jl; fill!; line: 193
+      150 ...utoGrad/src/util.jl; anonymous; line: 22
+     953 ...AutoGrad/src/core.jl; forward_pass; line: 72   end_node = fun(args...; kwargs...)
+      519 .../examples/footime.jl; loss; line: 39          ypred = predict(w, x)
+       329 ...examples/footime.jl; predict; line: 32       x = max(0, w[i]*x .+ w[i+1])
+        108 no file; .+; line: 0
+       186 ...examples/footime.jl; predict; line: 35       return w[i]*x .+ w[i+1]
+      260 .../examples/footime.jl; loss; line: 40          ynorm = ypred .- log(sum(exp(ypred),1))
+      173 .../examples/footime.jl; loss; line: 41          -sum(ygold .* ynorm) / size(ygold,2)
+
+	(12) Focusing on forward:
+	2. 0.266896 seconds (60.78 k allocations: 58.239 MB) call loss
+	4. 0.939486 seconds (1.96 M allocations: 146.032 MB) call forward_pass(loss) (recording)
+
+	(13) Taking out all the debug calls (turning them into macros)
+	0. 1.556437 seconds (1.12 M allocations: 906.322 MB)
+	2. 0.267631 seconds (60.78 k allocations: 58.239 MB)
+	4. 0.544930 seconds (587.58 k allocations: 82.464 MB)
+
+	- Hypotheses:
+	- closures slow.
+	- untyped functions slow.
+	- memory allocation slow.
+	- two types of memory alloc: user code, grad code.
+
 
 	* TODO:
-	# check out JuliaDiff/ReverseDiffSource: cannot handle while loops? http://www.juliadiff.org/
+	# use TypeNode <: Type instead of Node{Type}?
 	# profile mnist
+	# work on efficiency (are closures efficient? nothing instead of zero arrays?).
+	# work on overwriting: 3arg (overwriting) functions or julia v0.5 overwrite syntax or InplaceOps.
+	# check out JuliaDiff/ReverseDiffSource: cannot handle while loops? http://www.juliadiff.org/
+	# Julia 5 already supports function types making Fn{} unnecessary: julia> typeof(sin) => Base.#sin
+	# Julia 5 in-place syntax does not work for matmul, or .+ (unless you write x .= (+).(x,a)) yet.
 	# implement quick_grad_check for mnist.
 	# rnn example?
-	# work on overwriting: 3arg (overwriting) functions or julia v0.5 overwrite syntax or InplaceOps.
-	# work on efficiency (are closures efficient? nothing instead of zero arrays?).
 	# support CudaArrays.
 	# rnn example?
 	# implement convenience_wrappers (jacobian etc)?
@@ -17,16 +112,23 @@
 	# finish all functions.
 	# write documentation and publish.
 
-	* q: Node{Float32} vs Float32Node
+2016-08-17  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Julia v5.0 compatibility.
+
+	* q: Node{Type} vs TypeNode <: Type
 
 	We chose the first (a single parametric type) whereas the Python
 	implementation uses the second (many types, I don't think python
-	supports parametric types).  Today Emre Yolcu suggested a possible
-	advantage of the second approach: in cases where one Julia
-	function calls a lower level Julia function in Base, we could get
-	away with defining only the lower level function as primitive as
-	long as we make Float32Node a subtype of AbstractFloat, and the
-	Julia functions are written for a supertype of AbstractFloat, for
+	supports parametric types).  In the first, all types are children
+	of Node, in the second we can hang them anywhere we want in the
+	type hierarchy. Today Emre Yolcu suggested a possible advantage of
+	the second approach: in cases where one Julia function calls a
+	lower level Julia function in Base, we could get away with
+	defining only the lower level function as primitive as long as we
+	make AbstractFloatNode a subtype of AbstractFloat, and the Julia
+	functions are written for a supertype of AbstractFloat, for
 	example.  It is not possible to make Node{Float32} a subtype of
 	anything other than Node and Any.  This would make it easier to
 	cover groups of functions such as (*)->A_mul_B!->gemm_wrapper! or

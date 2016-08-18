@@ -91,7 +91,7 @@ function testgrads(grads::Dict{Symbol,Any}, argtypes...)
             ex = Expr(:->, Expr(:tuple, plist...), Expr(:call, f, alist...))
             f = eval(ex)
         end
-        f != eval(_f) && name(f,(:test,_f))   # for debug output
+        f != eval(_f) && name(f,(:test,_f))
         try 
             check_grads(f, args...)
         catch e
@@ -101,7 +101,7 @@ function testgrads(grads::Dict{Symbol,Any}, argtypes...)
 end
 
 function testargs(f, a...)
-    dbg(:testargs,(f,a...))
+    @dbgutil((f,a...))
     ntuple(length(a)) do i
         a[i] <: Number ? randn() :
         a[i] <: AbstractArray ? randn(2) :
@@ -118,19 +118,18 @@ EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
 
 # TODO: do sampling or random direction for large args
 function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL)
-    dbg(:cfun,name(fun))
-    dbg(:check_grads,(name(fun),:args,args...))
+    @dbgutil((:check_grads,name(fun),:args,args...))
     isempty(args) && error("No args given")
     exact = ntuple(i->grad(fun,i)(args...), length(args))
     numeric = nd(fun, args...; eps=eps)
-    dbg(:check_grads,(name(fun),:exact,exact,:numeric,numeric))
+    @dbgutil((:check_grads,name(fun),:exact,exact,:numeric,numeric))
     same = isapprox(exact, numeric; rtol=rtol, atol=atol)
     same || warn((:check_grads,name(fun),:args,args,:exact,exact,:numeric,numeric))
     return same
 end
 
 function nd(f, args...; eps=EPS)
-    dbg(:nd,(f,args..., :eps, eps))
+    @dbgutil((:nd,f,args..., :eps, eps))
     unary_f = x->f(x...)
     unary_nd(unary_f, float(args), eps)
 end

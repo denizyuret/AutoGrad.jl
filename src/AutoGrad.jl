@@ -5,9 +5,10 @@ importall Base  # defining getindex, sin, etc.
 # importall Knet  # quadloss etc.
 export grad, @primitive, D1, D2, Dn, check_grads
 
-isdefined(:DBG) || (DBG=Dict())
-dbg(k,x)=get(DBG,k,false)&&println(k,": ",x)
-dbg(k)=(DBG[k]=!get(DBG,k,false))
+# macro dbgcore(x); esc(:(println($x))); end
+# macro dbgutil(x); esc(:(println($x))); end
+macro dbgcore(x); end
+macro dbgutil(x); end
 
 include("core.jl")
 include("util.jl")
