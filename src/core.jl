@@ -96,13 +96,14 @@ function recorder(f)
         @dbgcore((:call, name(f), map(name,args)..., map(name,kwargs)...))
         argvals = Any[args...]
         ops = []
-        tapes = Set()
+        tapes = []
         found_node = false
 
 # 3.2 r goes through the arguments and unboxes any that are Nodes.
 # For each unboxed Node, its tape, argnum, and ReverseNode is stored.
 
-        for (i, arg) in enumerate(args)
+        for i=1:length(args)
+            arg = args[i]
             if isa(arg, Node)
                 found_node = true
                 argvals[i] = arg.value
@@ -110,7 +111,7 @@ function recorder(f)
                 for (tape, parent_rnode) in arg.tapes               # Node.tapes is a Dict{Tape,ReverseNode}
                     if !iscomplete(tape)                            # why do we need iscomplete? to prevent recording during the backward_pass unless we are doing higher order derivatives.
                         push!(ops, (tape, i, parent_rnode))         # ops should be called args or inputs!
-                        push!(tapes, tape)                          
+                        push!(tapes,tape)                           # duplicates will be handled by Node constructor
                     end
                 end
             end
@@ -265,6 +266,7 @@ end #if !isdefined(:Node)
 function Node(value, tapes=Any[CalculationTape()])     # arg tapes is an Array
     self = Node(value, ObjectIdDict())                      # field tapes is an ObjectIdDict(CalculationTape=>ReverseNode)
     for tape in tapes
+        haskey(self.tapes, tape) && continue
         new_rnode = ReverseNode(self)
         push!(tape, new_rnode)                              # This is the only place new elements are added to a tape.
         self.tapes[tape] = new_rnode

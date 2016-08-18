@@ -1,6 +1,6 @@
 float1arg = Dict{Symbol,Any}(
-:(+) => +1.0,  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath abstractarraymath operators
-:(-) => -1.0,  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath
+:(+) => 1,  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath abstractarraymath operators
+:(-) => -1,  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath
 :abs => :(sign(x)),             # float,operators
 :ceil => 0,                     # float,operators
 :float => 1,                    # float

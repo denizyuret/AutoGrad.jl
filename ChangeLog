@@ -87,13 +87,135 @@
 	0. 1.556437 seconds (1.12 M allocations: 906.322 MB)
 	2. 0.267631 seconds (60.78 k allocations: 58.239 MB)
 	4. 0.544930 seconds (587.58 k allocations: 82.464 MB)
+	At this point recording takes as much time as forward calculation, backward pass takes 4x more.
+	Forward is as efficient as can be, dominated by array ops, except for excessive allocation.
+
+	(14) What costs on forward_pass? (profiling 20 epochs)
+    10176 ...AutoGrad/src/core.jl; forward_pass; line: 72  end_node = fun(args...; kwargs...)
+     7875 .../examples/footime.jl; loss; line: 39  ypred = predict(w, x)
+      6595 ...examples/footime.jl; predict; line: 32  x = max(0, w[i]*x .+ w[i+1])
+       810  no file; *; line: 0
+       3307 no file; .+; line: 0
+       1636 no file; getindex; line: 0
+       832  no file; max; line: 0
+      1231 ...examples/footime.jl; predict; line: 35  return w[i]*x .+ w[i+1]
+       294 no file; *; line: 0
+       448 no file; .+; line: 0
+       484 no file; getindex; line: 0
+     1391 .../examples/footime.jl; loss; line: 40  ynorm = ypred .- log(sum(exp(ypred),1))
+      463 no file; .-; line: 0
+      440 no file; exp; line: 0
+      227 no file; log; line: 0
+      255 no file; sum; line: 0
+     907  .../examples/footime.jl; loss; line: 41  -sum(ygold .* ynorm) / size(ygold,2)
+      160 no file; -; line: 0
+      331 no file; .*; line: 0
+      198 no file; /; line: 0
+      215 no file; sum; line: 0
+
+	Compare with regular call:
+   2526 ...d/examples/footime.jl; train2; line: 96  z = loss(w, x, y)
+    1604 ...examples/footime.jl; predict; line: 32  x = max(0, w[i]*x .+ w[i+1])
+     262 broadcast.jl; .+; line: 315
+     392 linalg/matmul.jl; *; line: 132
+     943 operators.jl; max; line: 391
+    201  ...examples/footime.jl; predict; line: 35  return w[i]*x .+ w[i+1]
+     152 broadcast.jl; .+; line: 315
+     46  linalg/matmul.jl; *; line: 132
+    154  broadcast.jl; .-; line: 321
+    324  operators.jl; exp; line: 381
+    36   operators.jl; log; line: 381
+    52   reducedim.jl; sum; line: 264
+    132  sparse/sparsematrix.jl; .*; line: 1026
+
+	Most expensive lines in recorder:
+	tapes=Set() # convert to a regular array
+	for (arg,i) in enumerate(args) # convert to a regular for
+
+	Next iteration:
+	109 ...utoGrad/src/core.jl; r; line: 114  in(tape,tapes) || push!(tapes,tape)
+	143 ...utoGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+	101 ...utoGrad/src/core.jl; r; line: 147  for (tape, argnum, parent) in ops
+         83 tuple.jl; indexed_next; line: 21
+	76  ...utoGrad/src/core.jl; r; line: 149  gradfun = f(Grad{argnum}, result, args...; kwargs...)
+
+	Removing in(tape,tapes), handle duplicates in Node().
+	Next iteration: for loops with tuples; maybe we can optimize the single tape case.
+
+       448 no file; .+; line: 0
+        91  ...utoGrad/src/core.jl; r; line: 111  for (tape, parent_rnode) in arg.tapes
+         74 operators.jl; indexed_next; line: 437
+        109 ...utoGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+        63  ...utoGrad/src/core.jl; r; line: 147  for (tape, argnum, parent) in ops
+         51 tuple.jl; indexed_next; line: 21
+
+	(15) latest single epoch times: (compare to #13)
+	0. 1.380165 seconds (905.62 k allocations: 896.819 MB)
+	1. 1.344440 seconds (903.22 k allocations: 896.783 MB)
+	2. 0.267039 seconds (60.78 k allocations: 58.240 MB)
+	3. 0.240020 seconds (29.58 k allocations: 49.606 MB)
+	4. 0.434085 seconds (454.38 k allocations: 76.330 MB)
+
+	This is better than Knet with recording in forward_pass.  Time to
+	optimize the backward_pass.
+
+	(16) Profiling backward_pass with 10 epochs.
+
+   10496 .../examples/footime.jl; train0; line: 73  g = gradfun(w, x, y)
+    10484 ...AutoGrad/src/core.jl; gradfun; line: 36  backward_pass(forward_pass(fun, args, kwargs, argnum)...)	
+     2018 ...utoGrad/src/core.jl; backward_pass; line: 209  cur_outgrad = sum_outgrads(node.outgrads...)
+     290  ...utoGrad/src/core.jl; backward_pass; line: 213  for (gradfun, parent) in node.parent_grad_ops
+     4558 ...utoGrad/src/core.jl; backward_pass; line: 215  og = gradfun(cur_outgrad)
+     3472 ...utoGrad/src/core.jl; forward_pass; line: 72  end_node = fun(args...; kwargs...)
+   136   .../examples/footime.jl; train0; line: 76  Base.axpy!(-lr, g[i], w[i])
+
+	# sum_outgrads spends significant time adding gradients for fanout>1 ops.
+	# we can try adding to an accumulator instead of pushing.
+	# we can also use the first gradient as the accumulator to avoid allocation but we decided that was dangerous.
+	#   the same gradient matrix is passed back multiple times by e.g. +?
+	#   actually right now we are multiplying with 1! never passing the original dy?
+
+     2018 ...utoGrad/src/core.jl; backward_pass; line: 209  cur_outgrad = sum_outgrads(node.outgrads...)
+      1996 ...utoGrad/src/core.jl; sum_outgrads; line: 572  sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T},c::AbstractArray{T}...) =
+       1686 ...utoGrad/src/core.jl; sum_outgrads; line: 572  sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T},c::AbstractArray{T}...) =	
+        1670 broadcast.jl; broadcast; line: 253
+         1493 broadcast.jl; broadcast!; line: 246
+
+     4558 ...utoGrad/src/core.jl; backward_pass; line: 215  og = gradfun(cur_outgrad)
+
+      2514 .../src/collections.jl; anonymous; line: 14  getindex(::D1,y,x,i...) = dy->ungetindex(x,dy,i...) # y=x[i], dy=df/dy
+       2491 no file; ungetindex; line: 0
+        2287 ...toGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+         2279 ...src/collections.jl; ungetindex; line: 21  ungetindex(x::AbstractArray, dy, i...)  = (dx=zeros_like(x);setindex!(dx,dy,i...);dx)
+          2264 ...oGrad/src/core.jl; fill_internal; line: 548  fill_internal{T}(x::AbstractArray{T},v,d::ObjectIdDict)=
+           2244 ...oGrad/src/core.jl; fill_check; line: 551  fill_check(x,v,d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=fill_internal(x,v,d))
+            2232 ...oGrad/src/core.jl; fill_internal; line: 548  fill_internal{T}(x::AbstractArray{T},v,d::ObjectIdDict)=
+             2178 array.jl; fill!; line: 193
+
+      348  ...rc/linalg/matmul.jl; anonymous; line: 2
+
+      1019 ...utoGrad/src/util.jl; anonymous; line: 22  gexp = :(dy->dy.*$(_d[i]))
+       203 arraymath.jl; .*; line: 125
+       157 no file; .*; line: 0
+        113 ...utoGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+         109 ...se/sparsematrix.jl; .*; line: 1026
+       150 no file; .==; line: 0
+        139 ...utoGrad/src/core.jl; u; line: 408  u(x...; o...)=f(map(getval,x)...; o...)
+         126 broadcast.jl; .==; line: 363
+       473 sparse/sparsematrix.jl; .*; line: 1026
+        430 broadcast.jl; broadcast!; line: 246
+
+      232  ...utoGrad/src/util.jl; new_fun; line: 189  result = gradfun(dy)
+
+      222  ...utoGrad/src/util.jl; new_fun; line: 196  return sum(result, d)
 
 	- Hypotheses:
 	- closures slow.
 	- untyped functions slow.
 	- memory allocation slow.
 	- two types of memory alloc: user code, grad code.
-
+	- for user code, let the user do it, support overwriting ops (careful about non-Node arrays)
+	- for grad code, keep around a tape after it is used?  how about args in closures?
 
 	* TODO:
 	# use TypeNode <: Type instead of Node{Type}?
@@ -111,6 +233,7 @@
 	# copying, reshaping, subarrays and concatenation?
 	# finish all functions.
 	# write documentation and publish.
+	# optimize dy.*1 gradients, but be careful not to pass back same array multiple times if we are going to use accumulators.
 
 2016-08-17  Deniz Yuret  <dyuret@ku.edu.tr>
 
