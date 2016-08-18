@@ -47,7 +47,7 @@ function accuracy(w, x, ygold)
 end
 
 function train(w=weights(); lr=.1, epochs=20)
-    isdefined(:dtrn) || loaddata()
+    isdefined(MNIST,:dtrn) || loaddata()
     println((0, :ltrn, loss(w,xtrn,ytrn), :ltst, loss(w,xtst,ytst), :atrn, accuracy(w,xtrn,ytrn), :atst, accuracy(w,xtst,ytst)))
     gradfun = grad(loss)
     for epoch=1:epochs
@@ -67,14 +67,15 @@ function weights(h...; seed=nothing)
     w = Any[]
     x = 28*28
     for y in [h..., 10]
-        push!(w, 0.1*randn(y,x))
-        push!(w, zeros(y))
+        push!(w, convert(Array{Float32}, 0.1*randn(y,x)))
+        push!(w, zeros(Float32, y))
         x = y
     end
     return w
 end
 
 function loaddata()
+    info("Loading data...")
     global xtrn, xtst, ytrn, ytst, dtrn
     xshape(a)=reshape(a./255f0,784,div(length(a),784))
     yshape(a)=(a[a.==0]=10; full(sparse(convert(Vector{Int},a),1:length(a),1f0)))
@@ -83,6 +84,7 @@ function loaddata()
     ytrn = yshape(gzread("train-labels-idx1-ubyte.gz")[9:end])
     ytst = yshape(gzread("t10k-labels-idx1-ubyte.gz")[9:end])
     dtrn = minibatch(xtrn, ytrn, 100)
+    info("Loading done...")
 end
 
 function gzread(file; dir=Pkg.dir("AutoGrad/data/"), url="http://yann.lecun.com/exdb/mnist/")
