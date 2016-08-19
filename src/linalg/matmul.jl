@@ -1,5 +1,11 @@
 matmul2arg = Dict{Symbol,Any}(
-:* => (:(dy->dy*x2'), :(dy->x1'*dy)),
+:* => (:(dy->A_mul_Bc(dy,x2)), :(dy->Ac_mul_B(x1,dy))),
+:Ac_mul_B  => (:(dy->A_mul_Bc(x2,dy)), :(dy->x1*dy)),
+:A_mul_Bc  => (:(dy->dy*x2), :(dy->Ac_mul_B(dy,x1))),
+:Ac_mul_Bc => (:(dy->Ac_mul_Bc(x2,dy)), :(dy->Ac_mul_Bc(dy,x1))),
+:At_mul_B  => (:(dy->A_mul_Bt(x2,dy)), :(dy->x1*dy)),
+:A_mul_Bt  => (:(dy->dy*x2), :(dy->At_mul_B(dy,x1))),
+:At_mul_Bt => (:(dy->At_mul_Bt(x2,dy)), :(dy->At_mul_Bt(dy,x1))),
 )
 
 # Methods for multiplication:
@@ -18,16 +24,6 @@ matmul2arg = Dict{Symbol,Any}(
 
 defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat; dymul=false)
 
-function testargs{T1<:AbstractVecOrMat,T2<:AbstractVecOrMat}(::Fn{:*},t1::Type{T1},t2::Type{T2})
-    x1 = (t1 <: AbstractVecOrMat ? (randn() < 0.5 ? randn(2) : randn(2,2)) :
-          t1 <: AbstractMatrix ? randn(2,2) :
-          t1 <: AbstractVector ? randn(2) :
-          error("testargs(*,$t1,$t2)"))
-    x2 = (ndims(x1)==1 ? rand(1,2) : 
-          t2 <: AbstractVecOrMat ? (randn() < 0.5 ? randn(2) : randn(2,2)) :
-          t2 <: AbstractMatrix ? randn(2,2) :
-          t2 <: AbstractVector ? randn(2) : 
-          error("testargs(*,$t1,$t2)"))
-    return (x1,x2)
+for (_f,_d) in matmul2arg
+    testargs(::Fn{_f},t1,t2)=(rand(2,2),rand(2,2))
 end
-
