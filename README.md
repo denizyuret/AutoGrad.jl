@@ -92,8 +92,9 @@ Yuret](http://www.denizyuret.com). Large parts of the code are
 directly ported from the Python
 [autograd](https://github.com/HIPS/autograd) package.  I'd like to
 thank autograd author Dougal Maclaurin for his support.  See [(Baydin
-et al. 2015)](https://arxiv.org/abs/1502.05767) for a general
-review of automatic differentiation, [autograd
+et al. 2015)](https://arxiv.org/abs/1502.05767) for a general review
+of automatic differentiation, [autograd
 tutorial](https://github.com/HIPS/autograd/blob/master/docs/tutorial.md)
 for some Python examples, and Dougal's PhD thesis for design
-principles.
+principles.  [JuliaDiff](http://www.juliadiff.org/) has alternative
+differentiation tools for Julia.

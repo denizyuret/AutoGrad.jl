@@ -65,7 +65,7 @@ function forward_pass(fun, args, kwargs, argnum)
     @dbgcore((:forw, argnum, name(fun), map(name,args)..., map(name,kwargs)...))
     tape = CalculationTape()
     arg_wrt = args[argnum]
-    start_node = Node(float(getval(arg_wrt)), Any[tape])
+    start_node = Node(tofloat(getval(arg_wrt)), Any[tape])
     args = Any[args...] # to make args writeable
     args[argnum] = merge_tapes(start_node, arg_wrt)
     @dbgcore((:fcall, name(fun), map(name,args)..., map(name,kwargs)...))
@@ -181,7 +181,7 @@ function backward_pass(start_node, end_node, tape)
 
     if !isa(end_node, Node) || !haskey(end_node.tapes, tape)    # This may happen e.g. if the function returns a constant
         @dbgcore( "Output seems independent of input. Returning zero gradient.")
-        return zeros_like(start_node)
+        return (isa(start_node,Number) ? zero(start_node) : nothing) # Using nothing for zero arrays and other structures.
     end
     if !isa(getval(end_node), Number)
         error("grad requires a scalar-valued function, got $(getval(end_node))")
@@ -206,7 +206,7 @@ function backward_pass(start_node, end_node, tape)
     for node in tape[end-1:-1:1]                                # note the end-1 because we pushed a marker to complete
         if !isempty(node.outgrads)
             @dbgcore((:sum1,name(node),:args,map(name,node.outgrads)...))
-            cur_outgrad = sum_outgrads(node.outgrads...)
+            cur_outgrad = sum_outgrads(node.outgrads)
             # This bombs when we have different types of Dict or Array
             # typeof(getval(cur_outgrad)) == typeof(node.node.value) || error("Type mismatch: y=$(node.node.value) dy=$(getval(cur_outgrad))")
             @dbgcore((:sum2,name(node),:out,name(cur_outgrad)))
@@ -515,43 +515,7 @@ merge_tapes(::D2,c,a,b) = (x->x)
 # Nodes.
 
 
-# 8.4 zeros_like: creates a structure similar to x but filled with
-# zeros.  Used by backward_pass and getindex.
-
-# A: Should it return a Node when its input is a Node?
-
-# In backward_pass only used to give the return value when end_node is
-# not a Node on the given tape.  This means the output of f is
-# independent of input.  In a simple gradient, backward_pass always
-# returns a value.  In a high-order gradient, backward_pass(f) returns
-# a Node, and backward_pass(g) returns a value.  However even in
-# backward_pass(f) we do not need to return a Node if the value we are
-# returning is a constant that does not depend on the input!  So
-# zeros_like can always return a regular value and does not need to be
-# a primitive.
-
-# In getindex(::D1) zeros_like is never called with a Node input.  So
-# it is safe to unbox the input of zeros_like and not box its result.
-
-"""
-zeros_like(x) -> value or object similar to x filled with zeros.
-Can handle bits types, Array, Tuple, Associative, and Node.
-Implementation similar to deepcopy.
-TODO: avoid allocating large arrays using `nothing` like Knet.
-"""
-zeros_like(x) = fill_similar(x,0)
-fill_similar(x,v) = fill_internal(x,v,ObjectIdDict())
-fill_internal(x::Node,v,d::ObjectIdDict)=fill_check(x.value,v,d)
-fill_internal(x::Tuple,v,d::ObjectIdDict)=ntuple(i->fill_check(x[i],v,d), length(x))
-fill_internal(x::Associative,v,d::ObjectIdDict)=
-    (a=similar(x); for (key,val) in x; a[key]=fill_check(val,v,d); end; a)
-fill_internal{T}(x::AbstractArray{T},v,d::ObjectIdDict)=
-    (isbits(T) ? fill!(similar(x),T(v)) : T[fill_check(e,v,d) for e in x])
-fill_internal{T}(x::T,v,d::ObjectIdDict)=(isbits(T) ? T(v) : error("fill_similar cannot handle $T"))
-fill_check(x,v,d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=fill_internal(x,v,d))
-
-
-# 8.5 sum_outgrads: only used in backward_pass to produce the input to
+# 8.4 sum_outgrads: only used in backward_pass to produce the input to
 # a gradient function df/dy.  Does it ever need to record its
 # operation and give a Node output?  Gradient functions are closures
 # that take df/dy, return df/dx and have the environment (x,y) which
@@ -560,31 +524,37 @@ fill_check(x,v,d::ObjectIdDict)=(haskey(d,x) ? d[x] : d[x]=fill_internal(x,v,d))
 # tape, we need to record the sum operation.  This will happen in
 # higher order derivatives.
 
-# TODO: Instead of maintaining an array of outgrads then summing them, why not keep a sum to avoid allocation?
-# (instead of pushing to parent.outgrads, we'd have to call sum directly, deal with Nodes etc.)
 # A: what if first outgrad is a Node and others aren't, or vice versa?  handled by @primitive.
 # A: what should the output be if some of the inputs are Nodes?  Is sum_outgrads a primitive? Yes.
 # A: for array and dict can we just modify the first element of outgrads?  This may be dangerous because the same outgrad may be passed back to more than one target e.g. by `+`.
 
-sum_outgrads(x)=x
-sum_outgrads(a::Number, b::Number, c::Number...)=sum([a,b,c...])
-sum_outgrads(a::Tuple, b::Tuple, c::Tuple...)=tuple([sum_outgrads(e...) for e in zip(a,b,c...)]...)
-sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T},c::AbstractArray{T}...) =
-    (isbits(T) ? broadcast(+,a,b,c...) : [sum_outgrads(e...) for e in zip(a,b,c...)])
-sum_outgrads(a::Associative, b::Associative, c::Associative...) =
-    (z=similar(a); for d in (a,b,c...), (k,v) in d; z[k]=v+get(z,k,0); end; z)
-sum_outgrads{N}(::Dn{N}, y, x...)=(dy->dy)
+# TODO: Instead of maintaining an array of outgrads then summing them, why not keep a sum to avoid allocation?
+# (instead of pushing to parent.outgrads, we'd have to call sum directly, deal with Nodes etc.)
+# However before we can do this we need to handle overwriting ops because sum_outgrads is a primitive.
+
+function sum_outgrads(x)
+    length(x) == 0 && return nothing
+    length(x) == 1 && return x[1]
+    a = remove_nothings(x)
+    length(a) == 0 && return nothing
+    length(a) == 1 && return a[1]
+    sum_helper(a...)
+end
+
+sum_outgrads{N}(::Dn{N}, y, x)=(dy->dy)
 @primitive sum_outgrads
 
-# Pretty print for debugging:
-_name=ObjectIdDict()
-name(f,n)=(_name[f]=n)
-name(f)=get(_name,f,f)
-name(x::ReverseNode)=Symbol("R$(href(x))")
-name(x::Node)=Symbol("N$(href(x))")
-name(x::Array)=Symbol("A$(join([href(Ref(x)),size(x)...],'x'))")
-name(x::Tuple)=map(name,x)
-href(x)=Int(hash(x)%100)
+sum_helper(a::Number, b::Number, c::Number...)=sum([a,b,c...])
+sum_helper(a::Tuple, b::Tuple, c::Tuple...)=tuple([sum_outgrads(e) for e in zip(a,b,c...)]...)
+sum_helper{T}(a::AbstractArray{T},b::AbstractArray{T},c::AbstractArray{T}...) =
+    (isbits(T) ? broadcast(+,a,b,c...) : [sum_outgrads(e) for e in zip(a,b,c...)])
+sum_helper(a::Associative, b::Associative, c::Associative...) =
+    (z=similar(a); for d in (a,b,c...), (k,v) in d; z[k]=v+get(z,k,0); end; z)
 
-Base.show(io::IO, n::Node) = print(io,"$(name(n))$((name(n.value),[(name(t),name(r)) for (t,r) in n.tapes]...))")
-Base.show(io::IO, n::ReverseNode) = print(io,"$(name(n))$((name(n.node.value),map(name,n.outgrads),[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")
+function remove_nothings(x)
+    a = []
+    for xi in x
+        isa(xi,Void) || push!(a,xi)
+    end
+    return a
+end

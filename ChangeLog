@@ -1,6 +1,107 @@
-2016-08-18  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-08-19  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# removed zeros_like: should use `nothing` in tuples, cell arrays, and dicts and have sum_outgrads understand this: will save 20%!
+
+	* TODO:
+	# get rid of the _name hash: it prevents gc, write a specific dbg printer instead.
+	# work on efficiency (are closures efficient? nothing instead of zero arrays?). do closures get garbage collected?
+	# work on memory: overwriting: 3arg (overwriting) functions or julia v0.5 overwrite syntax or InplaceOps.
+	# remove sum_outgrads by using the first outgrad as the accumulator, but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
+	# optimize dy.*1 gradients, but be careful not to pass back same array multiple times if we are going to use accumulators. sum_grads already does?
+	# use TypeNode <: Type instead of Node{Type}?
+	# check out JuliaDiff/ReverseDiffSource: cannot handle while loops? http://www.juliadiff.org/
+	# Julia 5 already supports function types making Fn{} unnecessary: julia> typeof(sin) => Base.#sin
+	# Julia 5 in-place syntax does not work for matmul, or .+ (unless you write x .= (+).(x,a)) yet.
+	# implement quick_grad_check for mnist.
+	# support CudaArrays.
+	# rnn example?
+	# implement convenience_wrappers (jacobian etc)?
+	# copying, reshaping, subarrays and concatenation? vcat. 
+	# finish all function gradients.
+	# write documentation and publish.
 
 	* profiling:
+
+	(17) after getting rid of zeros_like: (compare to #15)
+	0. 1.059346 seconds (776.62 k allocations: 309.133 MB)
+	1. 1.011051 seconds (774.22 k allocations: 309.096 MB)
+	2. 0.267993 seconds (60.78 k allocations: 58.240 MB)
+	3. 0.241966 seconds (29.58 k allocations: 49.606 MB)
+	4. 0.459659 seconds (454.38 k allocations: 76.330 MB)
+
+   6576 ...d/examples/footime.jl; train0; line: 73  g = gradfun(w, x, y)
+    6571 ...AutoGrad/src/core.jl; gradfun; line: 36  backward_pass(forward_pass(fun, args, kwargs, argnum)...)
+     437  ...utoGrad/src/core.jl; backward_pass; line: 209  cur_outgrad = sum_outgrads(node.outgrads)
+      428 ...utoGrad/src/core.jl; sum_outgrads; line: 541  sum_helper(a...)
+       422 ...utoGrad/src/core.jl; sum_helper; line: 549  sum_helper{T}(a::AbstractArray{T},b::AbstractArray{T},c::AbstractArray{T}...) =
+     410  ...utoGrad/src/core.jl; backward_pass; line: 213  for (gradfun, parent) in node.parent_grad_ops
+      142 ./array.jl; next; line: 277
+      171 tuple.jl; indexed_next; line: 21
+     2094 ...utoGrad/src/core.jl; backward_pass; line: 215  og = gradfun(cur_outgrad)
+      171 .../src/collections.jl; anonymous; line: 30  getindex(::D1,y,x,i...) = dy->ungetindex(x,dy,i...) # y=x[i], dy=df/dy
+      713 ...rc/linalg/matmul.jl; anonymous; line: 2
+       383 linalg/matmul.jl; A_mul_Bc; line: 187
+	# There is some inefficiency here with actual transposing rather than calling transpose gemm!
+       295 operators.jl; A_mul_Bc; line: 164
+        279 no file; ctranspose; line: 0
+         250 ...toGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+          249 arraymath.jl; ctranspose; line: 414
+           239 arraymath.jl; transpose!; line: 323
+            155 arraymath.jl; transposeblock!; line: 350
+      889 ...utoGrad/src/util.jl; anonymous; line: 22  gexp = :(dy->dy.*$(_d[i]))
+       106 no file; .*; line: 0
+	# Who is calling this?
+       212 no file; .==; line: 0
+        204 ...utoGrad/src/core.jl; u; line: 408  u(x...; o...)=f(map(getval,x)...; o...)
+         190 broadcast.jl; .==; line: 363
+          171 broadcast.jl; broadcast!; line: 246
+       437 sparse/sparsematrix.jl; .*; line: 1026
+     3496 ...utoGrad/src/core.jl; forward_pass; line: 72  end_node = fun(args...; kwargs...)
+      1783 ...examples/footime.jl; loss; line: 39  ypred = predict(w, x)
+       1142 ...examples/footime.jl; predict; line: 32  x = max(0, w[i]*x .+ w[i+1])
+        419 no file; *; line: 0
+         337 ...toGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+          337 linalg/matmul.jl; *; line: 132
+        242 no file; .+; line: 0
+        161 no file; getindex; line: 0
+        319 no file; max; line: 0
+         235 ...toGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+          234 operators.jl; max; line: 391
+       601  ...examples/footime.jl; predict; line: 35  return w[i]*x .+ w[i+1]
+        157 no file; *; line: 0
+        239 no file; .+; line: 0
+        205 no file; getindex; line: 0
+      729  ...examples/footime.jl; loss; line: 40  ynorm = ypred .- log(sum(exp(ypred),1))
+       225 no file; .-; line: 0
+       255 no file; exp; line: 0
+        153 ...utoGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+         149 operators.jl; exp; line: 381
+       103 no file; log; line: 0
+       140 no file; sum; line: 0
+      982  ...examples/footime.jl; loss; line: 41  -sum(ygold .* ynorm) / size(ygold,2)
+       207 no file; -; line: 0
+       339 no file; .*; line: 0
+        120 ...utoGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+         116 ...se/sparsematrix.jl; .*; line: 1026
+       257 no file; /; line: 0
+       168 no file; sum; line: 0
+
+
+2016-08-18  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# profile mnist
+
+	* profiling:
+
+	- Hypotheses:
+	- closures slow.
+	- untyped functions slow.
+	- memory allocation slow.
+	- two types of memory alloc: user code, grad code.
+	- for user code, let the user do it, support overwriting ops (careful about non-Node arrays)
+	- for grad code, keep around a tape after it is used?  how about args in closures?
 
 	(1) AutoGrad: Testing 1 epoch h=64 mnist with minibatch=100, best out of 3 on ural from fresh start.
 	0. Regular train (record, update)
@@ -174,6 +275,7 @@
 	# we can also use the first gradient as the accumulator to avoid allocation but we decided that was dangerous.
 	#   the same gradient matrix is passed back multiple times by e.g. +?
 	#   actually right now we are multiplying with 1! never passing the original dy?
+	#   the main problem is sum_outgrads is a primitive for high-order derivatives and we don't support overwriting operations yet.
 
      2018 ...utoGrad/src/core.jl; backward_pass; line: 209  cur_outgrad = sum_outgrads(node.outgrads...)
       1996 ...utoGrad/src/core.jl; sum_outgrads; line: 572  sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T},c::AbstractArray{T}...) =
@@ -182,6 +284,10 @@
          1493 broadcast.jl; broadcast!; line: 246
 
      4558 ...utoGrad/src/core.jl; backward_pass; line: 215  og = gradfun(cur_outgrad)
+
+	# This is the main deal where we can save a lot of time.
+	# we seem to be spending a lot of time filling arrays with zeros for ungetindex.
+	# should use `nothing` in tuples, cell arrays, and dicts and have sum_outgrads understand this.
 
       2514 .../src/collections.jl; anonymous; line: 14  getindex(::D1,y,x,i...) = dy->ungetindex(x,dy,i...) # y=x[i], dy=df/dy
        2491 no file; ungetindex; line: 0
@@ -209,31 +315,6 @@
 
       222  ...utoGrad/src/util.jl; new_fun; line: 196  return sum(result, d)
 
-	- Hypotheses:
-	- closures slow.
-	- untyped functions slow.
-	- memory allocation slow.
-	- two types of memory alloc: user code, grad code.
-	- for user code, let the user do it, support overwriting ops (careful about non-Node arrays)
-	- for grad code, keep around a tape after it is used?  how about args in closures?
-
-	* TODO:
-	# use TypeNode <: Type instead of Node{Type}?
-	# profile mnist
-	# work on efficiency (are closures efficient? nothing instead of zero arrays?).
-	# work on overwriting: 3arg (overwriting) functions or julia v0.5 overwrite syntax or InplaceOps.
-	# check out JuliaDiff/ReverseDiffSource: cannot handle while loops? http://www.juliadiff.org/
-	# Julia 5 already supports function types making Fn{} unnecessary: julia> typeof(sin) => Base.#sin
-	# Julia 5 in-place syntax does not work for matmul, or .+ (unless you write x .= (+).(x,a)) yet.
-	# implement quick_grad_check for mnist.
-	# rnn example?
-	# support CudaArrays.
-	# rnn example?
-	# implement convenience_wrappers (jacobian etc)?
-	# copying, reshaping, subarrays and concatenation?
-	# finish all functions.
-	# write documentation and publish.
-	# optimize dy.*1 gradients, but be careful not to pass back same array multiple times if we are going to use accumulators.
 
 2016-08-17  Deniz Yuret  <dyuret@ku.edu.tr>
 

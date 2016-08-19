@@ -91,11 +91,10 @@ function testgrads(grads::Dict{Symbol,Any}, argtypes...)
             ex = Expr(:->, Expr(:tuple, plist...), Expr(:call, f, alist...))
             f = eval(ex)
         end
-        f != eval(_f) && name(f,(:test,_f))
         try 
-            check_grads(f, args...)
+            check_grads(f, args...; fname=_f)
         catch e
-            warn((name(f),args...,e))
+            warn((_f,args...,e))
         end
     end
 end
@@ -117,21 +116,21 @@ Fn2(F)=Type{Val{Symbol("$(F)2")}}   # used for fallback in type specific testarg
 EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
 
 # TODO: do sampling or random direction for large args
-function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL)
-    @dbgutil((:check_grads,name(fun),:args,args...))
+function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL, fname=fun)
+    @dbgutil((:check_grads,fname,:args,args...))
     isempty(args) && error("No args given")
     exact = ntuple(i->grad(fun,i)(args...), length(args))
     numeric = nd(fun, args...; eps=eps)
-    @dbgutil((:check_grads,name(fun),:exact,exact,:numeric,numeric))
-    same = isapprox(exact, numeric; rtol=rtol, atol=atol)
-    same || warn((:check_grads,name(fun),:args,args,:exact,exact,:numeric,numeric))
+    @dbgutil((:check_grads,fname,:exact,exact,:numeric,numeric))
+    same = isequivalent(exact, numeric; rtol=rtol, atol=atol)
+    same || warn((:check_grads,fname,:args,args,:exact,exact,:numeric,numeric))
     return same
 end
 
 function nd(f, args...; eps=EPS)
     @dbgutil((:nd,f,args..., :eps, eps))
     unary_f = x->f(x...)
-    unary_nd(unary_f, float(args), eps)
+    unary_nd(unary_f, tofloat(args), eps)
 end
 
 unary_nd(f, x::Tuple, eps)         = ntuple(i->unary_nd(indexed_function(f, x, i), x[i], eps), length(x))
@@ -152,24 +151,31 @@ function indexed_function(fun, arg, index)
     return partial_function
 end
 
-# isapprox for Number and AbstractArray{T<:Number} already defined
-# extending to Tuple, Associative, and other Arrays
+# isequivalent uses isapprox for Number and AbstractArray{T<:Number}
+isequivalent(x::Number,y::Number; o...)=isapprox(x,y;o...)
+isequivalent{T<:Number,S<:Number}(x::AbstractArray{T},y::AbstractArray{S}; o...)=isapprox(x,y;o...)
 
-import Base: isapprox
-isapprox(x::Tuple, y::Tuple; o...)=(length(x)==length(y) && all(i->isapprox(x[i],y[i];o...), 1:length(x)))
-isapprox(x::Associative, y::Associative; o...)=(length(x)==length(y) && all(k->isapprox(x[k],y[k];o...), keys(x)))
-isapprox(x::AbstractArray, y::AbstractArray; o...)=(length(x)==length(y) && all(i->isapprox(x[i],y[i];o...), 1:length(x)))
+# isequivalent extends to Tuple, Associative, and other Arrays, comparing elementwise
+isequivalent(x::Tuple, y::Tuple; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
+isequivalent(x::Associative, y::Associative; o...)=(length(x)==length(y) && all(k->isequivalent(x[k],y[k];o...), keys(x)))
+isequivalent(x::AbstractArray, y::AbstractArray; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
 
-# float for Number and AbstractArray (for isleaftype) already defined
-# extend to Tuple, Associative, and arbitrary Arrays
+# isequivalent treats `nothing` as equivalent to zero or zero array.
+isequivalent(x::Number,z::Void; o...)=isequivalent(z,x;o...)
+isequivalent{T<:Number}(x::AbstractArray{T},z::Void; o...)=isequivalent(z,x;o...)
+isequivalent(z::Void,x::Number; o...)=isapprox(zero(x),x;o...)
+isequivalent{T<:Number}(z::Void,x::AbstractArray{T}; rtol::Real=Base.rtoldefault(T), atol::Real=0, norm::Function=vecnorm) = (norm(x) <= atol/(1-rtol)) # Modified from: linalg/generic.jl:522
 
-import Base: float
+# TODO: check if we really need tofloat.
+# tofloat uses float for Number and AbstractArray (for isleaftype)
+tofloat(x::Number)=float(x)
+tofloat{T<:Number}(x::AbstractArray{T})=float(x)
+
+# tofloat extends to Tuple, Associative, and arbitrary Arrays
+tofloat(x::Tuple)=(all(isfloat,x) ? x : ntuple(i->tofloat(x[i]), length(x)))
+tofloat(x::Associative)=(all(isfloat,values(x)) ? x : (a=similar(x); for (k,v) in x; a[k]=tofloat(v); end; a))
+tofloat(x::AbstractArray)=(all(isfloat,x) ? x : map(tofloat,x))
 isfloat(x)=isa(x,AbstractFloat)
-float(x::Tuple)=(all(isfloat,x) ? x : ntuple(i->float(x[i]), length(x)))
-float(x::Associative)=(all(isfloat,values(x)) ? x : (a=similar(x); for (k,v) in x; a[k]=float(v); end; a))
-float(x::AbstractArray{Any})=(all(isfloat,x) ? x : map(float,x))
-# This is already covered in Base:
-#float{T<:Number}(x::AbstractArray{T})=reshape([ float(x[i]) for i in eachindex(x) ], size(x))
 
 # The way broadcasting works in Julia:
 # y = f(x...) where f is a broadcasting operation.
@@ -203,3 +209,17 @@ function unbroadcast(ynode, xnode, gradfun)
         return gradfun
     end
 end
+
+# Pretty print for debugging:
+# TODO: replace this with dbgprint, prevents gc()!
+_name=ObjectIdDict()
+name(f,n)=(_name[f]=n)
+name(f)=get(_name,f,f)
+name(x::ReverseNode)=Symbol("R$(href(x))")
+name(x::Node)=Symbol("N$(href(x))")
+name(x::Array)=Symbol("A$(join([href(Ref(x)),size(x)...],'x'))")
+name(x::Tuple)=map(name,x)
+href(x)=Int(hash(x)%100)
+
+Base.show(io::IO, n::Node) = print(io,"$(name(n))$((name(n.value),[(name(t),name(r)) for (t,r) in n.tapes]...))")
+Base.show(io::IO, n::ReverseNode) = print(io,"$(name(n))$((name(n.node.value),map(name,n.outgrads),[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")
