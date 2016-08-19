@@ -4,9 +4,10 @@
 	# removed zeros_like: should use `nothing` in tuples, cell arrays, and dicts and have sum_outgrads understand this: will save 20%!
 	# optimize dy.*1 gradients, but be careful not to pass back same array multiple times if we are going to use accumulators. sum_grads already does?
 	# remove the need for transpose in matmul.
+	# use more specific type signatures instead of ambiguous Nval.
+	# get rid of the _name hash: it prevents gc, write a specific dbg printer instead.
 
 	* TODO:
-	# get rid of the _name hash: it prevents gc, write a specific dbg printer instead.
 	# work on efficiency (are closures efficient? nothing instead of zero arrays?). do closures get garbage collected?
 	# work on memory: overwriting: 3arg (overwriting) functions or julia v0.5 overwrite syntax or InplaceOps.
 	# remove sum_outgrads by using the first outgrad as the accumulator, but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
@@ -50,7 +51,7 @@
             155 arraymath.jl; transposeblock!; line: 350
       889 ...utoGrad/src/util.jl; anonymous; line: 22  gexp = :(dy->dy.*$(_d[i]))
        106 no file; .*; line: 0
-	# Who is calling this?
+	# Who is calling this? Probably max.
        212 no file; .==; line: 0
         204 ...utoGrad/src/core.jl; u; line: 408  u(x...; o...)=f(map(getval,x)...; o...)
          190 broadcast.jl; .==; line: 363
@@ -86,6 +87,59 @@
        257 no file; /; line: 0
        168 no file; sum; line: 0
 
+	(18) after matmul is fixed (no transpose):
+
+   5567 ...d/examples/footime.jl; train0; line: 73  g = gradfun(w, x, y)
+    5557 ...AutoGrad/src/core.jl; gradfun; line: 36  backward_pass(forward_pass(fun, args, kwargs, argnum)...)
+     321  ...utoGrad/src/core.jl; backward_pass; line: 209  cur_outgrad = sum_outgrads(node.outgrads)
+      303 ...utoGrad/src/core.jl; sum_outgrads; line: 530  sum_helper(a...)
+       296 ...utoGrad/src/core.jl; sum_helper; line: 538  sum_helper{T}(a::AbstractArray{T},b::AbstractArray{T},c::AbstractArray{T}...) =
+     359  ...utoGrad/src/core.jl; backward_pass; line: 213  for (gradfun, parent) in node.parent_grad_ops
+      108 ./array.jl; next; line: 277
+      153 tuple.jl; indexed_next; line: 21
+     1740 ...utoGrad/src/core.jl; backward_pass; line: 215  og = gradfun(cur_outgrad)
+      181 .../src/collections.jl; anonymous; line: 30  getindex(::D1,y,x,i...) = dy->ungetindex(x,dy,i...) # y=x[i], dy=df/dy
+       154 no file; ungetindex; line: 0
+      574 ...rc/linalg/matmul.jl; anonymous; line: 2
+       440 linalg/matmul.jl; A_mul_Bc; line: 187
+        440 linalg/matmul.jl; A_mul_Bt; line: 156
+         433 linalg/matmul.jl; gemm_wrapper!; line: 329
+          433 linalg/blas.jl; gemm!; line: 633
+      680 ...utoGrad/src/util.jl; anonymous; line: 29  gexp = :(dy->dy.*$(_d[i]))
+       193 no file; .==; line: 0
+        183 ...utoGrad/src/core.jl; u; line: 397  u(x...; o...)=f(map(getval,x)...; o...)
+         168 broadcast.jl; .==; line: 363
+          129 broadcast.jl; broadcast!; line: 246
+       325 sparse/sparsematrix.jl; .*; line: 1026
+        197 broadcast.jl; broadcast!; line: 246
+         107 broadcast.jl; _F_; line: 97
+      102 ...utoGrad/src/util.jl; new_fun; line: 227  return sum(result, d)
+     2968 ...utoGrad/src/core.jl; forward_pass; line: 72  end_node = fun(args...; kwargs...)
+      1778 ...examples/footime.jl; loss; line: 39  ypred = predict(w, x)
+       1177 ...examples/footime.jl; predict; line: 32  x = max(0, w[i]*x .+ w[i+1])
+        525 no file; *; line: 0
+         447 ...toGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+          445 linalg/matmul.jl; *; line: 132
+           432 linalg/matmul.jl; gemm_wrapper!; line: 329
+            432 linalg/blas.jl; gemm!; line: 633
+        156 no file; .+; line: 0
+        188 no file; getindex; line: 0
+        307 no file; max; line: 0
+         237 ...toGrad/src/core.jl; r; line: 127  result = f(argvals...; kwargs...)
+          235 operators.jl; max; line: 391
+       548  ...examples/footime.jl; predict; line: 35  return w[i]*x .+ w[i+1]
+        141 no file; *; line: 0
+        197 no file; .+; line: 0
+        207 no file; getindex; line: 0
+      552  ...examples/footime.jl; loss; line: 40  ynorm = ypred .- log(sum(exp(ypred),1))
+       198 no file; .-; line: 0
+       156 no file; exp; line: 0
+       113 no file; sum; line: 0
+      635  ...examples/footime.jl; loss; line: 41  -sum(ygold .* ynorm) / size(ygold,2)
+       139 no file; -; line: 0
+       217 no file; .*; line: 0
+       157 no file; /; line: 0
+       116 no file; sum; line: 0
 
 2016-08-18  Deniz Yuret  <dyuret@ku.edu.tr>
 

@@ -32,10 +32,10 @@ arguments as `fun`, but returns the gradient instead. The function `fun`
 should be scalar-valued. The gradient has the same type as the argument.
 """
 function grad(fun::Function, argnum::Int=1)
+    @dbgcore((:grad,fun,argnum))
     function gradfun(args...; kwargs...)
         backward_pass(forward_pass(fun, args, kwargs, argnum)...)
     end
-    @dbgcore((:grad,name(gradfun,(Symbol("D$argnum"),name(fun)))))
     return gradfun
 end
 
@@ -62,13 +62,13 @@ This is the only place where a tape is created.  Multiple tapes only
 enter the picture for higher order derivatives.
 """    
 function forward_pass(fun, args, kwargs, argnum)
-    @dbgcore((:forw, argnum, name(fun), map(name,args)..., map(name,kwargs)...))
+    @dbgcore((:forw, argnum, fun, args..., kwargs...))
     tape = CalculationTape()
     arg_wrt = args[argnum]
     start_node = Node(tofloat(getval(arg_wrt)), Any[tape])
     args = Any[args...] # to make args writeable
     args[argnum] = merge_tapes(start_node, arg_wrt)
-    @dbgcore((:fcall, name(fun), map(name,args)..., map(name,kwargs)...))
+    @dbgcore((:fcall, fun, args..., kwargs...))
     end_node = fun(args...; kwargs...)
     return start_node, end_node, tape
 end
@@ -91,9 +91,9 @@ a generic signature r(args...; kwargs...) and is intended to catch all
 invocations that have at least one Node argument.
 """
 function recorder(f)
-    #@dbgcore((:recorder,f))
+    # @dbgcore((:recorder,f))
     function r(args...; kwargs...)
-        @dbgcore((:call, name(f), map(name,args)..., map(name,kwargs)...))
+        @dbgcore((:call, f, args..., kwargs...))
         argvals = Any[args...]
         ops = []
         tapes = []
@@ -123,7 +123,7 @@ function recorder(f)
         found_node || throw(MethodError(f, argvals))            # Otherwise undefined methods lead to infinite loop
 
 # 3.4 The primitive is called with unboxed arguments.
-        @dbgcore( (:rcall,name(f),map(name,argvals)...,map(name,kwargs)...))
+        @dbgcore((:rcall,f,argvals...,kwargs...))
         result = f(argvals...; kwargs...)
 
 # 3.5 ops can be empty if no Nodes, zero_grads, or iscomplete(tape).
@@ -145,13 +145,12 @@ function recorder(f)
 # parent_grad_ops.
 
             for (tape, argnum, parent) in ops                       
-                @dbgcore((:gcall,name(f),argnum,name(result),map(name,args)...,map(name,kwargs)...))
+                @dbgcore((:gcall,f,argnum,:out,result,:args,args...,kwargs...))
                 gradfun = f(Grad{argnum}, result, args...; kwargs...) # Creates a node specific gradfun (dy->dx) with x,y in a closure
                 gradfun == 0 && (warn("gradfun=0"); continue) # indicates zero_grad arguments
-                @dbgcore(name(gradfun,(Symbol("D$argnum"),f,:out,name(result),:args,map(name,args)...,map(name,kwargs)...))) # Record for debugging
                 rnode = result.tapes[tape]
                 push!(rnode.parent_grad_ops, (gradfun, parent))
-                @dbgcore((:deps,name(tape),rnode))
+                @dbgcore((:deps,tape,rnode))
             end
         end
         return result
@@ -171,7 +170,7 @@ end
 backward_pass(start_node, end_node, tape) -> gradient wrt start_node.value
 """
 function backward_pass(start_node, end_node, tape)
-    @dbgcore((:back,name(start_node),name(end_node),name(tape),map(name,tape)...))
+    @dbgcore((:back,:start,start_node,:end,end_node,:tape,tape,tape...))
 
 # 4.2 If end_node is not a Node on the given tape, we return zero df/fx.
 # end_node may not be a Node if the output of f does not depend on x.
@@ -180,7 +179,7 @@ function backward_pass(start_node, end_node, tape)
 # A: Should zeros_like return a Node if the input is a Node?  No need, it is a constant.
 
     if !isa(end_node, Node) || !haskey(end_node.tapes, tape)    # This may happen e.g. if the function returns a constant
-        @dbgcore( "Output seems independent of input. Returning zero gradient.")
+        @dbgcore("Output seems independent of input. Returning zero gradient.")
         return (isa(start_node,Number) ? zero(start_node) : nothing) # Using nothing for zero arrays and other structures.
     end
     if !isa(getval(end_node), Number)
@@ -205,16 +204,16 @@ function backward_pass(start_node, end_node, tape)
     cur_outgrad = nothing
     for node in tape[end-1:-1:1]                                # note the end-1 because we pushed a marker to complete
         if !isempty(node.outgrads)
-            @dbgcore((:sum1,name(node),:args,map(name,node.outgrads)...))
+            @dbgcore((:sum1,node,:args,node.outgrads...))
             cur_outgrad = sum_outgrads(node.outgrads)
             # This bombs when we have different types of Dict or Array
             # typeof(getval(cur_outgrad)) == typeof(node.node.value) || error("Type mismatch: y=$(node.node.value) dy=$(getval(cur_outgrad))")
-            @dbgcore((:sum2,name(node),:out,name(cur_outgrad)))
+            @dbgcore((:sum2,node,:out,cur_outgrad))
             for (gradfun, parent) in node.parent_grad_ops
-                @dbgcore((:back1,name(cur_outgrad),name(gradfun)))
+                @dbgcore((:back1,cur_outgrad,gradfun))
                 og = gradfun(cur_outgrad)
                 push!(parent.outgrads, og)
-                @dbgcore((:back2,name(og),name(gradfun)))
+                @dbgcore((:back2,og,gradfun))
             end
         end
     end

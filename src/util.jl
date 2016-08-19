@@ -125,7 +125,7 @@ function testgrads(grads::Dict{Symbol,Any}, argtypes...)
 end
 
 function testargs(f, a...)
-    @dbgutil((f,a...))
+    @dbgutil((:testargs,f,a...))
     ntuple(length(a)) do i
         a[i] <: Number ? randn() :
         a[i] <: AbstractArray ? randn(2) :
@@ -236,15 +236,12 @@ function unbroadcast(ynode, xnode, gradfun)
 end
 
 # Pretty print for debugging:
-# TODO: replace this with dbgprint, prevents gc()!
-_name=ObjectIdDict()
-name(f,n)=(_name[f]=n)
-name(f)=get(_name,f,f)
-name(x::ReverseNode)=Symbol("R$(href(x))")
-name(x::Node)=Symbol("N$(href(x))")
-name(x::Array)=Symbol("A$(join([href(Ref(x)),size(x)...],'x'))")
-name(x::Tuple)=map(name,x)
-href(x)=Int(hash(x)%100)
+_dbg(x::Tuple)=map(_dbg,x)
+_dbg(x::ReverseNode)=Symbol("R$(id2(x))_$(id2(x.node))")
+_dbg(x::Node)=Symbol("N$(id2(x))_$(id2(x.value))")
+_dbg(x::CalculationTape)=Symbol("T$(join([id2(x),map(id2,x)...],'_'))")
+_dbg(x::Array)=Symbol("A$(join([id2(x),size(x)...],'_'))")
+id2(x)=Int(object_id(x)%100)
 
-Base.show(io::IO, n::Node) = print(io,"$(name(n))$((name(n.value),[(name(t),name(r)) for (t,r) in n.tapes]...))")
-Base.show(io::IO, n::ReverseNode) = print(io,"$(name(n))$((name(n.node.value),map(name,n.outgrads),[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")
+#Base.show(io::IO, n::Node) = print(io,"$(name(n))$((name(n.value),[(name(t),name(r)) for (t,r) in n.tapes]...))")
+#Base.show(io::IO, n::ReverseNode) = print(io,"$(name(n))$((name(n.node.value),map(name,n.outgrads),[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")

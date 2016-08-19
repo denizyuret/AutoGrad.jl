@@ -2,11 +2,11 @@ module AutoGrad
 
 using Compat
 importall Base  # defining getindex, sin, etc.
-# importall Knet  # quadloss etc.
 export grad, @primitive, D1, D2, Dn, check_grads
 
-# macro dbgcore(x); esc(:(println($x))); end
-# macro dbgutil(x); esc(:(println($x))); end
+_dbg(x)=x
+# macro dbgcore(x); esc(:(println(_dbg($x)))); end
+# macro dbgutil(x); esc(:(println(_dbg($x)))); end
 macro dbgcore(x); end
 macro dbgutil(x); end
 
@@ -29,6 +29,5 @@ include("special/bessel.jl")
 include("special/erf.jl")
 include("special/gamma.jl")
 include("special/trig.jl")
-:ok
 
 end # module
