@@ -19,7 +19,13 @@ function defgrads(grads::Dict{Symbol,Any}, argtypes...; dymul=true)
                 if _d[i] == 0
                     gexp = 0  # This defines gradient=0 for one arg
                 elseif dymul
-                    gexp = :(dy->dy.*$(_d[i]))
+                    if _d[i] == 1
+                        gexp = :identity
+                    elseif _d[i] == -1
+                        gexp = :-
+                    else
+                        gexp = :(dy->dy.*$(_d[i]))
+                    end
                     if length(_d) > 1
                         xi = Symbol("x$i")
                         gexp = :(unbroadcast(y, $xi, $gexp))

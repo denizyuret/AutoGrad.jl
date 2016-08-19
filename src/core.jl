@@ -541,7 +541,7 @@ function sum_outgrads(x)
     sum_helper(a...)
 end
 
-sum_outgrads{N}(::Dn{N}, y, x)=(dy->dy)
+sum_outgrads{N}(::Dn{N}, y, x)=identity
 @primitive sum_outgrads
 
 sum_helper(a::Number, b::Number, c::Number...)=sum([a,b,c...])

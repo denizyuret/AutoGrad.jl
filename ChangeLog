@@ -2,22 +2,22 @@
 
 	* DONE:
 	# removed zeros_like: should use `nothing` in tuples, cell arrays, and dicts and have sum_outgrads understand this: will save 20%!
+	# Julia 5 already supports function types making Fn{} unnecessary: julia> typeof(sin) => Base.#sin
+	# Julia 5 in-place syntax does not work for matmul, or .+ (unless you write x .= (+).(x,a)) yet.
 
 	* TODO:
+	# optimize dy.*1 gradients, but be careful not to pass back same array multiple times if we are going to use accumulators. sum_grads already does?
 	# get rid of the _name hash: it prevents gc, write a specific dbg printer instead.
 	# work on efficiency (are closures efficient? nothing instead of zero arrays?). do closures get garbage collected?
 	# work on memory: overwriting: 3arg (overwriting) functions or julia v0.5 overwrite syntax or InplaceOps.
 	# remove sum_outgrads by using the first outgrad as the accumulator, but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
-	# optimize dy.*1 gradients, but be careful not to pass back same array multiple times if we are going to use accumulators. sum_grads already does?
-	# use TypeNode <: Type instead of Node{Type}?
 	# check out JuliaDiff/ReverseDiffSource: cannot handle while loops? http://www.juliadiff.org/
-	# Julia 5 already supports function types making Fn{} unnecessary: julia> typeof(sin) => Base.#sin
-	# Julia 5 in-place syntax does not work for matmul, or .+ (unless you write x .= (+).(x,a)) yet.
+	# copying, reshaping, subarrays and concatenation? vcat.
 	# implement quick_grad_check for mnist.
 	# support CudaArrays.
+	# use TypeNode <: Type instead of Node{Type}?
 	# rnn example?
 	# implement convenience_wrappers (jacobian etc)?
-	# copying, reshaping, subarrays and concatenation? vcat. 
 	# finish all function gradients.
 	# write documentation and publish.
 
