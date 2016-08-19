@@ -86,6 +86,8 @@ math2arg = Dict{Symbol,Any}(
 :min => (:(y.==x1),:(y.==x2)),    # math,operators
 )
 
+@primitive log{T<:Number}(x1::Base.Irrational{:e}, x2::Node{T}) # to avoid clash with irrationals.jl:131.
+@primitive log{T<:AbstractArray}(x1::Base.Irrational{:e}, x2::Node{T}) # to avoid clash with irrationals.jl:131.
 defgrads(math2arg, Number, Number)
 defgrads(math2arg, AbstractArray, Number)
 defgrads(math2arg, Number, AbstractArray)

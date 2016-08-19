@@ -6,16 +6,18 @@
 function defgrads(grads::Dict{Symbol,Any}, argtypes...; dymul=true)
     addtests(grads, argtypes...)
     for (_f,_d) in grads
-        fsig = addtypes(:($_f{}()), argtypes...)
         if _d == :todo
             continue
         elseif _d == 0
-            @eval @zerograd $fsig # This defines gradient=0 for all args
+            for fsig in addtypes(:($_f{}()), argtypes...)
+                @eval @zerograd $fsig # This defines gradient=0 for all args
+            end
         else
-            @eval @primitive $fsig
+            for fsig in addtypes(:($_f{}()), argtypes...)
+                @eval @primitive $fsig
+            end
             isa(_d,Union{AbstractArray,Tuple}) || (_d = (_d,))
             for i=1:length(_d)  # _d could be shorter than argtypes in which case the other gradients will be undefined
-                gsig = addtypes(:($_f{}(::Type{Grad{$i}},y::Node)), argtypes...)
                 if _d[i] == 0
                     gexp = 0  # This defines gradient=0 for one arg
                 elseif dymul
@@ -33,29 +35,46 @@ function defgrads(grads::Dict{Symbol,Any}, argtypes...; dymul=true)
                 else
                     gexp = _d[i]
                 end
-                @eval $gsig=$gexp
+                for gsig in addtypes(:($_f{}(::Type{Grad{$i}},y::Node)), argtypes...)
+                    @eval $gsig=$gexp
+                end
             end
         end
     end
 end
 
 function addtypes(ex::Expr, types...)
-    # construct method signature
-    # example input: :(exp{}()), Number, Number
-    # example output: exp{T1<:Number,T2<:Number}(x1::Union{Node{T1<:Number},T1<:Number}, x2::Union{Node{T2<:Number},T2<:Number})
-    if length(types) == 0
+    # construct method signatures
+    # example input: :(exp{}()), Number
+    # example output: exp{T<:Number}(x::Node{T})
+    # for multiple arguments, constructs all signatures with at least one Node
+    ntypes = length(types)
+    ans = []
+    if ntypes == 0
         error("Need argument types")
-    elseif length(types) == 1
+    elseif ntypes == 1
         push!(ex.args[1].args, Expr(:<:, :T, types[1]))
         push!(ex.args, :(x::Node{T}))
+        push!(ans, ex)
     else
-        for i=1:length(types)
-            Ti = Symbol("T$i"); xi = Symbol("x$i")
+        for i=1:ntypes
+            Ti = Symbol("T$i")
             push!(ex.args[1].args, Expr(:<:, Ti, types[i]))
-            push!(ex.args, :($xi::Nval{$Ti}))
+        end
+        for nodes=1:(1<<ntypes-1)
+            ex2 = copy(ex)
+            for i=1:ntypes
+                Ti = Symbol("T$i"); xi = Symbol("x$i")
+                if nodes & (1<<(i-1)) > 0
+                    push!(ex2.args, :($xi::Node{$Ti}))
+                else
+                    push!(ex2.args, :($xi::$Ti))
+                end
+            end
+            push!(ans, ex2)
         end
     end
-    ex
+    return ans
 end
 
 function addtests(grads::Dict{Symbol,Any}, argtypes...)

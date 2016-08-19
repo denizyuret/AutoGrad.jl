@@ -2,11 +2,10 @@
 
 	* DONE:
 	# removed zeros_like: should use `nothing` in tuples, cell arrays, and dicts and have sum_outgrads understand this: will save 20%!
-	# Julia 5 already supports function types making Fn{} unnecessary: julia> typeof(sin) => Base.#sin
-	# Julia 5 in-place syntax does not work for matmul, or .+ (unless you write x .= (+).(x,a)) yet.
+	# optimize dy.*1 gradients, but be careful not to pass back same array multiple times if we are going to use accumulators. sum_grads already does?
+	# remove the need for transpose in matmul.
 
 	* TODO:
-	# optimize dy.*1 gradients, but be careful not to pass back same array multiple times if we are going to use accumulators. sum_grads already does?
 	# get rid of the _name hash: it prevents gc, write a specific dbg printer instead.
 	# work on efficiency (are closures efficient? nothing instead of zero arrays?). do closures get garbage collected?
 	# work on memory: overwriting: 3arg (overwriting) functions or julia v0.5 overwrite syntax or InplaceOps.
@@ -320,6 +319,8 @@
 
 	* DONE:
 	# Julia v5.0 compatibility.
+	# Julia 5 already supports function types making Fn{} unnecessary: julia> typeof(sin) => Base.#sin
+	# Julia 5 in-place syntax does not work for matmul, or .+ (unless you write x .= (+).(x,a)) yet.
 
 	* q: Node{Type} vs TypeNode <: Type
 

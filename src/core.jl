@@ -275,17 +275,6 @@ function Node(value, tapes=Any[CalculationTape()])     # arg tapes is an Array
     return self
 end
 
-if !isdefined(:Nval)
-"""
-Nval stands for Node or Value.  Convenience type useful when
-defining gradmakers f(::D{N},y,x...).  We need to be able to define
-gradmakers with different type signatures.  y is always a Node, and
-at least one of the x's is a Node, but other x's may or may not be
-Nodes.  So it is useful to have a type that represents that:
-"""
-typealias Nval{T} Union{T,Node{T}}
-end
-
 # 5.2 ReverseNode: Each result Node created by a primitive keeps track
 # of the argument Nodes of that primitive (the non-Node arguments need
 # not be recorded since they do not depend on the input of f).  Along
