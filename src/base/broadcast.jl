@@ -27,3 +27,48 @@ defgrads(broadcast2arg, Number, AbstractArray)
 defgrads(broadcast2arg, AbstractArray, AbstractArray)
 
 testargs(::Fn{:.^},x...)=map(abs,testargs(Fn2(:.^),x...))
+
+
+# Other functions in broadcast.jl:
+
+# eval
+# droparg1: Not exported
+# longer_tuple: Not exported
+# longer_size: Not exported
+# broadcast_shape: Not exported
+# check_broadcast_shape: Not exported
+# gen_broadcast_body_cartesian: Not exported
+# gen_broadcast_body_iter: Not exported
+# bpack: Not exported
+# dumpbitcache: Not exported
+# gen_broadcast_body_cartesian_tobitarray: Not exported
+# gen_broadcast_body_iter_tobitarray: Not exported
+# gen_broadcast_function: Not exported
+# gen_broadcast_function_tobitarray: Not exported
+# broadcast!
+# broadcast
+# bitbroadcast
+# broadcast!_function
+# broadcast_function
+# broadcast_getindex
+# broadcast_getindex!: Not exported
+# broadcast_setindex!
+# .*
+# .%
+# .<<
+# .>>
+# eltype_plus: Not exported
+# .+
+# type_minus: Not exported
+# .-
+# type_div: Not exported
+# ./
+# .\
+# type_rdiv: Not exported
+# .//
+# type_pow: Not exported
+# .^
+# $(Expr(:$, :f)): Not a symbol
+# $(Expr(:$, :bitf)): Not a symbol
+# $(Expr(:$, :cachef)): Not a symbol
+# bitcache_pow: Not exported

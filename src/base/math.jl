@@ -102,40 +102,32 @@ math2arg1 = Dict{Symbol,Any}(
 defgrads(math2arg1, Number, Number)
 testargs(::Fn{:^},x...)=map(abs,testargs(Fn2(:^),x...))
 
-# DEAD CODE:
 
-# Each argument can be Number, Array, Node{Number}, Node{Array}
-# (unfortunately it is not currently possible to specify
-# Node{Array{Number}}.  If at least one argument is a Node, we call
-# the recorder method.
+# TODO:
 
-# for (_f,_d) in math2arg
-#     @eval begin
-#         @primitive $_f(x1::Node, x2::Node)
-#         @primitive $_f(x1::Node, x2::Union{Number,AbstractArray})
-#         @primitive $_f(x1::Union{Number,AbstractArray},x2::Node)
-#         $_f(::D1, y, x1, x2)=unbroadcast(y, x1, (dy->dy.*$(_d[1])))
-#         $_f(::D2, y, x1, x2)=unbroadcast(y, x2, (dy->dy.*$(_d[2])))
-#     end
-# end
-
-# # math2zerograd:
-# # These functions have zero gradient either because they return boolean 
-# # values or they truncate to an integer:
-
-# math2zerograd = Dict{Symbol,Any}(
-# )
-
-# for (_f,_d) in math2zerograd
-#     @eval begin
-#         @zerograd $_f(x1::Node, x2::Node)
-#         @zerograd $_f(x1::Node, x2::Number)
-#         @zerograd $_f(x1::Node, x2::AbstractArray)
-#         @zerograd $_f(x1::Number,x2::Node)
-#         @zerograd $_f(x1::AbstractArray,x2::Node)
-#     end
-# end
-
-# # TODO: look at broadcast.jl
-# # TODO: transpose, reshape, concat, copy?
-# # TODO: anything else in linalg?
+# eval
+# clamp
+# clamp!
+# rad2deg
+# deg2rad
+# log
+# $(Expr(:$, :f)): Not a symbol
+# cbrt
+# exp2
+# exp10
+# sqrt
+# hypot
+# atan2
+# max
+# min
+# minmax
+# ldexp
+# exponent
+# significand
+# frexp
+# modf
+# ^
+# angle_restrict_symm: Not exported
+# add22condh: Not exported
+# ieee754_rem_pio2: Not exported
+# mod2pi

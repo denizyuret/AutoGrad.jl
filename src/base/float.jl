@@ -80,3 +80,60 @@ float2arg1 = Dict{Symbol,Any}(
 # #:& => :todo,                     # domain: Integers, bitwise and
 # #:| => :todo,                     # domain: Integers, bitwise or
 # )
+
+
+# TODO:
+
+# eval
+# convert
+# promote_rule
+# float
+# unsafe_trunc
+# trunc
+# floor
+# ceil
+# round
+# widen
+# -
+# +
+# *
+# /
+# muladd
+# rem
+# cld
+# mod
+# ==
+# !=
+# <
+# <=
+# isequal
+# isless
+# cmp
+# abs
+# isnan
+# isfinite
+# isinf
+# hx: Not exported
+# hash
+# precision
+# float_lex_order: Not exported
+# nextfloat
+# prevfloat
+# issubnormal
+# typemin
+# typemax
+# realmin
+# realmax
+# eps
+# bswap
+# reinterpret
+# sign_mask: Not exported
+# exponent_mask: Not exported
+# exponent_one: Not exported
+# exponent_half: Not exported
+# significand_mask: Not exported
+# significand_bits: Not exported
+# exponent_bits: Not exported
+# exponent_bias: Not exported
+# $(Expr(:$, :fn)): Not a symbol
+# big

@@ -6,20 +6,27 @@
 	# remove the need for transpose in matmul.
 	# use more specific type signatures instead of ambiguous Nval.
 	# get rid of the _name hash: it prevents gc, write a specific dbg printer instead.
+	# work on efficiency (are closures efficient? nothing instead of zero arrays?). do closures get garbage collected?
+	# check out JuliaDiff/ReverseDiffSource: cannot handle while loops? http://www.juliadiff.org/
+
+	* PLAN:
+	# exhaust primitives by implementing more models.
+	# complete primitive implementations, utilities and release optimized cpu version.
+	# try supporting cuda without overwriting, see the speed.
+	# if that doesn't work seriously think about overwriting.
 
 	* TODO:
-	# work on efficiency (are closures efficient? nothing instead of zero arrays?). do closures get garbage collected?
-	# work on memory: overwriting: 3arg (overwriting) functions or julia v0.5 overwrite syntax or InplaceOps.
-	# remove sum_outgrads by using the first outgrad as the accumulator, but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
-	# check out JuliaDiff/ReverseDiffSource: cannot handle while loops? http://www.juliadiff.org/
-	# copying, reshaping, subarrays and concatenation? vcat.
-	# implement quick_grad_check for mnist.
-	# support CudaArrays.
-	# use TypeNode <: Type instead of Node{Type}?
-	# rnn example?
-	# implement convenience_wrappers (jacobian etc)?
-	# finish all function gradients.
+	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
+	# copying, reshaping, subarrays and concatenation? vcat. finish all function gradients.
+	# optimize for (tuple) loops in core.jl?
+	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
 	# write documentation and publish.
+	# support CudaArrays and compare mnist speed with Knet. (without overwriting at first, fix gc)
+	## need gpu *,.+,.-,.*,max,log,exp,sum,sum1 and whatever is needed for their gradients.
+	## basically matmul, broadcast, relu and softmax...
+	# work on memory: overwriting: 3arg (overwriting) functions (Ax_mul_Bx, broadcast) or julia v0.5 overwrite syntax or InplaceOps.
+	# remove sum_outgrads by using the first outgrad as the accumulator, but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
+	# use TypeNode <: Type instead of Node{Type}?
 
 	* profiling:
 
@@ -87,7 +94,12 @@
        257 no file; /; line: 0
        168 no file; sum; line: 0
 
-	(18) after matmul is fixed (no transpose):
+	(18) after matmul is fixed (no transpose, compare to #17):
+	0. 1.001226 seconds (769.42 k allocations: 256.563 MB)
+	1. 0.927784 seconds (767.02 k allocations: 256.527 MB)
+	2. 0.262618 seconds (60.78 k allocations: 58.240 MB)
+	3. 0.241753 seconds (29.58 k allocations: 49.606 MB)
+	4. 0.421250 seconds (450.78 k allocations: 76.220 MB)
 
    5567 ...d/examples/footime.jl; train0; line: 73  g = gradfun(w, x, y)
     5557 ...AutoGrad/src/core.jl; gradfun; line: 36  backward_pass(forward_pass(fun, args, kwargs, argnum)...)
@@ -140,6 +152,25 @@
        217 no file; .*; line: 0
        157 no file; /; line: 0
        116 no file; sum; line: 0
+
+	(19) AutoGrad vs Knet timing with/without gpu, 10 epoch, mnist64 on biyofiz-4-1:
+
+	AutoGrad CPU:
+	0. 6.171894 seconds (7.69 M allocations: 2.505 GB) forw+rec-back-update
+	1. 6.265890 seconds (7.67 M allocations: 2.505 GB) forw+rec-back
+	2. 1.673144 seconds (607.80 k allocations: 582.394 MB) forw
+	3. 1.471988 seconds (295.80 k allocations: 496.060 MB) forw (no loss)
+	4. 3.023412 seconds (4.51 M allocations: 762.204 MB)   forw+rec
+
+	Knet CPU:
+	0. 7.661409 seconds (88.90 M allocations: 1.367 GB)  forw-back-update
+	1. 8.407676 seconds (108.31 M allocations: 1.653 GB) forw-back
+	2. 4.235033 seconds (54.22 M allocations: 845.108 MB) forw
+
+	Knet GPU:
+	0. 2.925609 seconds (4.22 M allocations: 189.742 MB) forw-back-update
+	1. 2.792329 seconds (4.08 M allocations: 184.254 MB) forw-back
+	2. 1.417462 seconds (1.96 M allocations: 86.087 MB)  forw
 
 2016-08-18  Deniz Yuret  <dyuret@ku.edu.tr>
 

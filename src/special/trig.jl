@@ -50,3 +50,22 @@ for (f,g) in ((:acot, :cot),
     gx = eval(g)
     testargs(::Fn{f},a...)=map(gx, testargs(Fn2(f),a...))
 end
+
+
+# TODO:
+
+# eval
+# sin_kernel: Not exported
+# cos_kernel: Not exported
+# mulpi_ext: Not exported
+# sinpi
+# cospi
+# sinc
+# cosc
+# $(Expr(:$, :finv)): Not a symbol
+# $(Expr(:$, :fa)): Not a symbol
+# deg2rad_ext: Not exported
+# sind
+# cosd
+# tand
+# $(Expr(:$, :fd)): Not a symbol

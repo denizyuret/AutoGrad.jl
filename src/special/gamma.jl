@@ -25,3 +25,29 @@ defgrads(gamma2arg, AbstractArray, AbstractArray)
 
 testargs{T1<:Number,T2}(::Fn{:polygamma}, ::Type{T1}, ::Type{T2})=(rand(0:5),testargs(Fn2(:polygamma),T2)...)
 testargs{T1<:AbstractArray,T2}(::Fn{:polygamma}, ::Type{T1}, ::Type{T2})=(rand(0:5,2),testargs(Fn2(:polygamma),T2)...)
+
+
+# TODO:
+
+# eval
+# gamma
+# lgamma_r: Not exported
+# lfact
+# clgamma_lanczos: Not exported
+# lgamma
+# digamma
+# trigamma
+# signflip: Not exported
+# cotderiv_q: Not exported
+# cotderiv: Not exported
+# inv_oftype: Not exported
+# zeta
+# polygamma
+# f64: Not exported
+# f32: Not exported
+# f16: Not exported
+# $(Expr(:$, :f)): Not a symbol
+# invdigamma
+# beta
+# lbeta
+# eta

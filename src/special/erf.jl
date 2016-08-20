@@ -5,3 +5,11 @@ erf1arg = Dict{Symbol,Any}(
 #:erfi => :todo,     # erf,operators
 #:erfinv => :todo,   # erf,operators
 )
+
+
+# TODO:
+
+# eval
+# $(Expr(:$, :fname)): Not a symbol
+# erfinv
+# erfcinv

@@ -27,3 +27,46 @@ defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat; dymul=false)
 for (_f,_d) in matmul2arg
     testargs(::Fn{_f},t1,t2)=(rand(2,2),rand(2,2))
 end
+
+
+# TODO:
+
+# eval
+# arithtype: Not exported
+# scale!
+# scale
+# vecdot
+# dot
+# Ac_mul_B
+# At_mul_B
+# *
+# A_mul_B!
+# At_mul_B!
+# Ac_mul_B!
+# A_mul_Bt
+# A_mul_Bt!
+# At_mul_Bt
+# At_mul_Bt!
+# A_mul_Bc
+# A_mul_Bc!
+# Ac_mul_Bc
+# Ac_mul_Bc!
+# Ac_mul_Bt: Not exported
+# Ac_mul_Bt!: Not exported
+# copytri!: Not exported
+# gemv!: Not exported
+# syrk_wrapper!: Not exported
+# herk_wrapper!: Not exported
+# gemm_wrapper: Not exported
+# gemm_wrapper!: Not exported
+# lapack_size: Not exported
+# copy!
+# copy_transpose!: Not exported
+# generic_matvecmul!: Not exported
+# generic_matmatmul: Not exported
+# generic_matmatmul!: Not exported
+# _generic_matmatmul!: Not exported
+# matmul2x2: Not exported
+# matmul2x2!: Not exported
+# matmul3x3: Not exported
+# matmul3x3!: Not exported

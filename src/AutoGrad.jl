@@ -12,8 +12,11 @@ macro dbgutil(x); end
 
 include("core.jl")
 include("util.jl")
-include("collections.jl")
+include("interfaces.jl")
 include("base/abstractarray.jl")
+include("base/array.jl")
+include("base/tuple.jl")
+include("base/dict.jl")
 include("base/arraymath.jl")
 include("base/number.jl")
 include("base/float.jl")

@@ -46,3 +46,36 @@ bessel2arg = Dict{Symbol,Any}(
 # :hankelh2x => :todo,                     # bessel,operators
 )
 
+# TODO:
+
+# eval
+# $(Expr(:$, :bjynu)): Not a symbol
+# _airy: Not exported
+# _biry: Not exported
+# airy
+# airyprime
+# airyai
+# airyaiprime
+# airybi
+# airybiprime
+# airyx
+# _besselh: Not exported
+# _besseli: Not exported
+# _besselj: Not exported
+# _besselk: Not exported
+# _bessely: Not exported
+# besselh
+# besselhx
+# besseli
+# besselix
+# besselj
+# besseljx
+# besselk
+# besselkx
+# bessely
+# besselyx
+# hankelh1
+# hankelh2
+# hankelh1x
+# hankelh2x
+# $(Expr(:$, :bfn)): Not a symbol
