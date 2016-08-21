@@ -1,8 +1,39 @@
 # Here we will define iteration (start,done,next) and indexing
 # (getindex,setindex!,endof) interfaces for generic Node types.
 
-# Specific types like AbstractArray and Associative need only define
-# the next, endof, and ungetindex methods.
+# Julia handles access to AbstractArray, Associative, and Tuple
+# subtypes using getindex:
+
+# getindex(obj, key...) => value
+# setindex!(obj, val, key...) => obj
+
+# So we can handle these container types by overloading getindex
+
+@primitive  getindex(x,i...)  dy->ungetindex(x,dy,i...)
+setindex!(x::Node,i...)=error("Overwriting operations currently not supported.")
+
+# If y=getindex(x,i...) and we receive dy, ungetindex creates dx as
+# zeros similar to x, with only dx[i] set to dy.  For efficiency zero
+# arrays are represented with `nothing`. The user should define
+# ungetindex for specific types.
+
+ungetindex(x,a...)=throw(MethodError(ungetindex,x))
+ungetindex{T}(x::AbstractArray{T}, dy, i...)=(dx = isbits(T) ? zeros(x) : fill!(Array(Any, size(x)), nothing); setindex!(dx,dy,i...); dx)
+ungetindex(x::Associative, dy, i...) = (dx=similar(x);setindex!(dx,dy,i...);dx)
+ungetindex(x::Tuple, dy, i) = ntuple(j->(j==i ? dy : nothing), length(x))
+
+# In case of a higher order gradient, ungetindex would be called with
+# Node inputs and needs to be recording primitive.
+
+@primitive ungetindex(x,a...)
+
+# dx=ungetindex(x,dy,i...) returned dx as all zeros with dx[i]=dy.
+# Now we receive the gradient wrt its output: ddx.  To get the
+# gradient wrt its dy input, we just need to extract ddx[i].  It is
+# not differentiable wrt other inputs.
+
+ungetindex(::D2,dx,x,dy,i...) = ddx->getindex(ddx,i...)
+
 
 # Iteration is used in `for x in a` loops and for `(x,y)=a` multiple
 # assignments.
@@ -12,47 +43,67 @@
 # next(a,state) => (element, nextState)
 
 # start and done return state and bool, not differentiable.
-# next returns a tuple with an element and needs to be defined.
 start(a::Node)=start(a.value)
 done(a::Node,i)=done(a.value,i)
+
+# next returns a tuple with an element and needs to be defined for each iterable.
+# Specific types need to define their own next methods for Nodes:
+
 next(a::Node,i)=throw(MethodError(next,(a,i)))
+next{T<:Array}(a::Node{T},i) = (a[i],i+1)
+next{T<:Tuple}(a::Node{T},i) = (a[i],i+1)
+next{T<:Number}(a::Node{T},i) = (a,true)
 
-# Julia handles access to AbstractArray, Associative, and Tuple
-# subtypes using getindex:
+# Finally here are some common functions that do not return floats
+# (e.g. length) or return constant outputs (e.g. zero).
 
-# getindex(obj, key...) => value
-# setindex!(obj, val, key...) => obj
+interfaces1arg = [
+:eltype,                                     
+:endof,
+:isempty,
+:length,
+:ndims,                                     
+:one,
+:ones,
+:strides,
+:zero,
+:zeros,
+]
 
-# So we can handle these container types by overloading getindex,
-# defining getindex and ungetindex (used for gradient) as primitives.
+for f in interfaces1arg
+    @eval $f(a::Node)=$f(a.value)
+end
 
-@primitive getindex(x::Node,i...)
-getindex(::D1,y::Node,x::Node,i...) = dy->ungetindex(x,dy,i...) # y=x[i], dy=dJ/dy
+interfacesNarg = [
+:checkbounds,
+:eachindex,
+:isassigned,
+:pointer,
+:similar,
+:size,
+:stride,
+]
 
-# setindex! is an overwriting operation and not supported for now:
-setindex!(x::Node,i...)=error("Overwriting operations currently not supported.")
+for f in interfacesNarg
+    @eval $f(a::Node, i...)=$f(a.value,i...)
+end
 
-# endof is type specific:
-endof(x::Node)=throw(MethodError(endof,(x,)))
+interfaces2arg = [
+:(==),
+:isequal,
+:isless,
+]                  
 
-# If y=getindex(x,i...) and we receive dy, we need to create dx as
-# with zeros similar to x, with only dx[i] set to dy.  The user should
-# define ungetindex for specific types.
+==(a::WeakRef,b::Node)=(a==b.value) # prevents clash with base.jl:68
+==(a::Node,b::WeakRef)=(a.value==b) # prevents clash with base.jl:69
 
-ungetindex(x,dy,i...)=throw(MethodError(ungetindex,x))
+for f in interfaces2arg
+    @eval $f(a::Node,b::Node)=$f(a.value,b.value)
+    @eval $f(a::Node,b)=$f(a.value,b)
+    @eval $f(a,b::Node)=$f(a,b.value)
+end
 
-# In case of a higher order gradient, ungetindex would be called with
-# Node inputs and needs to be recording primitive.
-
-@primitive ungetindex(x::Node,dy,i...)
-
-# dx=ungetindex(x,dy,i...) returned dx as all zeros with dx[i]=dy.
-# Now we receive the gradient wrt its output: ddx.  To get the
-# gradient wrt its dy input, we just need to extract ddx[i].  It is
-# not differentiable wrt other inputs.
-
-ungetindex(::D2,dx,x,dy,i...) = ddx->getindex(ddx,i...)
-
+@primitive copy(x) identity
 
 ### DEAD CODE:
 
@@ -79,3 +130,8 @@ ungetindex(::D2,dx,x,dy,i...) = ddx->getindex(ddx,i...)
 # @primitive ungetindex{T<:Tuple}(x::Node{T},dy,i)
 
 # ungetindex{N}(::Dn{N}, dx...) = 0 # only arg 2 has a gradient
+
+# getindex_r = recorder(getindex)
+# getindex(x::Node,i...)=getindex_r(x,i...)
+# getindex(::D1,y::Node,x::Node,i...) = dy->ungetindex(x,dy,i...) # y=x[i], dy=dJ/dy
+

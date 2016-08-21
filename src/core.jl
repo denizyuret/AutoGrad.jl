@@ -74,24 +74,16 @@ function forward_pass(fun, args, kwargs, argnum)
 end
 
 # forward_pass: ((N(X)->N(Y)/Y),N(X)/X,K,I)->(N(X),N(Y)/Y,T)
-# deps: CalculationTape, Node, getval, merge_tapes
-# also float extended to handle cell arrays, Tuple and Dict in util.jl
-getval(x) = isa(x, Node) ? x.value : x  # we never create Node(Node).
+# forward deps: CalculationTape, Node, getval, tofloat, merge_tapes
 
 # 3. If a primitive operator inside f gets a Node input, it records its action and returns a Node output.
 
 # 3.1 We implement this by dispatching f to r=recorder(f) if any of
 # its arguments is a Node.  r unboxes the arguments, calls f, boxes
 # and returns the result, recording the result and its gradient
-# functions for each argument.
+# functions for each argument.  Here is where r gets created:
 
-"""
-recorder(fun) returns rfun, a recording version of fun.  rfun is defined with
-a generic signature r(args...; kwargs...) and is intended to catch all
-invocations that have at least one Node argument.
-"""
-function recorder(f)
-    # @dbgcore((:recorder,f))
+function recordfn(f)
     function r(args...; kwargs...)
         @dbgcore((:call, f, args..., kwargs...))
         argvals = Any[args...]
@@ -158,6 +150,20 @@ function recorder(f)
     return r
 end
 
+# 3.8 We only need one recorder per function, but recorder(f) may be
+# called many times for different methods.  To avoid duplication we
+# hold recorders in a hash.
+
+make_recorder(d::ObjectIdDict)=(f->get!(d,f,recordfn(f)))
+
+"""
+recorder(fun) returns rfun, a recording version of fun.  rfun is defined with
+a generic signature r(args...; kwargs...) and is intended to catch all
+invocations that have at least one Node argument.
+"""
+recorder = make_recorder(ObjectIdDict())
+
+# recorder deps: iscomplete, Node, Grad
 
 # 4. g calls backward_pass which returns the gradient df/dx.
 
@@ -234,6 +240,7 @@ function backward_pass(start_node, end_node, tape)
     return cur_outgrad
 end
 
+# back deps: getval, complete!, sum_outgrads
 
 # 5. How recording is done.
 
@@ -329,110 +336,10 @@ complete!(a::CalculationTape)=push!(a,ReverseNode(nothing))
 
 # 6. How new primitives and their gradients are defined.
 
-# 6.1 @primitive
-
-"""
-`@primitive f(args...; kwargs...)` causes f to call its recorder
-method for the argument signature provided (see `recorder`).  Note
-that the recorder method will give an error unless one of the
-arguments is a Node. Examples:
-
-`@primitive log(x...; o...)` will cause all calls to `log` not matched
-by any other method to call the recorder method.  This is not
-recommended, it is usually better to specify argument types.
-
-`@primitive log` is defined as syntactic sugar for `@primitive log(x...; o...)`.
-
-`@primitive getindex(x::Node, i)` will cause `getindex` to call its
-recorder method only if the first argument is a Node.
-
-`@primitive sum{T<:Number}(a::Node{Array{T}})` will cause `sum` to
-call its recorder method for Nodes that box Arrays of Number subtypes.
-"""
-macro primitive(fx)
-    isa(fx, Symbol) && (fx = :($fx(x...;o...)))
-    (isa(fx, Expr) && fx.head == :call) || error("Malformed @primitive $fx, see `doc @primitive`.")
-    rx = notypes(fx)
-    f = rx.args[1]
-    rx.args[1] = r = gensym()
-    esc(:(local $r = recorder($f); $fx=$rx))
-end
-
-function notypes(ex)
-    if isa(ex, Expr)
-        if (ex.head == :(::) || ex.head == :curly)
-            return notypes(ex.args[1])
-        else
-            return Expr(ex.head, map(notypes, ex.args)...)
-        end
-    else
-        return ex
-    end
-end
-
-# 6.2 @zerograd
-
-"""
-`@zerograd f(args...; kwargs...)` allows f to handle its Node inputs
-by unboxing them like @primitive, but unlike @primitive it does not
-record its actions or return a Node result.  Some functions, like
-sign(), have zero gradient.  These need to handle Node inputs, but do
-not need to record anything and can return regular values.  Their
-output can be treated like a constant in the program.  Use the
-@zerograd macro for those.  Note that kwargs are NOT unboxed. (other
-exceptions to recording: gradient functions, some utilities, zerograd
-functions, a completed tape).
-"""
-macro zerograd(fx)
-    isa(fx, Symbol) && (fx = :($fx(x...;o...)))
-    (isa(fx, Expr) && fx.head == :call) || error("Malformed @zerograd $fx, see `doc @zerograd`.")
-    rx = notypes(fx)
-    f = rx.args[1]
-    rx.args[1] = r = gensym()
-    esc(:(local $r = unboxnodes($f); $fx=$rx))
-end
-
-function unboxnodes(f)
-    u(x...; o...)=f(map(getval,x)...; o...)
-    return u
-end
-
-
-# Finally, some functions may have non-zero gradients for some
-# arguments, zero for others.  My untested method (TODO: test): use
-# @primitive, when defining gradients, define the non-zero ones
-# normally with f(::Di,y,x...)=(dy->...), and mark the zero gradients
-# with gradmaker returning 0 instead of a function: f(::Di,y,x...)=0.
-
-# 6.3 Gradients: For gradients we define a gradmaker for each
-# primitive method p and argnum.  The gradmaker returns a gradient
-# function (df/dy->df/dx) that has access to the original input/output
-# through a closure.  Julia has multiple-dispatch, which means each
-# argument type combination for a function might end up calling a
-# different method, each potentially requiring different gradients.
-# So we store gradmakers in methods called with `f(Grad{N}, y, x...)`.
-# `Grad{N}` represents the gradient wrt the N'th argument, y is the
-# output and x... are the inputs of the original function.  This way
-# we can use method dispatch to find the appropriate gradient by
-# specifying types for x.  Example:
-# `sin{T<:Number}(::Type{Grad{1}},y::Node{T},x::Node{T})=(dy->dy*cos(x))`
-
-# It gets tiresome to write `Type{Grad{1}}` after a while, here are
-# some convenient aliases:
-
+# TODO... mention recorder and Grad here.
 if !isdefined(:Grad)
     immutable Grad{N}; end          # Gradient wrt N'th argument
 end
-typealias D1 Type{Grad{1}}
-typealias D2 Type{Grad{2}}
-if !isdefined(:Dn)
-typealias Dn{N} Type{Grad{N}}
-end
-
-# Some functions do not have gradients wrt some arguments.  Example:
-# getindex(array, index) is not differentiable wrt index.  We indicate
-# this using a gradmaker function that returns 0 (serving the same
-# role as zero_grads in Python autograd).
 
 # 7. How higher order gradients work.
 
@@ -466,6 +373,8 @@ end
 
 # 8.1 Node, getval: these box, unbox, and float values.
 
+getval(x) = isa(x, Node) ? x.value : x  # we never create Node(Node).
+
 # 8.2 merge_tapes: Used by forward_pass to support higher order
 # gradients. Records its operation if both its arguments are Nodes.
 # Its first argument is a newly created Node.  Its second argument is
@@ -476,11 +385,11 @@ end
 # argument is not a Node, simply returns its first arg without
 # recording anything.
 
-merge_tapes(x,y) = x
+merge_tapes(a,b)=a
+merge_tapes_r = recorder(merge_tapes)
+merge_tapes{T}(a::Node{T},b::Node{T})=merge_tapes_r(a,b)
 # The derivatives simply pass the gradients back.
-merge_tapes(::D1,c,a,b) = (x->x)   
-merge_tapes(::D2,c,a,b) = (x->x)
-@primitive merge_tapes(x::Node,y::Node)
+merge_tapes{N,T}(::Type{Grad{N}},c::Node{T},a::Node{T},b::Node{T}) = identity
 
 
 # 8.3 gradient makers like merge_tapes(::D1,c,a,b) and gradfuns they return
@@ -513,7 +422,7 @@ merge_tapes(::D2,c,a,b) = (x->x)
 # higher order derivatives.
 
 # A: what if first outgrad is a Node and others aren't, or vice versa?  handled by @primitive.
-# A: what should the output be if some of the inputs are Nodes?  Is sum_outgrads a primitive? Yes.
+# A: what should the output be if some of the inputs are Nodes?  Is sum_outgrads a primitive? No, its input is never a Node, maybe an array including Nodes.  Its helper is a primitive.
 # A: for array and dict can we just modify the first element of outgrads?  This may be dangerous because the same outgrad may be passed back to more than one target e.g. by `+`.
 
 # TODO: Instead of maintaining an array of outgrads then summing them, why not keep a sum to avoid allocation?
@@ -529,15 +438,16 @@ function sum_outgrads(x)
     sum_helper(a...)
 end
 
-sum_outgrads{N}(::Dn{N}, y, x)=identity
-@primitive sum_outgrads
-
 sum_helper(a::Number, b::Number, c::Number...)=sum([a,b,c...])
 sum_helper(a::Tuple, b::Tuple, c::Tuple...)=tuple([sum_outgrads(e) for e in zip(a,b,c...)]...)
 sum_helper{T}(a::AbstractArray{T},b::AbstractArray{T},c::AbstractArray{T}...) =
     (isbits(T) ? broadcast(+,a,b,c...) : [sum_outgrads(e) for e in zip(a,b,c...)])
 sum_helper(a::Associative, b::Associative, c::Associative...) =
     (z=similar(a); for d in (a,b,c...), (k,v) in d; z[k]=v+get(z,k,0); end; z)
+
+sum_helper_r = recorder(sum_helper)
+sum_helper(x...)=sum_helper_r(x...)
+sum_helper{N}(::Type{Grad{N}}, y, x...)=identity
 
 function remove_nothings(x)
     a = []
@@ -546,3 +456,14 @@ function remove_nothings(x)
     end
     return a
 end
+
+# TODO: check if we really need tofloat.
+# converts nested values to float.
+# tofloat uses float for Number and AbstractArray (for isleaftype)
+tofloat(x::Number)=float(x)
+tofloat{T<:Number}(x::AbstractArray{T})=float(x)
+# tofloat extends to Tuple, Associative, and arbitrary Arrays
+tofloat(x::Tuple)=(all(isfloat,x) ? x : ntuple(i->tofloat(x[i]), length(x)))
+tofloat(x::Associative)=(all(isfloat,values(x)) ? x : (a=similar(x); for (k,v) in x; a[k]=tofloat(v); end; a))
+tofloat(x::AbstractArray)=(all(isfloat,x) ? x : map(tofloat,x))
+isfloat(x)=isa(x,AbstractFloat)

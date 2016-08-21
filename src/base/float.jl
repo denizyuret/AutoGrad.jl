@@ -12,8 +12,20 @@ float1arg = Dict{Symbol,Any}(
 :trunc => 0,                    # float,operators
 )
 
-defgrads(float1arg, Number)
-defgrads(float1arg, AbstractArray)
+for (f,g) in float1arg
+    if g==0
+        @eval @zerograd $f(x::AorN)
+    elseif g==1
+        @eval @primitive $f(x::AorN) identity
+    else
+        @eval @primitive $f(x::AorN) (dy->dy.*$g)
+    end
+    addtest(f, randn())
+    addtest(f, randn(2))
+end
+
+# defgrads(float1arg, Number)
+# defgrads(float1arg, AbstractArray)
 
 float2arg = Dict{Symbol,Any}(
 :+ => (1,1),                     # extra (N,) (A,); float,arraymath,abstractarraymath,operators
@@ -26,42 +38,67 @@ float2arg = Dict{Symbol,Any}(
 #:(==) => 0,                      # BUG: StackOverflowError(). supports any pair of values; float,operators,abstractarray
 )
 
-defgrads(float2arg, Number, Number)
-defgrads(float2arg, AbstractArray, Number)
-defgrads(float2arg, Number, AbstractArray)
-defgrads(float2arg, AbstractArray, AbstractArray)
+for (f,g) in float2arg
+    if g == 0
+        @eval @zerograd $f(x1::AorN,x2::AorN)
+    else
+        g = map(g) do gi
+            (gi == 0 ? 0 :
+             gi == 1 ? identity :
+             :(dy->dy.*$gi))
+        end
+        @eval @primitive $f(x1::AorN,x2::AorN)::y unbroadcast(y,x1,$(g[1])) unbroadcast(y,x2,$(g[2]))
+    end
+    addtest(f,randn(),randn())
+    addtest(f,randn(),randn(2))
+    addtest(f,randn(2),randn())
+    addtest(f,randn(2),randn(2))
+end
+
+# defgrads(float2arg, Number, Number)
+# defgrads(float2arg, AbstractArray, Number)
+# defgrads(float2arg, Number, AbstractArray)
+# defgrads(float2arg, AbstractArray, AbstractArray)
 
 # Methods for multiplication:
 # *(x::Float64, y::Float64) at float.jl:212  (same as .*)
 # *(A::Number, B::AbstractArray{T,N}) at abstractarraymath.jl:54  (calls .*)
 # *(A::AbstractArray{T,N}, B::Number) at abstractarraymath.jl:55  (calls .*)
 # The Array-Array case is handled by linalg/matmul.
-float2mul = Dict{Symbol,Any}(
-:* => (:x2,:x1),                   # (N,) (M,) (N,*) (*,N) (M,V) (M,M)
-)                             
+# float2mul = Dict{Symbol,Any}(
+# :* => (:x2,:x1),                   # (N,) (M,) (N,*) (*,N) (M,V) (M,M)
+# )                             
 
-defgrads(float2mul, Number, Number)
-defgrads(float2mul, AbstractArray, Number)
-defgrads(float2mul, Number, AbstractArray)
+# defgrads(float2mul, Number, Number)
+# defgrads(float2mul, AbstractArray, Number)
+# defgrads(float2mul, Number, AbstractArray)
+
+@primitive (*)(x1::Number,x2::Number) (dy->dy.*x2) (dy->dy.*x1)
+@primitive (*)(x1::Number,x2::AbstractArray)::y unbroadcast(y,x1,(dy->dy.*x2)) (dy->dy.*x1)
+@primitive (*)(x1::AbstractArray,x2::Number)::y (dy->dy.*x2) unbroadcast(y,x2,(dy->dy.*x1))
 
 # Methods for division:
 # /(x::Float64, y::Float64) at float.jl:214
 # /(A::AbstractArray{T,N}, B::Number) at abstractarraymath.jl:57
 # The Array-Array case is handled by linalg/generic.
 
-float2div = Dict{Symbol,Any}(
-:/ => (:(1./x2),:(-x1./abs2(x2))), # (N,N) (A,N)
-)                             
+# float2div = Dict{Symbol,Any}(
+# :/ => (:(1./x2),:(-x1./abs2(x2))), # (N,N) (A,N)
+# )                             
 
-defgrads(float2div, Number, Number)
-defgrads(float2div, AbstractArray, Number)
+# defgrads(float2div, Number, Number)
+# defgrads(float2div, AbstractArray, Number)
 
-float2arg1 = Dict{Symbol,Any}(
-:< => 0,                         # only supports (N,N), arrays not supported; float,operators
-:<= => 0,                        # only supports (N,N), arrays not supported; float,operators
-:> => 0,                         # only supports (N,N), arrays not supported; operators
-:>= => 0,                        # only supports (N,N), arrays not supported; operators
-)
+@primitive (/)(x1::Number,x2::Number) (dy->dy./x2) (dy->-dy.*x1./abs2(x2))
+@primitive (/)(x1::AbstractArray,x2::Number)::y (dy->dy./x2) unbroadcast(y,x2,(dy->-dy.*x1./abs2(x2)))
+
+# These are defined in terms of isless which is handled in interfaces.jl
+# float2arg1 = Dict{Symbol,Any}(
+# :< => 0,                         # only supports (N,N), arrays not supported; float,operators
+# :<= => 0,                        # only supports (N,N), arrays not supported; float,operators
+# :> => 0,                         # only supports (N,N), arrays not supported; operators
+# :>= => 0,                        # only supports (N,N), arrays not supported; operators
+# )
 
 #BUG defgrads(float2arg1, Number, Number) # causes segfault?
 

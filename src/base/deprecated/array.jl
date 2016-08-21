@@ -1,10 +1,3 @@
-# This is different from AbstractArray:
-next{T<:Array}(a::Node{T},i) = (a[i],i+1)
-
-# Other functions in array.jl:
-#
-# eval
-# call
 # cconvert: Not exported
 # size
 # asize_from: Not exported

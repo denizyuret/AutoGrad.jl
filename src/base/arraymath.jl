@@ -1,16 +1,8 @@
-arraymath1arg = Dict{Symbol,Any}(
-:transpose => :transpose,
-:ctranspose => :ctranspose,
-)
-
-defgrads(arraymath1arg, AbstractVecOrMat, dymul=false)
-
-# Other functions in arraymath.jl:
-
-# eval
-# conj!
-# $(Expr(:$, :f)): Not a symbol
+# conj!: Overwriting operation
 # -
+# ~
+# conj
+# sign
 # real
 # imag
 # !
@@ -19,18 +11,39 @@ defgrads(arraymath1arg, AbstractVecOrMat, dymul=false)
 # .\
 # .^
 # +
+# div
+# mod
+# &
+# |
+# $
+# .+
+# .-
+# .*
+# .%
+# .<<
+# .>>
+# rem
 # slicedim
 # flipdim
 # rotl90
 # rotr90
 # rot180
-# transpose!
+# transpose!: Overwriting
 # transposeblock!: Not exported
-# ctranspose!
+# ctranspose!: Overwriting
 # ctransposeblock!: Not exported
 # ccopy!: Not exported
 # transpose
+@primitive transpose(x::AbstractVecOrMat)  transpose
+addtest(:transpose, rand(2,2))
+addtest(:transpose, rand(2))
 # ctranspose
+@primitive ctranspose(x::AbstractVecOrMat) ctranspose
+addtest(:ctranspose, rand(2,2))
+addtest(:ctranspose, rand(2))
 # _cumsum_type: Not exported
-# $(Expr(:$, :fp)): Not a symbol
-# $(Expr(:$, :f!)): Not a symbol
+# cumsum
+# cumsum!
+# cumsum_pairwise!
+# cummin
+# cummax

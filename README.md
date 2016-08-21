@@ -58,8 +58,8 @@ for details.
 [core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
 implements the main functionality with some support functions in
 [util.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/collections.jl).
-[collections.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/collections.jl)
-adds support for Arrays, Tuples, and Dictionaries.  The numerical
+[interfaces.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/interfaces.jl)
+sets up support for Arrays, Tuples, and Dictionaries.  The numerical
 gradients are defined in files such as `base/math.jl`,
 `special/trig.jl` that mirror the organization under `julia/base`.
 
@@ -72,9 +72,9 @@ as described in detail in
 Here is an example:
 
 ```
-@primitive hypot
-hypot(Grad{1}, y, x1, x2)=(dy->dy.*x1./y)
-hypot(Grad{2}, y, x1, x2)=(dy->dy.*x2./y)
+@primitive hypot(x1, x2)
+hypot(::D1, y, x1, x2)=(dy->dy.*x1./y)
+hypot(::D2, y, x1, x2)=(dy->dy.*x2./y)
 ```
 
 The `@primitive` macro marks `hypot` as a new primitive and the next

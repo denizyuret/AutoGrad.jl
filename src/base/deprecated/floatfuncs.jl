@@ -1,7 +1,7 @@
-floatfuncs2arg = Dict{Symbol,Any}(
-:copysign => :todo,                      # floatfuncs,operators
-:flipsign => :todo,                      # floatfuncs,operators
-)
+# floatfuncs2arg = Dict{Symbol,Any}(
+# :copysign => :todo,                      # floatfuncs,operators
+# :flipsign => :todo,                      # floatfuncs,operators
+# )
 
 # TODO:
 

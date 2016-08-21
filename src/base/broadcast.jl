@@ -14,20 +14,31 @@ broadcast2arg = Dict{Symbol,Any}(
 :.^ => (:(x2.*x1.^(x2-1)),:(y.*log(x1))), # domain: x1 >= 0 (unless we use complex args)
 # :.<  => 0, # BUG: MethodError(isless,(0.3836010032871748,N31(0.28940741417311505,(:A3,:R61))))
 # :.<= => 0, # BUG: MethodError(isless,(N64(0.2943038720867562,(:A93,:R0)),1.6879170322331594))
-:.== => 0, # BUG: StackOverflowError()
+# :.== => 0, # BUG: StackOverflowError()
 # :.>  => 0, # BUG: StackOverflowError()
 # :.>= => 0, # BUG: StackOverflowError()
 #:.<< => :todo,                   # domain: Integers, left bit shift; operators,arraymath,broadcast
 #:.>> => :todo,                   # domain: Integers, right bit shift
 )
 
-defgrads(broadcast2arg, Number, Number)
-defgrads(broadcast2arg, AbstractArray, Number)
-defgrads(broadcast2arg, Number, AbstractArray)
-defgrads(broadcast2arg, AbstractArray, AbstractArray)
+for (f,g) in broadcast2arg
+    @eval @primitive $f(x1::AorN,x2::AorN)::y  unbroadcast(y,x1,dy->dy.*$(g[1]))  unbroadcast(y,x2,dy->dy.*$(g[2]))
+    addtest(f, randn(), randn())
+    addtest(f, randn(), randn(2))
+    addtest(f, randn(2), randn())
+    addtest(f, randn(2), randn(2))
+end
 
-testargs(::Fn{:.^},x...)=map(abs,testargs(Fn2(:.^),x...))
+@zerograd (.==)(x1::AorN,x2::AorN)
 
+# defgrads(broadcast2arg, Number, Number)
+# defgrads(broadcast2arg, AbstractArray, Number)
+# defgrads(broadcast2arg, Number, AbstractArray)
+# defgrads(broadcast2arg, AbstractArray, AbstractArray)
+
+# testargs(::Fn{:.^},x...)=map(abs,testargs(Fn2(:.^),x...))
+
+fixdomain(::Fn{:.^},x1,x2)=(abs(x1),x2)
 
 # Other functions in broadcast.jl:
 

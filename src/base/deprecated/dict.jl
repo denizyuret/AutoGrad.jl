@@ -1,5 +1,3 @@
-ungetindex(x::Associative, dy, i...) = (dx=similar(x);setindex!(dx,dy,i...);dx)
-
 # TODO:
 
 # eval
