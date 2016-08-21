@@ -23,13 +23,13 @@ broadcast2arg = Dict{Symbol,Any}(
 
 for (f,g) in broadcast2arg
     @eval @primitive $f(x1::AorN,x2::AorN)::y  unbroadcast(y,x1,dy->dy.*$(g[1]))  unbroadcast(y,x2,dy->dy.*$(g[2]))
-    addtest(f, randn(), randn())
-    addtest(f, randn(), randn(2))
-    addtest(f, randn(2), randn())
-    addtest(f, randn(2), randn(2))
 end
 
-@zerograd (.==)(x1::AorN,x2::AorN)
+# To avoid conflict at broadcast.jl:414 we cannot use AorN
+@zerograd (.==)(x1::AbstractArray,x2::AbstractArray)
+@zerograd (.==)(x1::AbstractArray,x2::Number)
+@zerograd (.==)(x1::Number,x2::AbstractArray)
+@zerograd (.==)(x1::Number,x2::Number)
 
 # defgrads(broadcast2arg, Number, Number)
 # defgrads(broadcast2arg, AbstractArray, Number)

@@ -22,7 +22,7 @@ math1arg = Dict{Symbol,Any}(
 :exp2 => :(y.*log(2)),                  # math,operators
 :expm1 => :(1+y),                       # math,operators
 :exponent => 0,                         # returns int; math,operators
-:lgamma => :(digamma(x)),               # math,operators
+# :lgamma => :(digamma(x)),               # math,operators TODO: must implement digamma
 :log => :(1./x),                        # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); math,operators
 :log10 => :(1./(log(10).*x)),           # math,operators
 :log1p => :(1./(1+x)),                  # math,operators
@@ -38,15 +38,12 @@ math1arg = Dict{Symbol,Any}(
 
 for (f,g) in math1arg
     @eval @primitive  $f(x::AorN)::y  (dy->dy.*$g)
-    addtest(f, randn())
-    addtest(f, randn(2))
 end
 
 for f in (:log, :log2, :log10, :sqrt); fixdomain(::Fn{f},x)=(abs(x),); end
 for f in (:acos, :asin, :atanh); fixdomain(::Fn{f},x)=(sin(x),); end
 fixdomain(::Fn{:log1p},x)=(abs(x)-1,)
 fixdomain(::Fn{:acosh},x)=(abs(x)+1,)
-
 
 # math2arg: These are functions that can handle mixing scalar and array
 # arguments.  Some of these functions come from grepping
@@ -83,10 +80,6 @@ log{T<:AorN}(x1::Irrational{:e},x2::Node{T})=log(float(x1),x2) # to avoid clash 
 
 for (f,g) in math2arg
     @eval @primitive $f(x1::AorN,x2::AorN)::y  unbroadcast(y,x1,dy->dy.*$(g[1]))  unbroadcast(y,x2,dy->dy.*$(g[2]))
-    addtest(f, randn(), randn())
-    addtest(f, randn(), randn(2))
-    addtest(f, randn(2), randn())
-    addtest(f, randn(2), randn(2))
 end
 
 fixdomain(::Fn{:log},x,y)=(abs(x),abs(y))
@@ -109,7 +102,6 @@ fixdomain(::Fn{:log},x,y)=(abs(x),abs(y))
 
 (^){T<:Number}(x1::Node{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
 @primitive (^)(x1::Number,x2::Number)::y  (dy->dy*x2*x1^(x2-1))  (dy->dy*y*log(x1))
-addtest(:(^), randn(), randn())
 fixdomain(::Fn{:^},x,y)=(abs(x),y)
 
 # TODO:

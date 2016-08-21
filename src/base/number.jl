@@ -1,9 +1,5 @@
 @zerograd sign(x::AorN)
 @primitive abs2(x::AorN) (dy->dy.*2.*x)
-for f in (:abs2,:sign)
-    addtest(f, randn())
-    addtest(f, randn(2))
-end
 
 # number1arg = Dict{Symbol,Any}(
 # :abs2 => :(2.*x),               # number,operators

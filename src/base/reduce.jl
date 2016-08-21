@@ -1,7 +1,5 @@
 @primitive  sum(x::AbstractArray,i...)  (dy->dy.+zeros(x))
-addtest(sum, rand(2,2))
-addtest(sum, rand(2,2), 1)
-addtest(sum, rand(2,2), 2)
+fixdomain(::Fn{:sum},x...)=(rand()<0.5 ? (rand(2,2),) : (rand(2,2),1))
 
 # reduce1sum = Dict{Symbol,Any}(
 # :sum => :(dy->dy.+zeros(x)),

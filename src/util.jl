@@ -1,5 +1,69 @@
-# new @primitive
+"""
 
+`@primitive fx g1 g2...` can be used to define a new primitive
+and (optionally) its gradients.
+
+Julia supports multiple dispatch, i.e. a single function can have
+multiple methods with different arg types.  AutoGrad supports
+multiple dispatch for primitives and gradients.  Thus fx is a
+typed method declaration such as:
+
+* @primitive sin(x::Number)
+* @primitive hypot(x1::Array,x2::Array)::y
+
+The second example shows the nonstandard extension of specifying
+a return variable `y` after a final `::` which can be used in
+gradient expressions.  Untyped, ellipsis and keyword arguments
+are ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
+`f{T<:Number}(x::T)` cannot be used.
+
+The @primitive macro turns the first example into:
+
+    local sin_r = recorder(sin)
+    sin{T<:Number}(x::Node{T}) = sin_r(x)
+
+This will cause any call to `sin` with a Node{T<:Number} argument
+to be recorded.  With multiple arguments things are a bit more
+complicated.  Here is what happens with the second example:
+
+    local hypot_r = recorder(hypot)
+    hypot{T<:Array,S<:Array}(x1::Node{T},x2::Node{S})=hypot_r(x1,x2)
+    hypot{T<:Array,S<:Array}(x1::Node{T},x2::S)=hypot_r(x1,x2)
+    hypot{T<:Array,S<:Array}(x1::T,x2::Node{S})=hypot_r(x1,x2)
+
+We want the recorder version to be called if any one of the arguments
+is a boxed Node.  There is no easy way to specify this in Julia, so
+the macro generates all 2^N-1 boxed/unboxed argument combinations.
+
+The method declaration can optionally be followed by gradient
+expressions.  Here are the same examples with gradients:
+
+* @primitive sin(x::Number) (dy->dy*cos(x))
+* @primitive hypot(x1::Array,x2::Array)::y  `(dy->dy.*x1./y)`  `(dy->dy.*x2./y)`
+
+In AutoGrad, gradients are represented by high-order gradient maker
+functions for each primitive.  A gradient maker takes an argument
+specifier `Grad{N}`, the return value `y`, and the input arguments
+`x...`, and returns a gradient function that turns `dJ/dy` into
+`dJ/dx_N`.  For the first example here is the generated gradient
+maker:
+
+`sin{T<:Number}(::Type{Grad{1}}, ::Node, x::Node{T})=(dy->dy*cos(x))`
+
+Note that the parameters and the return variable of the original
+function can be used in the gradient expressions.  For the second
+example a different gradient maker is generated for each argument:
+
+`hypot{T<:Array,S<:Array}(::Type{Grad{1}},y::Node,x1::Node{T},x2::Node{S})=(dy->dy.*x1./y)`
+`hypot{T<:Array,S<:Array}(::Type{Grad{2}},y::Node,x1::Node{T},x2::Node{S})=(dy->dy.*x2./y)`
+
+In fact @primitive generates four more definitions for the other
+boxed/unboxed argument combinations.
+
+Zero gradient functions such as `sign`, and non-numeric functions such
+as `size` should be defined using the @zerograd macro instead.
+
+"""
 macro primitive(f,g...)
     isa(f,Expr) || error("'$f' not a method signature")
     if f.head == :(::) # Using f(x)::y to indicate return variable for gradients
@@ -20,9 +84,22 @@ macro primitive(f,g...)
             push!(b.args, esc(:($gx = $(g[i]))))
         end
     end
+    addtest(f)
     return b
 end
 
+"""
+
+`@zerograd f(args...; kwargs...)` allows f to handle its Node inputs
+by unboxing them like @primitive, but unlike @primitive it does not
+record its actions or return a Node result.  Some functions, like
+sign(), have zero gradient.  Others, like length() have discrete or
+constant outputs.  These need to handle Node inputs, but do not need
+to record anything and can return regular values.  Their output can be
+treated like a constant in the program.  Use the @zerograd macro for
+those.  Note that kwargs are NOT unboxed.
+
+"""
 macro zerograd(f)
     b = Expr(:block)
     f.head == :(::) && (f=f.args[1])
@@ -98,14 +175,14 @@ function fsigs(f)
         end
     end
     flist = []
-    for nodes=1:(1<<nargs-1)
+    for nodes=0:(1<<nargs-2)
         fn = copy(f1)
         iargs = 0
         for i=2:length(fn.args)
             ai = fn.args[i]
             in(ai.head, (:parameters, :(...))) && continue
             ai.head == :(::) || error("Bad arg '$ai'")
-            if nodes & (1<<iargs) > 0
+            if nodes & (1<<iargs) == 0
                 ai.args[2] = Expr(:curly,:Node,ai.args[2])
             end
             iargs += 1
@@ -124,20 +201,18 @@ function gsig(f,y,i)
 end
 
 function make_tester(a=[])
-    function _add(fx...)
-        push!(a,fx)
-    end
+    _add(fx)=push!(a,fx)
+    _all()=a
     function _run()
         for fx in a
-            tx = fixtest(fx...)
+            tx = fixtest(fx)
             try 
-                check_grads(tx...; fname=fx[1])
+                check_grads(tx...; fname=fx.args[1])
             catch e
-                warn((fx[1],tx[2:end]...,e))
+                warn((fx,tx[2:end]...,e))
             end
         end
     end
-    _all()=a
     return (_add,_run,_all)
 end
 
@@ -145,9 +220,29 @@ if !isdefined(:addtest)
     (addtest,runtests,alltests) = make_tester()
 end
 
-function fixtest(fname,x...)
+function fixtest(fx::Expr)
+    # get the function
+    fx.head == :call || error("Expecting function declaration got '$fx'")
+    fname = fx.args[1]
+    isa(fname,Symbol) || error("$fname not a Symbol")
     f = eval(fname)
-    fname = Symbol(fname)
+    # prepare arguments
+    x = Any[]
+    for i=2:length(fx.args)
+        ai = fx.args[i]
+        isa(ai,Symbol) ? push!(x,nothing) :
+        !isa(ai,Expr) ? error("Neither Symbol nor Expr: $ai") :
+        ai.head == :parameters ? nothing :
+        ai.head == :(...) ? nothing :
+        ai.head != :(::) ? error("Argtype not supported: '$ai'") :
+        ai.args[2] == :Number ? push!(x,randn()) :
+        ai.args[2] == :AbstractArray ? push!(x,randn(2)) :
+        ai.args[2] == :AbstractVecOrMat ? push!(x,rand()<0.5 ? randn(2) : randn(2,2)) :
+        ai.args[2] == :AorN ? push!(x,rand()<0.5 ? randn() : randn(2)) :
+        ai.args[2] == :Associative ? push!(x,Dict()) :
+        ai.args[2] == :Tuple ? push!(x,()) :
+        error("Don't know how to sample $(ai.args[2])")
+    end
     # fix the arguments to be in the right domain for f
     x = fixdomain(Val{fname},x...)
     y = f(x...)
@@ -161,7 +256,7 @@ function fixtest(fname,x...)
         try
             g = f(Grad{i},gargs...)
         catch e
-            warn("$e")
+            # warn("OK: $e")
             continue            # undefined grads
         end
         g == 0 && continue      # zero grads
@@ -192,6 +287,12 @@ end                             # e.g. fixdomain(::Fn{:log},x)=abs(x)
 EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
 
 # TODO: do sampling or random direction for large args
+"""
+
+check_grads(fun, args...) checks the computed gradients for fun(args)
+comparing them with numeric approximations.
+
+"""
 function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL, fname=fun)
     @dbgutil((:check_grads,fname,:args,args...))
     isempty(args) && error("No args given")

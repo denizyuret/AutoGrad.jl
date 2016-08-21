@@ -22,10 +22,11 @@ matmul2arg = Dict{Symbol,Any}(
 # defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat)
 # grad1=dy*x2' grad2=x1'*dy
 
-defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat; dymul=false)
+# defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat; dymul=false)
 
-for (_f,_d) in matmul2arg
-    testargs(::Fn{_f},t1,t2)=(rand(2,2),rand(2,2))
+for (f,d) in matmul2arg
+    @eval @primitive $f(x1::AbstractVecOrMat,x2::AbstractVecOrMat)::y $(d[1]) $(d[2])
+    fixdomain(::Fn{f},t1,t2)=(rand(2,2),rand(2,2))
 end
 
 

@@ -11,6 +11,7 @@
 
 @primitive  getindex(x,i...)  dy->ungetindex(x,dy,i...)
 setindex!(x::Node,i...)=error("Overwriting operations currently not supported.")
+fixdomain(::Fn{:getindex},i...)=(rand(2),1)
 
 # If y=getindex(x,i...) and we receive dy, ungetindex creates dx as
 # zeros similar to x, with only dx[i] set to dy.  For efficiency zero
@@ -24,16 +25,17 @@ ungetindex(x::Tuple, dy, i) = ntuple(j->(j==i ? dy : nothing), length(x))
 
 # In case of a higher order gradient, ungetindex would be called with
 # Node inputs and needs to be recording primitive.
-
-@primitive ungetindex(x,a...)
-
 # dx=ungetindex(x,dy,i...) returned dx as all zeros with dx[i]=dy.
 # Now we receive the gradient wrt its output: ddx.  To get the
 # gradient wrt its dy input, we just need to extract ddx[i].  It is
 # not differentiable wrt other inputs.
 
-ungetindex(::D2,dx,x,dy,i...) = ddx->getindex(ddx,i...)
-
+@primitive ungetindex(x::AbstractArray,dy,i...)
+@primitive ungetindex(x::Associative,dy,i...)
+@primitive ungetindex(x::Tuple,dy,i...)
+fixdomain(::Fn{:ungetindex},x...)=(rand(2),rand(),1)
+ungetindex(::Type{Grad{1}},dx::Node,x,dy,i...) = 0
+ungetindex(::Type{Grad{2}},dx::Node,x,dy,i...) = ddx->getindex(ddx,i...)
 
 # Iteration is used in `for x in a` loops and for `(x,y)=a` multiple
 # assignments.
@@ -104,6 +106,7 @@ for f in interfaces2arg
 end
 
 @primitive copy(x) identity
+fixdomain(::Fn{:copy},x)=(rand(2),)
 
 ### DEAD CODE:
 

@@ -35,12 +35,8 @@
 # ccopy!: Not exported
 # transpose
 @primitive transpose(x::AbstractVecOrMat)  transpose
-addtest(:transpose, rand(2,2))
-addtest(:transpose, rand(2))
 # ctranspose
 @primitive ctranspose(x::AbstractVecOrMat) ctranspose
-addtest(:ctranspose, rand(2,2))
-addtest(:ctranspose, rand(2))
 # _cumsum_type: Not exported
 # cumsum
 # cumsum!
