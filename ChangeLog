@@ -1,12 +1,11 @@
-2016-08-21  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-08-22  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
+	# fixtest should give warning for unknown argtypes, not error.
 
 	* TODO:
 	# BUG: keyword args mishandled by @primitive.
 	## sin{##7516 <: Number}(x::Node{##7516},o...; a=3) = sin(getval(x),o...; a=3)
-	# @primitive should take regular argtypes and generate signatures with Nodes.
-	# finish abstractarray, array, tuple and dict support.
 	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
 	# optimize for (tuple) loops in core.jl?
 	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
@@ -14,20 +13,27 @@
 	# support CudaArrays and compare mnist speed with Knet. (without overwriting at first, fix gc)
 	## need gpu *,.+,.-,.*,max,log,exp,sum,sum1 and whatever is needed for their gradients.
 	## basically matmul, broadcast, relu and softmax...
-	# concatenation? cat,hcat,vcat,hvcat:
 	## need to figure out where each input ends up in final array.
 	## call signature is complicated, vcat is already defined generically, including numbers. need Node inputs.
 	# subarrays: can be used to make gradients for concat faster: as long as we don't have overwriting.
 	# work on memory: overwriting: 3arg (overwriting) functions (Ax_mul_Bx, broadcast) or julia v0.5 overwrite syntax or InplaceOps.
-	# remove sum_outgrads by using the first outgrad as the accumulator, but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
+	# remove sum_outgrads by using the first outgrad as the accumulator
+	## but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
 	# use TypeNode <: Type instead of Node{Type}?
 	# finish all function gradients.
+	# finish abstractarray(hvcat), array, tuple and dict support.
 
 	* PLAN:
 	# exhaust primitives by implementing more models.
 	# complete primitive implementations, utilities and release optimized cpu version.
 	# try supporting cuda without overwriting, see the speed.
 	# if that doesn't work seriously think about overwriting.
+
+2016-08-21  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# @primitive should take regular argtypes and generate signatures with Nodes.
+	# concatenation? cat,hcat,vcat
 
 2016-08-20  Deniz Yuret  <dyuret@ku.edu.tr>
 

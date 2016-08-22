@@ -1,6 +1,3 @@
-# TODO:
-
-# eval
 # haskey
 # in
 # summary
@@ -8,39 +5,39 @@
 # _truncate_at_width_or_chars: Not exported
 # showdict: Not exported
 # showkv: Not exported
-# length
-# isempty
+# length: interfaces.jl
+# isempty: interfaces.jl
 # _tt1: Not exported
 # _tt2: Not exported
-# eltype
-# start
-# done
-# next
-# keys
-# eachindex
-# values
-# copy
-# merge!
+# eltype: interfaces.jl
+# start: interfaces.jl
+# done: interfaces.jl
+# next: TODO
+# keys: TODO
+# eachindex: interfaces.jl
+# values: TODO
+# copy: interfaces.jl
+# merge!: overwriting
 # keytype
 # valtype
 # merge
-# filter!
-# filter
-# isequal
-# ==
-# hash
+# filter!: overwriting
+# filter: interfaces.jl
+# isequal: interfaces.jl
+# ==: interfaces.jl
+# hash: works for Node
 # _tablesz: Not exported
-# getindex
-# setindex!
-# push!
+# getindex: interfaces.jl
+# setindex!: overwriting
+# push!: overwriting
 # ObjectIdDict
-# similar
-# get
-# pop!
-# delete!
-# empty!
+# similar: interfaces.jl
+# get: TODO
+# pop!: overwriting
+# delete!: overwriting
+# empty!: overwriting
 # _oidd_nextind: Not exported
-# get!
+# get!: overwriting
 # SerializationState
 # Dict
 # dict_with_eltype: Not exported

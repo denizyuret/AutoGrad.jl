@@ -4,7 +4,10 @@
 
 AutoGrad.jl is an automatic differentiation package for Julia.  It can
 differentiate native Julia code that includes loops, conditionals,
-closures etc. and it can handle higher order derivatives.
+closures etc. and it can handle higher order derivatives.  Please see
+the comments in
+[core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
+which describe how the code works in detail.
 
 ## Example
 
@@ -56,8 +59,9 @@ for details.
 ## Code structure
 
 [core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
-implements the main functionality with some support functions in
-[util.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/collections.jl).
+implements the main functionality and acts as the main documentation.
+[util.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/util.jl)
+has some support functions to define and test new primitives.
 [interfaces.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/interfaces.jl)
 sets up support for Arrays, Tuples, and Dictionaries.  The numerical
 gradients are defined in files such as `base/math.jl`,
@@ -68,21 +72,30 @@ gradients are defined in files such as `base/math.jl`,
 The gradient coverage is spotty, I am still adding more gradients to
 cover the Julia base.  You can add your own primitives with gradients
 as described in detail in
-[core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl).
+[core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
+or using the `@primitive` and `@zerograd` macros in
+[util.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/util.jl)
 Here is an example:
 
 ```
-@primitive hypot(x1, x2)
-hypot(::D1, y, x1, x2)=(dy->dy.*x1./y)
-hypot(::D2, y, x1, x2)=(dy->dy.*x2./y)
+@primitive hypot(x1::Number,x2::Number)::y  (dy->dy*x1/y)  (dy->dy*x2/y)
 ```
 
-The `@primitive` macro marks `hypot` as a new primitive and the next
-two lines define gradients wrt the first and second argument.
+The `@primitive` macro marks the `hypot(::Number,::Number)` method as
+a new primitive and the next two expressions define gradient functions
+wrt the first and second argument.  The gradient expressions can refer
+to the parameters and the return variable (indicated after the final
+`::`) of the method declaration.
 
-Next steps are to make models faster by providing support for
-overwriting functions (memory allocation is slow) and GPU operations.
-I should also find out about the efficiency of closures and untyped
+Note that Julia supports multiple-dispatch, i.e. a function may have
+multiple methods each supporting different argument types.  For
+example `hypot(x1::Array,x2::Array)` is another hypot method.  In
+AutoGrad.jl each method can independently be defined as a primitive
+and can have its own specific gradient.
+
+Next steps are to make models faster by providing support for GPU
+operations and overwriting functions (to avoid memory allocation).  I
+should also find out about the efficiency of closures and untyped
 functions in Julia which are used extensively in the code.
 
 ## Acknowledgments and references

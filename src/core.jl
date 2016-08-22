@@ -128,7 +128,7 @@ function recordfn(f)
 # 3.6 We box the result in a Node attached to all the tapes we
 # encountered in 3.2.  This boxed result gets returned.
 
-            result = Node(result, tapes) # TODO: make sure it is not a problem to have extra tapes because we check for zero_grads below.
+            result = Node(result, tapes)
 
 # 3.7 For each of our Node inputs, we create a gradient function for
 # the specific argnum of the primitive.  This gradfun takes dy and
@@ -139,7 +139,10 @@ function recordfn(f)
             for (tape, argnum, parent) in ops                       
                 @dbgcore((:gcall,f,argnum,:out,result,:args,args...,kwargs...))
                 gradfun = f(Grad{argnum}, result, args...; kwargs...) # Creates a node specific gradfun (dy->dx) with x,y in a closure
-                gradfun == 0 && (warn("gradfun=0"); continue) # indicates zero_grad arguments
+                if gradfun == 0 # indicates zero_grad arguments
+                    @dbgcore("WARNING: gradfun=0 for $f,$argnum")
+                    continue
+                end
                 rnode = result.tapes[tape]
                 push!(rnode.parent_grad_ops, (gradfun, parent))
                 @dbgcore((:deps,tape,rnode))
@@ -336,10 +339,88 @@ complete!(a::CalculationTape)=push!(a,ReverseNode(nothing))
 
 # 6. How new primitives and their gradients are defined.
 
-# TODO... mention recorder and Grad here.
+# 6.1 Primitives
+
+# AutoGrad primitives record their actions when they are called with
+# some arguments boxed in Nodes.  Julia supports multiple dispatch,
+# i.e. a single function can have multiple methods with different arg
+# types.  AutoGrad supports multiple dispatch for primitives and
+# gradients, i.e. only some of the methods of a function can be
+# defined as primitives and have gradients.  Calls to a particular
+# method where some arguments are boxed in Nodes are directed to the
+# recorder function. The following example makes `sin(x::Number)` a
+# primitive, but says nothing about e.g. `sin(x::Array)`.
+
+#     local sin_r = recorder(sin)
+#     sin{T<:Number}(x::Node{T}) = sin_r(x)
+
+# With multiple arguments, things get a bit more complicated.  There
+# is no easy way to say "at least one argument is a Node" in Julia.
+# So one must define methods for all 2^N-1 combinations for
+# boxed/unboxed arguments.  This example makes
+# hypot(x1::Array,x2::Array) a primitive:
+
+#     local hypot_r = recorder(hypot)
+#     hypot{T<:Array,S<:Array}(x1::Node{T},x2::Node{S})=hypot_r(x1,x2)
+#     hypot{T<:Array,S<:Array}(x1::Node{T},x2::S)=hypot_r(x1,x2)
+#     hypot{T<:Array,S<:Array}(x1::T,x2::Node{S})=hypot_r(x1,x2)
+
+# I wrote the @primitive macro in util.jl to automate this process.
+# One restriction is the inability to target parametric methods such
+# as `f{T<:Number}(AbstractArray{T})`.  Julia does not support
+# `f{T<:Number,A<:AbstractArray{T}}(Node{A})` yet.
+
+# One could also choose to be lazy and just say:
+
+#     hypot(x...) = hypot_r(x...)
+
+# This would send any argument combination not covered by regular
+# hypot methods to the recorder function, which presumably includes
+# Noded calls.  This is dangerous for several reasons: (1) the Julia
+# base may contain a typeless method (e.g. it does for `vcat`) we are
+# overwriting. (2) this catches Noded calls to hypot methods we may
+# not support yet.  So generally I would not recommend it.
+
+# 6.2 Gradients
+
 if !isdefined(:Grad)
     immutable Grad{N}; end          # Gradient wrt N'th argument
 end
+
+# In AutoGrad, gradients are represented by high-order gradient maker
+# functions for each argument of each primitive method.  A gradient
+# maker takes an argument specifier `Grad{N}`, the return value `y`,
+# and the input arguments `x...`, and returns a gradient function (a
+# closure) that turns `dJ/dy` into `dJ/dx_N`.  For the first example
+# here is the gradient maker:
+
+# `sin{T<:Number}(::Type{Grad{1}}, ::Node, x::Node{T})=(dy->dy*cos(x))`
+
+# Note that the parameters and the return variable of the original
+# function can be used in the gradient function.  For the second
+# example a different gradient maker is generated for each argument:
+
+# `hypot{T<:Array,S<:Array}(::Type{Grad{1}},y::Node,x1::Node{T},x2::Node{S})=(dy->dy.*x1./y)`
+# `hypot{T<:Array,S<:Array}(::Type{Grad{2}},y::Node,x1::Node{T},x2::Node{S})=(dy->dy.*x2./y)`
+
+# And of course we need four more definitions for the other
+# boxed/unboxed argument combinations, which the @primitive macro
+# generates automatically.
+
+# Zero gradient functions such as `sign`, and non-numeric functions
+# such as `size` should be defined using the @zerograd macro instead.
+# Unlike primitives, zerograd functions neither record their action
+# nor return a Node.  They just unbox their arguments and return a
+# regular value.
+
+# Finally some methods such as `sum(a::Array,i::Int)` are only
+# differentiable wrt some of their arguments (here `a` but not `i`).
+# These methods must record when their differentiable argument(s) are
+# boxed and return boxed values.  The gradient makers for the other
+# arguments can be left undefined (if they cannot be boxed as in the
+# sum example), or defined as returning 0 instead of a gradient
+# function (if they can be boxed, see ungetindex).
+
 
 # 7. How higher order gradients work.
 

@@ -4,11 +4,12 @@ using Compat
 importall Base  # defining getindex, sin, etc.
 export grad, check_grads, @primitive, @zerograd
 
-_dbg(x)=x
+# Uncomment to debug:
 # macro dbgcore(x); esc(:(println(_dbg($x)))); end
 # macro dbgutil(x); esc(:(println(_dbg($x)))); end
 macro dbgcore(x); end
 macro dbgutil(x); end
+_dbg(x)=x # extend to define short printable representations
 
 include("core.jl")
 include("util.jl")
