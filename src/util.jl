@@ -133,6 +133,18 @@ end
 function rcall(r,f)
     rx = notypes(f)
     rx.args[1]=r
+    # Need to fix kwargs
+    r2 = rx.args[2]
+    if isa(r2,Expr) && r2.head == :parameters
+        for i in 1:length(r2.args)
+            k = r2.args[i]
+            !isa(k,Expr) ? error("Bad kwarg '$k'") :
+            k.head == :(...) ? continue :
+            k.head != :kw ? error("Bad kwarg '$k'") :
+            !isa(k.args[1],Symbol) ? error("Bad kwarg '$k'") :
+            k.args[2]=k.args[1]
+        end
+    end
     return rx
 end
 
@@ -241,7 +253,7 @@ function fixtest(fx::Expr)
         ai.args[2] == :AorN ? push!(x,rand()<0.5 ? randn() : randn(2)) :
         ai.args[2] == :Associative ? push!(x,Dict()) :
         ai.args[2] == :Tuple ? push!(x,()) :
-        error("Don't know how to sample $(ai.args[2])")
+        (warn("Don't know how to sample $(ai.args[2])"); push!(x,nothing))
     end
     # fix the arguments to be in the right domain for f
     x = fixdomain(Val{fname},x...)
