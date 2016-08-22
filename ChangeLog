@@ -2,14 +2,14 @@
 
 	* DONE:
 	# fixtest should give warning for unknown argtypes, not error.
-
-	* TODO:
 	# BUG: keyword args mishandled by @primitive.
 	## sin{##7516 <: Number}(x::Node{##7516},o...; a=3) = sin(getval(x),o...; a=3)
+	# write documentation and publish.
+
+	* TODO:
 	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
 	# optimize for (tuple) loops in core.jl?
 	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
-	# write documentation and publish.
 	# support CudaArrays and compare mnist speed with Knet. (without overwriting at first, fix gc)
 	## need gpu *,.+,.-,.*,max,log,exp,sum,sum1 and whatever is needed for their gradients.
 	## basically matmul, broadcast, relu and softmax...

@@ -2,12 +2,30 @@
 
 [![Build Status](https://travis-ci.org/denizyuret/AutoGrad.jl.svg?branch=master)](https://travis-ci.org/denizyuret/AutoGrad.jl)
 
-AutoGrad.jl is an automatic differentiation package for Julia.  It can
-differentiate native Julia code that includes loops, conditionals,
-closures etc. and it can handle higher order derivatives.  Please see
-the comments in
+AutoGrad.jl is an automatic differentiation package for Julia.  It is
+a Julia port of the popular Python
+[autograd](https://github.com/HIPS/autograd) package. It can
+differentiate regular Julia code that includes loops, conditionals,
+helper functions, closures etc. by keeping track of the primitive
+operations and using this execution trace to compute gradients.  It
+uses reverse mode differentiation (a.k.a. backpropagation) so it can
+efficiently handle functions with array inputs and scalar outputs.  It
+can compute gradients of gradients to handle higher order derivatives.
+Please see the comments in
 [core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
-which describe how the code works in detail.
+for a description of how the code works in detail.
+
+## Installation
+
+You can install AutoGrad in Julia using:
+```
+julia> Pkg.add("AutoGrad")
+```
+
+In order to use it in your code start with:
+```
+using AutoGrad
+```
 
 ## Example
 
@@ -56,22 +74,11 @@ for more examples, and the extensively documented
 [core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
 for details.
 
-## Code structure
+## Extending AutoGrad
 
-[core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
-implements the main functionality and acts as the main documentation.
-[util.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/util.jl)
-has some support functions to define and test new primitives.
-[interfaces.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/interfaces.jl)
-sets up support for Arrays, Tuples, and Dictionaries.  The numerical
-gradients are defined in files such as `base/math.jl`,
-`special/trig.jl` that mirror the organization under `julia/base`.
-
-## Current status and future work
-
-The gradient coverage is spotty, I am still adding more gradients to
-cover the Julia base.  You can add your own primitives with gradients
-as described in detail in
+AutoGrad can only handle a function if the primitives it uses have
+known gradients.  You can add your own primitives with gradients as
+described in detail in
 [core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
 or using the `@primitive` and `@zerograd` macros in
 [util.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/util.jl)
@@ -93,10 +100,27 @@ example `hypot(x1::Array,x2::Array)` is another hypot method.  In
 AutoGrad.jl each method can independently be defined as a primitive
 and can have its own specific gradient.
 
-Next steps are to make models faster by providing support for GPU
-operations and overwriting functions (to avoid memory allocation).  I
-should also find out about the efficiency of closures and untyped
-functions in Julia which are used extensively in the code.
+## Code structure
+
+[core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
+implements the main functionality and acts as the main documentation
+source.
+[util.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/util.jl)
+has some support functions to define and test new primitives.
+[interfaces.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/interfaces.jl)
+sets up support for common data structures including Arrays, Tuples,
+and Dictionaries.  The numerical gradients are defined in files such
+as `base/math.jl`, `special/trig.jl` that mirror the organization
+under `julia/base`.
+
+## Current status and future work
+
+The gradient coverage is spotty, I am still adding more gradients to
+cover the Julia base.  Next steps are to make models faster by
+providing support for GPU operations and overwriting functions (to
+avoid memory allocation).  I should also find out about the efficiency
+of closures and untyped functions in Julia which are used extensively
+in the code.
 
 ## Acknowledgments and references
 
