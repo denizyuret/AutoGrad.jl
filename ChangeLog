@@ -1,15 +1,12 @@
-2016-08-22  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-08-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# fixtest should give warning for unknown argtypes, not error.
-	# BUG: keyword args mishandled by @primitive.
-	## sin{##7516 <: Number}(x::Node{##7516},o...; a=3) = sin(getval(x),o...; a=3)
-	# write documentation and publish.
 
 	* TODO:
 	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
 	# optimize for (tuple) loops in core.jl?
 	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
+	# improve testing: generate multiple tests compatible with given types.
 	# support CudaArrays and compare mnist speed with Knet. (without overwriting at first, fix gc)
 	## need gpu *,.+,.-,.*,max,log,exp,sum,sum1 and whatever is needed for their gradients.
 	## basically matmul, broadcast, relu and softmax...
@@ -28,6 +25,14 @@
 	# complete primitive implementations, utilities and release optimized cpu version.
 	# try supporting cuda without overwriting, see the speed.
 	# if that doesn't work seriously think about overwriting.
+
+2016-08-22  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# fixtest should give warning for unknown argtypes, not error.
+	# BUG: keyword args mishandled by @primitive.
+	## sin{##7516 <: Number}(x::Node{##7516},o...; a=3) = sin(getval(x),o...; a=3)
+	# write documentation and publish.
 
 2016-08-21  Deniz Yuret  <dyuret@ku.edu.tr>
 
