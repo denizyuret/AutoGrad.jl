@@ -59,10 +59,14 @@ end
     return wbf(h; out=10, f=:soft, winit=winit)
 end
 
-function timeit(f; epochs=1)
+@knet function mnist1layer(x; winit=Gaussian(0,.1))
+    return wbf(x; out=10, f=:soft, winit=winit)
+end
+
+function timeit(f=train0; epochs=10, model=:mnist2layer)
     isdefined(:dtrn) || main("--epochs=0")          # load data etc.
     for i=1:3
-        net = compile(:mnist2layer)
+        global net = compile(model)
         sleep(2)
         gc_enable(false)
         @time for epoch=1:epochs
