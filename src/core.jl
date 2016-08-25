@@ -144,7 +144,7 @@ function recordfn(f)
                     continue
                 end
                 rnode = result.tapes[tape]
-                push!(rnode.parent_grad_ops, (gradfun, parent))
+                push!(rnode.parent_grad_ops, (gradfun, parent, f))
                 @dbgcore((:deps,tape,rnode))
             end
         end
@@ -218,11 +218,11 @@ function backward_pass(start_node, end_node, tape)
             # This bombs when we have different types of Dict or Array
             # typeof(getval(cur_outgrad)) == typeof(node.node.value) || error("Type mismatch: y=$(node.node.value) dy=$(getval(cur_outgrad))")
             @dbgcore((:sum2,node,:out,cur_outgrad))
-            for (gradfun, parent) in node.parent_grad_ops
-                @dbgcore((:back1,cur_outgrad,gradfun))
+            for (gradfun, parent, f) in node.parent_grad_ops
+                @dbgcore((:back1,cur_outgrad,f))
                 og = gradfun(cur_outgrad)
                 push!(parent.outgrads, og)
-                @dbgcore((:back2,og,gradfun))
+                @dbgcore((:back2,og,f))
             end
         end
     end
