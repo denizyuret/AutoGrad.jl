@@ -1,3 +1,4 @@
+@primitive  sum(x::AbstractArray)  (dy->convert(eltype(x),dy).+zeros(x))
 @primitive  sum(x::AbstractArray,i...)  (dy->dy.+zeros(x))
 fixdomain(::Fn{:sum},x...)=(rand()<0.5 ? (rand(2,2),) : (rand(2,2),1))
 
