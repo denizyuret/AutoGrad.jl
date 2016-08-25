@@ -248,6 +248,7 @@ function fixtest(fx::Expr)
         ai.head == :(...) ? nothing :
         ai.head != :(::) ? error("Argtype not supported: '$ai'") :
         ai.args[2] == :Number ? push!(x,randn()) :
+        ai.args[2] == :AbstractFloat ? push!(x,randn()) :
         ai.args[2] == :AbstractArray ? push!(x,randn(2)) :
         ai.args[2] == :AbstractVecOrMat ? push!(x,rand()<0.5 ? randn(2) : randn(2,2)) :
         ai.args[2] == :AorN ? push!(x,rand()<0.5 ? randn() : randn(2)) :

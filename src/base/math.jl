@@ -22,7 +22,7 @@ math1arg = Dict{Symbol,Any}(
 :exp2 => :(y.*log(2)),                  # math,operators
 :expm1 => :(1+y),                       # math,operators
 :exponent => 0,                         # returns int; math,operators
-# :lgamma => :(digamma(x)),               # math,operators TODO: must implement digamma
+:lgamma => :(digamma(x)),               # math,operators
 :log => :(1./x),                        # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); math,operators
 :log10 => :(1./(log(10).*x)),           # math,operators
 :log1p => :(1./(1+x)),                  # math,operators
@@ -45,18 +45,16 @@ for f in (:acos, :asin, :atanh); fixdomain(::Fn{f},x)=(sin(x),); end
 fixdomain(::Fn{:log1p},x)=(abs(x)-1,)
 fixdomain(::Fn{:acosh},x)=(abs(x)+1,)
 
-# math2arg: These are functions that can handle mixing scalar and array
-# arguments.  Some of these functions come from grepping
-# vectorize_2arg in Base (defined in operators, used in fastmath,
-# floatfuncs, math, bessel, gamma), which allows them to have Array
-# arguments in first, second, or both positions.  When both arguments
-# are Arrays they must have the same size, or if one has extra
-# dimensions at the end they need to be 1.  The resulting array will
-# have the longer of the two sizes.  (implemented by promote_shape).
-# Note that no broadcasting is performed here, i.e. the two arrays
-# need to have the same length.
+# math2arg: These are functions that can handle mixing scalar and
+# array arguments.  They use vectorize_2arg in Base (defined in
+# operators) which allows them to have Array arguments in first,
+# second, or both positions.  When both arguments are Arrays they must
+# have the same size, or if one has extra dimensions at the end they
+# need to be 1.  The resulting array will have the longer of the two
+# sizes.  (implemented by promote_shape).  Note that no broadcasting
+# is performed here, i.e. the two arrays need to have the same length.
 
-# Similar 2arg functions are defined in arraymath (not using
+# Some 2arg functions are defined in arraymath (not using
 # vectorize_2arg).
 
 # Using variable names: y=f(x1,x2) in gradient definitions.  The
@@ -77,79 +75,30 @@ math2arg = Dict{Symbol,Any}(
 )
 
 log{T<:AorN}(x1::Irrational{:e},x2::Node{T})=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
+fixdomain(::Fn{:log},x,y)=(abs(x),abs(y))
 
 for (f,g) in math2arg
     @eval @primitive $f(x1::AorN,x2::AorN)::y  unbroadcast(y,x1,dy->dy.*$(g[1]))  unbroadcast(y,x2,dy->dy.*$(g[2]))
 end
 
-fixdomain(::Fn{:log},x,y)=(abs(x),abs(y))
-
-# @primitive log{T<:Number}(x1::Base.Irrational{:e}, x2::Node{T}) # to avoid clash with irrationals.jl:131.
-# @primitive log{T<:AbstractArray}(x1::Base.Irrational{:e}, x2::Node{T}) # to avoid clash with irrationals.jl:131.
-# defgrads(math2arg, Number, Number)
-# defgrads(math2arg, AbstractArray, Number)
-# defgrads(math2arg, Number, AbstractArray)
-# defgrads(math2arg, AbstractArray, AbstractArray)
-
-# math2arg1 = Dict{Symbol,Any}(
-# :^ => (:(x2.*x1.^(x2-1)),:(y.*log(x1))), # only supports (N,N), arrays not supported in math.jl, only M^N in linalg/dense.jl
-# #:minmax => :todo, # only supports (N,N); returns a tuple, cannot multiply dy with .*; math,operators
-# )                             
-
-# @primitive ^{T<:Number}(x1::Node{T},x2::Integer) # to avoid clash with intfuncs:108
-# defgrads(math2arg1, Number, Number)
-# testargs(::Fn{:^},x...)=map(abs,testargs(Fn2(:^),x...))
-
+# ^ only supports (N,N), arrays not supported in math.jl, only M^N in linalg/dense.jl
 (^){T<:Number}(x1::Node{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
 @primitive (^)(x1::Number,x2::Number)::y  (dy->dy*x2*x1^(x2-1))  (dy->dy*y*log(x1))
 fixdomain(::Fn{:^},x,y)=(abs(x),y)
 
-# TODO:
+@primitive clamp(x::AorN,i...)::y  unbroadcast(y,x,dy->dy.*(i[1] .<= x .<= i[2]))
+fixdomain(::Fn{:clamp},x...)=(rand(5),0.3,0.7)
 
-# eval
-# clamp
-# clamp!
-# rad2deg
-# deg2rad
-# log
-# $(Expr(:$, :f)): Not a symbol
-# cbrt
-# exp2
-# exp10
-# sqrt
-# hypot
-# atan2
-# max
-# min
-# minmax
-# ldexp
-# exponent
-# significand
-# frexp
-# modf
-# ^
-# angle_restrict_symm: Not exported
+@primitive ldexp(x::AbstractFloat,n...)  (dy->dy*(2.0^n[1]))
+fixdomain(::Fn{:ldexp},x...)=(rand(),rand(-10:10))
+
+@primitive mod2pi(x::Number) identity
+
+# Other functions defined in julia/base/math.jl
 # add22condh: Not exported
+# angle_restrict_symm: Not exported
+# clamp!: overwriting
+# frexp: returns tuple
 # ieee754_rem_pio2: Not exported
-# mod2pi
-
-
-### DEAD CODE:
-# defgrads(math1arg, Number)
-# defgrads(math1arg, AbstractArray)
-
-# for (f,g) in ((:acos, :cos),
-#               (:acosh, :cosh),
-#               (:asin, :sin),
-#               (:asinh, :sinh),
-#               (:atan, :tan),
-#               (:atanh, :tanh))
-#     gx = eval(g)
-#     testargs(::Fn{f},a...)=map(gx, testargs(Fn2(f),a...))
-# end
-# for f in (:log1p,)
-#     testargs(::Fn{f},a...)=map(x->-1+abs(x), testargs(Fn2(f),a...))
-# end
-# for f in (:log, :log2, :log10, :sqrt)
-#     testargs(::Fn{f},a...)=map(abs, testargs(Fn2(f),a...))
-# end
+# minmax: returns tuple
+# modf: returns tuple

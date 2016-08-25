@@ -12,11 +12,6 @@ broadcast2arg = Dict{Symbol,Any}(
 :./ => (:(1./x2),:(-x1./abs2(x2))),
 :.\ => (:(-x2./abs2(x1)),:(1./x1)),
 :.^ => (:(x2.*x1.^(x2-1)),:(y.*log(x1))), # domain: x1 >= 0 (unless we use complex args)
-# :.<  => 0, # BUG: MethodError(isless,(0.3836010032871748,N31(0.28940741417311505,(:A3,:R61))))
-# :.<= => 0, # BUG: MethodError(isless,(N64(0.2943038720867562,(:A93,:R0)),1.6879170322331594))
-# :.== => 0, # BUG: StackOverflowError()
-# :.>  => 0, # BUG: StackOverflowError()
-# :.>= => 0, # BUG: StackOverflowError()
 #:.<< => :todo,                   # domain: Integers, left bit shift; operators,arraymath,broadcast
 #:.>> => :todo,                   # domain: Integers, right bit shift
 )
@@ -25,18 +20,24 @@ for (f,g) in broadcast2arg
     @eval @primitive $f(x1::AorN,x2::AorN)::y  unbroadcast(y,x1,dy->dy.*$(g[1]))  unbroadcast(y,x2,dy->dy.*$(g[2]))
 end
 
-# To avoid conflict at broadcast.jl:414 we cannot use AorN
-@zerograd (.==)(x1::AbstractArray,x2::AbstractArray)
-@zerograd (.==)(x1::AbstractArray,x2::Number)
-@zerograd (.==)(x1::Number,x2::AbstractArray)
-@zerograd (.==)(x1::Number,x2::Number)
+broadcast2cmp = [
+:.<,
+:.<=,
+:.==,
+:.>,
+:.>=,
+]                 
 
-# defgrads(broadcast2arg, Number, Number)
-# defgrads(broadcast2arg, AbstractArray, Number)
-# defgrads(broadcast2arg, Number, AbstractArray)
-# defgrads(broadcast2arg, AbstractArray, AbstractArray)
+for f in broadcast2cmp
+    @eval begin
+        # To avoid conflict at broadcast.jl:414 we cannot use AorN
+        @zerograd $f(x1::AbstractArray,x2::AbstractArray)
+        @zerograd $f(x1::AbstractArray,x2::Number)
+        @zerograd $f(x1::Number,x2::AbstractArray)
+        @zerograd $f(x1::Number,x2::Number)
+    end
+end
 
-# testargs(::Fn{:.^},x...)=map(abs,testargs(Fn2(:.^),x...))
 
 fixdomain(::Fn{:.^},x1,x2)=(abs(x1),x2)
 

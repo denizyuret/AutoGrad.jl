@@ -3,6 +3,7 @@ module AutoGrad
 using Compat
 importall Base  # defining getindex, sin, etc.
 export grad, check_grads, @primitive, @zerograd
+export Node, getval, recorder, Grad, fixdomain, Fn  # these are required for the above to work
 
 # Uncomment to debug:
 # macro dbgcore(x); esc(:(println(_dbg($x)))); end
@@ -26,7 +27,7 @@ include("linalg/matmul.jl")
 # include("linalg/generic.jl")
 # include("special/bessel.jl")
 # include("special/erf.jl")
-# include("special/gamma.jl")
+include("special/gamma.jl")
 # include("special/trig.jl")
 
 end # module

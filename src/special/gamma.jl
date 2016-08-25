@@ -8,28 +8,26 @@ gamma1arg = Dict{Symbol,Any}(
 #:zeta => :todo,  # gamma,operators
 )
 
-defgrads(gamma1arg, Number)
-defgrads(gamma1arg, AbstractArray)
+for (f,g) in gamma1arg
+    @eval @primitive  $f(x::AorN)::y  (dy->dy.*$g)
+end
 
 gamma2arg = Dict{Symbol,Any}(
-:beta => :todo,                          # gamma,operators
-:lbeta => :todo,                         # gamma,operators
+#:beta => :todo,                          # gamma,operators
+#:lbeta => :todo,                         # gamma,operators
 :polygamma => (0,:(polygamma(x1+1,x2))), # first argument should be an integer; gamma,operators
-:zeta => :todo,                 # domain >= 1?; gamma, operators
+#:zeta => :todo,                 # domain >= 1?; gamma, operators
 )
 
-defgrads(gamma2arg, Number, Number)
-defgrads(gamma2arg, AbstractArray, Number)
-defgrads(gamma2arg, Number, AbstractArray)
-defgrads(gamma2arg, AbstractArray, AbstractArray)
+@primitive polygamma(x1::AorN,x2::AorN)::y  0  unbroadcast(y,x2,dy->dy.*polygamma(x1+1,x2))
+fixdomain(::Fn{:polygamma},x1,x2)=(rand(0:9),x2)
 
-testargs{T1<:Number,T2}(::Fn{:polygamma}, ::Type{T1}, ::Type{T2})=(rand(0:5),testargs(Fn2(:polygamma),T2)...)
-testargs{T1<:AbstractArray,T2}(::Fn{:polygamma}, ::Type{T1}, ::Type{T2})=(rand(0:5,2),testargs(Fn2(:polygamma),T2)...)
+# testargs{T1<:Number,T2}(::Fn{:polygamma}, ::Type{T1}, ::Type{T2})=(rand(0:5),testargs(Fn2(:polygamma),T2)...)
+# testargs{T1<:AbstractArray,T2}(::Fn{:polygamma}, ::Type{T1}, ::Type{T2})=(rand(0:5,2),testargs(Fn2(:polygamma),T2)...)
 
 
 # TODO:
 
-# eval
 # gamma
 # lgamma_r: Not exported
 # lfact

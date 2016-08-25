@@ -2,6 +2,7 @@
 
 	* DONE:
 	# Try autograd mnist with own memory allocator for the gpu (to use instead of similar).
+	# Finish math.jl.
 
 	* TODO:
 	# CUBLAS:master already has highlevel.jl implemented with A_mul_B etc. (it is incomplete!) (make sure it doesn't transpose). Update CUDNN as well.  Put the rest of the primitives in CUDArt?  General broadcasting make sense for GPU?
