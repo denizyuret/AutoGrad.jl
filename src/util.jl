@@ -365,7 +365,7 @@ isequivalent{T<:Number}(z::Void,x::AbstractArray{T}; rtol::Real=Base.rtoldefault
 
 function unbroadcast(ynode, xnode, gradfun)
     x, y = getval(xnode), getval(ynode)
-    if isa(x, AbstractArray)
+    if !isa(x, Number)
         if (size(x)==size(y))
             return gradfun
         else
@@ -377,11 +377,12 @@ function unbroadcast(ynode, xnode, gradfun)
                     size(x,i) != 1 && throw(DimensionMismatch())
                     push!(d,i)
                 end
+                length(d)==1 && (d=d[1])
                 return sum(result, d)
             end
             return new_fun
         end
-    elseif isa(y, AbstractArray)
+    elseif !isa(y, Number)
         return (dy->sum(gradfun(dy)))
     else
         return gradfun
@@ -404,7 +405,7 @@ _dbg(x::Tuple)=map(_dbg,x)
 _dbg(x::ReverseNode)=Symbol("R$(id2(x))_$(id2(x.node))")
 _dbg(x::Node)=Symbol("N$(id2(x))_$(id2(x.value))")
 _dbg(x::CalculationTape)=Symbol("T$(join([id2(x),map(id2,x)...],'_'))")
-_dbg(x::Array)=Symbol("A$(join([id2(x),size(x)...],'_'))")
+_dbg(x::AbstractArray)=Symbol("A$(join([id2(x),size(x)...],'_'))")
 id2(x)=Int(object_id(x)%100)
 
 Base.show(io::IO, n::Node) = print(io, _dbg(n))
@@ -415,6 +416,32 @@ Base.show(io::IO, n::CalculationTape) = print(io, _dbg(n))
 #Base.show(io::IO, n::ReverseNode) = print(io,"$(name(n))$((name(n.node.value),map(name,n.outgrads),[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")
 
 
+# TODO: check if we really need tofloat.
+# converts nested values to float.
+# tofloat uses float for Number and AbstractArray (for isleaftype)
+# tofloat extends to Tuple, Associative, and arbitrary Arrays
+
+isfloat(x)=false
+isfloat(::AbstractFloat)=true
+isfloat{T<:AbstractFloat}(::AbstractArray{T})=true
+isfloat{T}(x::AbstractArray{T})=(!isbits(T) && all(isfloat,x))
+isfloat(x::Tuple)=all(isfloat,x)
+isfloat(x::Associative)=all(isfloat,values(x))
+
+tofloat(x)=float(x)
+tofloat(x::AbstractFloat)=x
+tofloat{T<:AbstractFloat}(x::AbstractArray{T})=x
+tofloat{T}(x::AbstractArray{T})=(isfloat(x) ? x : isbits(T) ? float(x) : map(tofloat,x))
+tofloat(x::Tuple)=(isfloat(x) ? x : ntuple(i->tofloat(x[i]), length(x)))
+tofloat(x::Associative)=(isfloat(x) ? x : (a=similar(x); for (k,v) in x; a[k]=tofloat(v); end; a))
+
+
+# tofloat(x::Number)=float(x)
+# tofloat{T<:Number}(x::AbstractArray{T})=float(x)
+# tofloat(x::AbstractArray)=(all(isfloat,x) ? x : map(tofloat,x))
+
+
+### DEAD CODE:
 # """
 # `@primitive f(args...; kwargs...)` causes f to call its recorder
 # method for the argument signature provided (see `recorder`).  Note
