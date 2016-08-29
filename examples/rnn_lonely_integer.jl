@@ -4,11 +4,11 @@ Problem is taken from [hackerrank](https://www.hackerrank.com/challenges/lonely-
 We feed elements into a recurrent neural network one by one, 
 and we get a prediction from the model after the final element.
 
-To run the demo, simply `include("rnn_lonely_integer.jl")` and run `RNNEXAMPLE.train()`.
+To run the demo, simply `include("rnn_lonely_integer.jl")` and run `LonelyInteger.train()`.
 You can provide the initial weights as an optional argument to `train`, which should have
 the form [Whx,Whh,bh,Woh,bo] where first three elements are the parameters of the rnn 
 and the last two are the parameters of the softmax classifier.
-The function `RNNEXAMPLE.weights(;h, vocab)` can be used to create
+The function `LonelyInteger.weights(;h, vocab)` can be used to create
 random starting weights for a recurrent neural network with hidden size and vocab size.
 `train` also accepts the following keyword arguments: `lr` specifies
 the learning rate, `N` gives the number of instances that are used to train the model.
