@@ -25,7 +25,7 @@ You can test the performance of the model on shorter or longer sequences than se
 You can see an example experiment log at the end of the file.
 """
 
-module RNNEXAMPLE
+module LonelyInteger
 
 using AutoGrad
 
@@ -105,6 +105,25 @@ function train(; lr=.001, N=2000000, seqlength=7, limit=50, w=weights(;vocab=lim
 
 	return w
 end
+
+function timing(; lr=.001, N=10, seqlength=15, limit=100, w=weights(;vocab=limit))
+	gradfun = grad(loss)
+
+	function onestep()
+		seq, ygold = gendata(;seqlength=seqlength, limit=limit);
+		g = gradfun(w, seq, ygold);
+		
+		#update
+		for i=1:length(w); w[i] -= lr * g[i]; end
+	end
+
+	for n=1:N
+		gc_enable(false)
+		@time onestep()
+		gc_enable(true)
+	end
+end
+
 
 function gendata(;seqlength=5, limit=20)
 	rnums = randperm(limit)
