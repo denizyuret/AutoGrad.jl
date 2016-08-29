@@ -407,7 +407,7 @@ _dbg(x::ReverseNode)=Symbol("R$(id2(x))_$(id2(x.node))")
 _dbg(x::Node)=Symbol("N$(id2(x))_$(id2(x.value))")
 _dbg(x::CalculationTape)=Symbol("T$(join([id2(x),map(id2,x)...],'_'))")
 _dbg(x::AbstractArray)=Symbol("A$(join([id2(x),size(x)...],'_'))")
-id2(x)=Int(object_id(x)%100)
+id2(x)=Int(object_id(x)%1000)
 
 Base.show(io::IO, n::Node) = print(io, _dbg(n))
 Base.show(io::IO, n::ReverseNode) = print(io, _dbg(n))

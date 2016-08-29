@@ -115,8 +115,8 @@ function recordfn(f)
         found_node || throw(MethodError(f, argvals))            # Otherwise undefined methods lead to infinite loop
 
 # 3.4 The primitive is called with unboxed arguments.
-        @dbgcore((:rcall,f,argvals...,kwargs...))
         result = f(argvals...; kwargs...)
+        @dbgcore((:rcall,f,result,argvals...,kwargs...))
 
 # 3.5 ops can be empty if no Nodes, zero_grads, or iscomplete(tape).
 # No Nodes case is impossible, we throw an error.
@@ -129,6 +129,7 @@ function recordfn(f)
 # encountered in 3.2.  This boxed result gets returned.
 
             result = Node(result, tapes)
+            @dbgcore((:ncall,f,result,args...,kwargs...))
 
 # 3.7 For each of our Node inputs, we create a gradient function for
 # the specific argnum of the primitive.  This gradfun takes dy and
