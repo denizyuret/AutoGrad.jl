@@ -6,7 +6,7 @@
 	e3e85c9 1.09	1.82	3.53
 	e6b7b49	1.09	1.82	3.30	# fixed useless copy in broadcast.
 	@time 1.802994 seconds (3.67 M allocations: 160.433 MB, 1.86% gc time)
-
+	292b854 1.09	1.68	2.99	# fixed recorder
 	@time 1.715418 seconds (3.13 M allocations: 127.752 MB, 1.68% gc time)
 
 	* Operations: commented output from nnet shows unnecessary operations:

@@ -103,9 +103,11 @@ function rfun(args...; kwargs...)
     @dbgcore((:call, f, args..., kwargs...))
     argvals = map(getval,args)
     result = f(argvals...; kwargs...)
+    #TODO: f(ZeroGrad) && return result
     for argnum = 1:length(args)
         arg = args[argnum]
         isa(arg,Value) || continue
+        #TODO: f(ZeroGrad{argnum},argvals...) && continue
         for t=1:length(arg.tapes)
             tape = arg.tapes[t]
             iscomplete(tape) && continue
@@ -123,7 +125,8 @@ function rfun(args...; kwargs...)
                     push!(result.nodes, rnode)
                 end
             end
-            gfun = f(Grad{argnum}, result, args...; kwargs...)
+            #TODO: gfun = (f,argnum,result,args,kwargs)
+            gfun = f(Grad{argnum},result,args...;kwargs...)
             push!(rnode.parents, parent)
             push!(rnode.gradfuns, gfun)
         end
@@ -256,9 +259,11 @@ function backward_pass(start_value, end_value, tape)
         # typeof(getval(cur_outgrad)) == typeof(node.node.value) || error("Type mismatch: y=$(node.node.value) dy=$(getval(cur_outgrad))")
         @dbgcore((:sum2,node,:out,cur_outgrad))
         for i=1:length(node.parents)
-            parent = node.parents[i]
-            gradfun = node.gradfuns[i]
             @dbgcore((:back1,cur_outgrad))
+            parent = node.parents[i]
+            #TODO: (fun,argnum,result,args,kwargs) = node.gradfuns[i]
+            #TODO: og = fun(Grad{argnum},cur_outgrad,result,args...; kwargs...)
+            gradfun = node.gradfuns[i]
             og = gradfun(cur_outgrad)
             push!(parent.outgrads, og)
             @dbgcore((:back2,og))
@@ -308,7 +313,7 @@ Node is a plain type with three slots:
 type Node
     value
     parents::Vector{Node}
-    gradfuns::Vector{Function}
+    gradfuns::Vector
     outgrads::Vector
 end
 Node(value) = Node(value, [], [], [])
@@ -438,6 +443,7 @@ end
 
 if !isdefined(:Grad)
     immutable Grad{N}; end          # Gradient wrt N'th argument
+    immutable ZeroGrad{N}; end      # Indicates no gradient wrt N'th argument
 end
 
 # In AutoGrad, gradients are represented by high-order gradient maker

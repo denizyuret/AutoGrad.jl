@@ -81,10 +81,15 @@ macro primitive(f,g...)
         push!(b.args, esc(:($fx = $rx)))
         for i=1:length(g)
             gx = gsig(fx,y,i)
+            # TODO: this may be slightly more involved than just g[i]
             push!(b.args, esc(:($gx = $(g[i]))))
         end
     end
-    addtest(f)
+    if isempty(g)
+        # TODO: add a global zerograd definition here
+    else
+        addtest(f)
+    end
     return b
 end
 
