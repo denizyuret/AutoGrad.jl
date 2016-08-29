@@ -4,6 +4,10 @@
 
 		run	forw	grad
 	e3e85c9 1.09	1.82	3.53
+	e6b7b49	1.09	1.82	3.30	# fixed useless copy in broadcast.
+	@time 1.802994 seconds (3.67 M allocations: 160.433 MB, 1.86% gc time)
+
+	@time 1.715418 seconds (3.13 M allocations: 127.752 MB, 1.68% gc time)
 
 	* Operations: commented output from nnet shows unnecessary operations:
 
@@ -29,27 +33,27 @@
 	000.413:d7=1.+zeros(a7) ***
 	# Leave sum grad as identity, matmul may have a problem!
 
-	271.544:d6a=a6^1   ***	(:rcall,.^,:A544_10_100,:A551_10_100,1)
-	# Fix gradient of .^ to check for .^2 and .^1
-	271.344:d6b=2*d6a	(:rcall,.*,:A344_10_100,2,:A544_10_100)
-	271.939:d5=d6=d7*d6b *	(:rcall,.*,:A939_10_100,:A413_10_100,:A344_10_100)
-	404.481:d4=d5*1    ***	(:rcall,.*,:A481_10_100,:A939_10_100,1)
-	404.156:g4a=d5*1  ***	(:rcall,.*,:A156_10_100,:A939_10_100,1)
-	# Fix gradient of .+ to be identity
-	404.159:g4=sum(g4a,2)	(:rcall,sum,:A159_10_1,:A156_10_100,2)
-	866.945:g=unget(w,g4,4)	(:rcall,AutoGrad.ungetindex,:A945_4,:A187_4,:A159_10_1,4)
-	104.466:g3=d4*a3'	(:rcall,A_mul_Bc,:A466_10_64,:A481_10_100,:A285_64_100)
-	104.446:d3=w3'*d4	(:rcall,Ac_mul_B,:A446_64_100,:A119_10_64,:A481_10_100)
-	285.853:d2=d3.*(x.==y)	(:rcall,.*,:A853_64_100,:A446_64_100,:A43_64_100)
-	373.091:d1=d2.*1 ***	(:rcall,.*,:A91_64_100,:A853_64_100,1)
-	373.489:g2a=d2.*1 ***	(:rcall,.*,:A489_64_100,:A853_64_100,1)
-	# Same .+ problem.
-	373.048:g2=sum(g2a,2)	(:rcall,sum,:A48_64_1,:A489_64_100,2)
-	429.730:g=unget(w,g2,2)	(:rcall,AutoGrad.ungetindex,:A730_4,:A187_4,:A48_64_1,2)
-	506.636:g1=d1*x'	(:rcall,A_mul_Bc,:A636_64_784,:A91_64_100,:A226_784_100)
-	581.050:g=unget(w,g1,1)	(:rcall,AutoGrad.ungetindex,:A50_4,:A187_4,:A636_64_784,1)
-	119.117:g=unget(w,g3,3)	(:rcall,AutoGrad.ungetindex,:A117_4,:A187_4,:A466_10_64,3)
-	187.993:g=sum		(:rcall,AutoGrad.sum_helper,:A993_4,:A945_4,:A730_4,:A50_4,:A117_4)
+-	271.544:d6a=a6^1   ***	(:rcall,.^,:A544_10_100,:A551_10_100,1)
+#	# Fix gradient of .^ to check for .^2 and .^1
+?	271.344:d6b=2*d6a	(:rcall,.*,:A344_10_100,2,:A544_10_100)
++	271.939:d5=d6=d7*d6b *	(:rcall,.*,:A939_10_100,:A413_10_100,:A344_10_100)
+-	404.481:d4=d5*1    ***	(:rcall,.*,:A481_10_100,:A939_10_100,1)
+-	404.156:g4a=d5*1  ***	(:rcall,.*,:A156_10_100,:A939_10_100,1)
+#	# Fix gradient of .+ to be identity
++	404.159:g4=sum(g4a,2)	(:rcall,sum,:A159_10_1,:A156_10_100,2)
++	866.945:g=unget(w,g4,4)	(:rcall,AutoGrad.ungetindex,:A945_4,:A187_4,:A159_10_1,4)
++	104.466:g3=d4*a3'	(:rcall,A_mul_Bc,:A466_10_64,:A481_10_100,:A285_64_100)
++	104.446:d3=w3'*d4	(:rcall,Ac_mul_B,:A446_64_100,:A119_10_64,:A481_10_100)
++	285.853:d2=d3.*(x.==y)	(:rcall,.*,:A853_64_100,:A446_64_100,:A43_64_100)
+-	373.091:d1=d2.*1 ***	(:rcall,.*,:A91_64_100,:A853_64_100,1)
+-	373.489:g2a=d2.*1 ***	(:rcall,.*,:A489_64_100,:A853_64_100,1)
+#	# Same .+ problem.
++	373.048:g2=sum(g2a,2)	(:rcall,sum,:A48_64_1,:A489_64_100,2)
++	429.730:g=unget(w,g2,2)	(:rcall,AutoGrad.ungetindex,:A730_4,:A187_4,:A48_64_1,2)
++	506.636:g1=d1*x'	(:rcall,A_mul_Bc,:A636_64_784,:A91_64_100,:A226_784_100)
++	581.050:g=unget(w,g1,1)	(:rcall,AutoGrad.ungetindex,:A50_4,:A187_4,:A636_64_784,1)
++	119.117:g=unget(w,g3,3)	(:rcall,AutoGrad.ungetindex,:A117_4,:A187_4,:A466_10_64,3)
++	187.993:g=sum		(:rcall,AutoGrad.sum_helper,:A993_4,:A945_4,:A730_4,:A50_4,:A117_4)
 
 2016-08-25  Deniz Yuret  <dyuret@ku.edu.tr>
 

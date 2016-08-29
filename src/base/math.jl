@@ -74,7 +74,7 @@ math2arg = Dict{Symbol,Any}(
 :min => (:(y.==x1),:(y.==x2)),    # math,operators; 
 )
 
-log{T<:AorN}(x1::Irrational{:e},x2::Node{T})=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
+log{T<:AorN}(x1::Irrational{:e},x2::Value{T})=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
 fixdomain(::Fn{:log},x,y)=(abs(x),abs(y))
 
 for (f,g) in math2arg
@@ -82,7 +82,7 @@ for (f,g) in math2arg
 end
 
 # ^ only supports (N,N), arrays not supported in math.jl, only M^N in linalg/dense.jl
-(^){T<:Number}(x1::Node{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
+(^){T<:Number}(x1::Value{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
 @primitive (^)(x1::Number,x2::Number)::y  (dy->dy*x2*x1^(x2-1))  (dy->dy*y*log(x1))
 fixdomain(::Fn{:^},x,y)=(abs(x),y)
 

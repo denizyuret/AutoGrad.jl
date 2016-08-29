@@ -45,9 +45,9 @@ fixdomain(::Fn{:reshape},x...)=(rand(2,2),(4,1))
 # _unsafe_setindex!: Not exported
 # get (getindex with a default value)
 # This can be left as a composite function, it will get its gradient from getindex if necessary.
-get{T<:AbstractArray}(A::Node{T}, i::Integer, default) = checkbounds(Bool, length(A), i) ? A[i] : default
-get{T<:AbstractArray}(A::Node{T}, I::Tuple{}, default) = similar(A, typeof(default), 0)
-get{T<:AbstractArray}(A::Node{T}, I::Dims, default)    = checkbounds(Bool, size(A), I...) ? A[I...] : default
+get{T<:AbstractArray}(A::Value{T}, i::Integer, default) = checkbounds(Bool, length(A), i) ? A[i] : default
+get{T<:AbstractArray}(A::Value{T}, I::Tuple{}, default) = similar(A, typeof(default), 0)
+get{T<:AbstractArray}(A::Value{T}, I::Dims, default)    = checkbounds(Bool, size(A), I...) ? A[I...] : default
 # get!: Overwriting function
 # promote_eltype: Not exported
 
@@ -67,14 +67,14 @@ get{T<:AbstractArray}(A::Node{T}, I::Dims, default)    = checkbounds(Bool, size(
 # matching zero blocks away from the diagonal.
 
 # After catdims, cat can take 0 or more arguments of any type.  We
-# only catch the cases where one of the first two args is a Node.
+# only catch the cases where one of the first two args is a Value.
 
 cat_r = recorder(cat)
-cat(i,a::Node,b::Node,c...)=cat_r(i,a,b,c...)
-cat(i,a,b::Node,c...)=cat_r(i,a,b,c...)
-cat(i,a::Node,b...)=cat_r(i,a,b...)
-cat{N}(g::Type{Grad{N}},y::Node,i::Node,x...)=cat(g,y,i.value,x...) # to avoid ambiguity
-cat{N}(::Type{Grad{N}},y::Node,i,x...)=(dy->uncat(dy,N-1,i,x...))   # N-1 because first arg is catdims
+cat(i,a::Value,b::Value,c...)=cat_r(i,a,b,c...)
+cat(i,a,b::Value,c...)=cat_r(i,a,b,c...)
+cat(i,a::Value,b...)=cat_r(i,a,b...)
+cat{N}(g::Type{Grad{N}},y::Value,i::Value,x...)=cat(g,y,i.value,x...) # to avoid ambiguity
+cat{N}(::Type{Grad{N}},y::Value,i,x...)=(dy->uncat(dy,N-1,i,x...))   # N-1 because first arg is catdims
 
 # We need to extract the n'th block from dy which has the same shape
 # as y=cat(catdims,x...).
@@ -103,17 +103,17 @@ function uncat(dy,n,catdims,x...)
 end
 
 # Same deal with vcat and hcat, catch if one of the first two args is
-# a Node.  We can leave these as composite using cat.
+# a Value.  We can leave these as composite using cat.
 
 # vcat: vcat(X...) = cat(1, X...)
-vcat(a::Node,b::Node,c...)=cat(1,a,b,c...)
-vcat(a,b::Node,c...)=cat(1,a,b,c...)
-vcat(a::Node,b...)=cat(1,a,b...)
+vcat(a::Value,b::Value,c...)=cat(1,a,b,c...)
+vcat(a,b::Value,c...)=cat(1,a,b,c...)
+vcat(a::Value,b...)=cat(1,a,b...)
 
 # hcat: hcat(X...) = cat(2, X...)
-hcat(a::Node,b::Node,c...)=cat(1,a,b,c...)
-hcat(a,b::Node,c...)=cat(1,a,b,c...)
-hcat(a::Node,b...)=cat(1,a,b...)
+hcat(a::Value,b::Value,c...)=cat(1,a,b,c...)
+hcat(a,b::Value,c...)=cat(1,a,b,c...)
+hcat(a::Value,b...)=cat(1,a,b...)
 
 # typed_vcat: Not exported
 # typed_hcat: Not exported
@@ -138,4 +138,4 @@ hcat(a::Node,b...)=cat(1,a,b...)
 # map_to_n!: Not exported
 # push!: Overwriting function
 # unshift!: Overwriting function
-# hash: Works for Node.
+# hash: Works for Value.

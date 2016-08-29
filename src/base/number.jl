@@ -12,7 +12,7 @@
 # start(x::Number) = false
 # next(x::Number, state) = (x, true)
 # done(x::Number, state) = state
-# next{T<:Number}(x::Node{T}, state) = (x, true)
+# next{T<:Number}(x::Value{T}, state) = (x, true)
 
 # TODO:
 

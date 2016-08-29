@@ -3,7 +3,7 @@ module AutoGrad
 using Compat
 importall Base  # defining getindex, sin, etc.
 export grad, check_grads, @primitive, @zerograd
-export Node, getval, recorder, Grad, fixdomain, Fn  # these are required for the above to work
+export Value, getval, recorder, Grad, fixdomain, Fn  # these are required for the above to work
 
 # Uncomment to debug:
 # macro dbgcore(x); esc(:(println(_dbg($x)))); end

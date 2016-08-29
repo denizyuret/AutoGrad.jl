@@ -20,19 +20,19 @@ are ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
 The @primitive macro turns the first example into:
 
     local sin_r = recorder(sin)
-    sin{T<:Number}(x::Node{T}) = sin_r(x)
+    sin{T<:Number}(x::Value{T}) = sin_r(x)
 
-This will cause any call to `sin` with a Node{T<:Number} argument
+This will cause any call to `sin` with a Value{T<:Number} argument
 to be recorded.  With multiple arguments things are a bit more
 complicated.  Here is what happens with the second example:
 
     local hypot_r = recorder(hypot)
-    hypot{T<:Array,S<:Array}(x1::Node{T},x2::Node{S})=hypot_r(x1,x2)
-    hypot{T<:Array,S<:Array}(x1::Node{T},x2::S)=hypot_r(x1,x2)
-    hypot{T<:Array,S<:Array}(x1::T,x2::Node{S})=hypot_r(x1,x2)
+    hypot{T<:Array,S<:Array}(x1::Value{T},x2::Value{S})=hypot_r(x1,x2)
+    hypot{T<:Array,S<:Array}(x1::Value{T},x2::S)=hypot_r(x1,x2)
+    hypot{T<:Array,S<:Array}(x1::T,x2::Value{S})=hypot_r(x1,x2)
 
 We want the recorder version to be called if any one of the arguments
-is a boxed Node.  There is no easy way to specify this in Julia, so
+is a boxed Value.  There is no easy way to specify this in Julia, so
 the macro generates all 2^N-1 boxed/unboxed argument combinations.
 
 The method declaration can optionally be followed by gradient
@@ -48,14 +48,14 @@ specifier `Grad{N}`, the return value `y`, and the input arguments
 `dJ/dx_N`.  For the first example here is the generated gradient
 maker:
 
-`sin{T<:Number}(::Type{Grad{1}}, ::Node, x::Node{T})=(dy->dy*cos(x))`
+`sin{T<:Number}(::Type{Grad{1}}, ::Value, x::Value{T})=(dy->dy*cos(x))`
 
 Note that the parameters and the return variable of the original
 function can be used in the gradient expressions.  For the second
 example a different gradient maker is generated for each argument:
 
-`hypot{T<:Array,S<:Array}(::Type{Grad{1}},y::Node,x1::Node{T},x2::Node{S})=(dy->dy.*x1./y)`
-`hypot{T<:Array,S<:Array}(::Type{Grad{2}},y::Node,x1::Node{T},x2::Node{S})=(dy->dy.*x2./y)`
+`hypot{T<:Array,S<:Array}(::Type{Grad{1}},y::Value,x1::Value{T},x2::Value{S})=(dy->dy.*x1./y)`
+`hypot{T<:Array,S<:Array}(::Type{Grad{2}},y::Value,x1::Value{T},x2::Value{S})=(dy->dy.*x2./y)`
 
 In fact @primitive generates four more definitions for the other
 boxed/unboxed argument combinations.
@@ -90,11 +90,11 @@ end
 
 """
 
-`@zerograd f(args...; kwargs...)` allows f to handle its Node inputs
+`@zerograd f(args...; kwargs...)` allows f to handle its Value inputs
 by unboxing them like @primitive, but unlike @primitive it does not
-record its actions or return a Node result.  Some functions, like
+record its actions or return a Value result.  Some functions, like
 sign(), have zero gradient.  Others, like length() have discrete or
-constant outputs.  These need to handle Node inputs, but do not need
+constant outputs.  These need to handle Value inputs, but do not need
 to record anything and can return regular values.  Their output can be
 treated like a constant in the program.  Use the @zerograd macro for
 those.  Note that kwargs are NOT unboxed.
@@ -195,7 +195,7 @@ function fsigs(f)
             in(ai.head, (:parameters, :(...))) && continue
             ai.head == :(::) || error("Bad arg '$ai'")
             if nodes & (1<<iargs) == 0
-                ai.args[2] = Expr(:curly,:Node,ai.args[2])
+                ai.args[2] = Expr(:curly,:Value,ai.args[2])
             end
             iargs += 1
         end
@@ -208,7 +208,7 @@ function gsig(f,y,i)
     g = copy(f)
     a = (g.args[2].head == :parameters ? 3 : 2)
     insert!(g.args, a, :(::Type{Grad{$i}}))
-    insert!(g.args, a+1, :($y::Node))
+    insert!(g.args, a+1, :($y::Value))
     return g
 end
 
@@ -263,7 +263,7 @@ function fixtest(fx::Expr)
     plist = Any[]
     alist = Any[x...]           # define fnew(plist)=f(alist)
     args = Any[]                   # call fnew(args...)
-    gargs = (Node(y), map(Node,x)...)
+    gargs = (Value(y), map(Value,x)...)
     for i=1:length(alist)
         g = 0
         try
@@ -293,8 +293,8 @@ end                             # e.g. fixdomain(::Fn{:log},x)=abs(x)
 
 # I would like to make these type signatures as specific as possible.
 # The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
-# f{T<:Number,A<:AbstractArray{T}}(x::Node{A})
-# f{T<:Number,A<:AbstractArray}(x::Node{A{T}})
+# f{T<:Number,A<:AbstractArray{T}}(x::Value{A})
+# f{T<:Number,A<:AbstractArray}(x::Value{A{T}})
 
 
 EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
@@ -403,18 +403,18 @@ end
 
 # Pretty print for debugging:
 _dbg(x::Tuple)=map(_dbg,x)
-_dbg(x::ReverseNode)=Symbol("R$(id2(x))_$(id2(x.node))")
 _dbg(x::Node)=Symbol("N$(id2(x))_$(id2(x.value))")
-_dbg(x::CalculationTape)=Symbol("T$(join([id2(x),map(id2,x)...],'_'))")
+_dbg(x::Value)=Symbol("V$(id2(x))_$(id2(x.value))")
+_dbg(x::Tape)=Symbol("T$(join([id2(x),map(id2,x)...],'_'))")
 _dbg(x::AbstractArray)=Symbol("A$(join([id2(x),size(x)...],'_'))")
 id2(x)=Int(object_id(x)%1000)
 
+Base.show(io::IO, n::Value) = print(io, _dbg(n))
 Base.show(io::IO, n::Node) = print(io, _dbg(n))
-Base.show(io::IO, n::ReverseNode) = print(io, _dbg(n))
-Base.show(io::IO, n::CalculationTape) = print(io, _dbg(n))
+Base.show(io::IO, n::Tape) = print(io, _dbg(n))
 
-#Base.show(io::IO, n::Node) = print(io,"$(name(n))$((name(n.value),[(name(t),name(r)) for (t,r) in n.tapes]...))")
-#Base.show(io::IO, n::ReverseNode) = print(io,"$(name(n))$((name(n.node.value),map(name,n.outgrads),[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")
+#Base.show(io::IO, n::Value) = print(io,"$(name(n))$((name(n.value),[(name(t),name(r)) for (t,r) in n.tapes]...))")
+#Base.show(io::IO, n::Node) = print(io,"$(name(n))$((name(n.node.value),map(name,n.outgrads),[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")
 
 
 # TODO: check if we really need tofloat.
@@ -447,7 +447,7 @@ tofloat(x::Associative)=(isfloat(x) ? x : (a=similar(x); for (k,v) in x; a[k]=to
 # `@primitive f(args...; kwargs...)` causes f to call its recorder
 # method for the argument signature provided (see `recorder`).  Note
 # that the recorder method will give an error unless one of the
-# arguments is a Node. Examples:
+# arguments is a Value. Examples:
 
 # `@primitive log(x...; o...)` will cause all calls to `log` not matched
 # by any other method to call the recorder method.  This is not
@@ -455,10 +455,10 @@ tofloat(x::Associative)=(isfloat(x) ? x : (a=similar(x); for (k,v) in x; a[k]=to
 
 # `@primitive log` is defined as syntactic sugar for `@primitive log(x...; o...)`.
 
-# `@primitive getindex(x::Node, i)` will cause `getindex` to call its
-# recorder method only if the first argument is a Node.
+# `@primitive getindex(x::Value, i)` will cause `getindex` to call its
+# recorder method only if the first argument is a Value.
 
-# `@primitive sum{T<:Number}(a::Node{Array{T}})` will cause `sum` to
+# `@primitive sum{T<:Number}(a::Value{Array{T}})` will cause `sum` to
 # call its recorder method for Nodes that box Arrays of Number subtypes.
 # """
 # macro primitive(fx)
@@ -491,7 +491,7 @@ tofloat(x::Associative)=(isfloat(x) ? x : (a=similar(x); for (k,v) in x; a[k]=to
 # output and x... are the inputs of the original function.  This way
 # we can use method dispatch to find the appropriate gradient by
 # specifying types for x.  Example:
-# `sin{T<:Number}(::Type{Grad{1}},y::Node{T},x::Node{T})=(dy->dy*cos(x))`
+# `sin{T<:Number}(::Type{Grad{1}},y::Value{T},x::Value{T})=(dy->dy*cos(x))`
 
 # Some functions do not have gradients wrt some arguments.  Example:
 # getindex(array, index) is not differentiable wrt index.  We indicate
@@ -530,7 +530,7 @@ tofloat(x::Associative)=(isfloat(x) ? x : (a=similar(x); for (k,v) in x; a[k]=to
 #                 else
 #                     gexp = _d[i]
 #                 end
-#                 for gsig in addtypes(:($_f{}(::Type{Grad{$i}},y::Node)), argtypes...)
+#                 for gsig in addtypes(:($_f{}(::Type{Grad{$i}},y::Value)), argtypes...)
 #                     @eval $gsig=$gexp
 #                 end
 #             end
@@ -541,15 +541,15 @@ tofloat(x::Associative)=(isfloat(x) ? x : (a=similar(x); for (k,v) in x; a[k]=to
 # function addtypes(ex::Expr, types...)
 #     # construct method signatures
 #     # example input: :(exp{}()), Number
-#     # example output: exp{T<:Number}(x::Node{T})
-#     # for multiple arguments, constructs all signatures with at least one Node
+#     # example output: exp{T<:Number}(x::Value{T})
+#     # for multiple arguments, constructs all signatures with at least one Value
 #     ntypes = length(types)
 #     ans = []
 #     if ntypes == 0
 #         error("Need argument types")
 #     elseif ntypes == 1
 #         push!(ex.args[1].args, Expr(:<:, :T, types[1]))
-#         push!(ex.args, :(x::Node{T}))
+#         push!(ex.args, :(x::Value{T}))
 #         push!(ans, ex)
 #     else
 #         for i=1:ntypes
@@ -561,7 +561,7 @@ tofloat(x::Associative)=(isfloat(x) ? x : (a=similar(x); for (k,v) in x; a[k]=to
 #             for i=1:ntypes
 #                 Ti = Symbol("T$i"); xi = Symbol("x$i")
 #                 if nodes & (1<<(i-1)) > 0
-#                     push!(ex2.args, :($xi::Node{$Ti}))
+#                     push!(ex2.args, :($xi::Value{$Ti}))
 #                 else
 #                     push!(ex2.args, :($xi::$Ti))
 #                 end
@@ -631,10 +631,10 @@ tofloat(x::Associative)=(isfloat(x) ? x : (a=similar(x); for (k,v) in x; a[k]=to
 # Fn2(F)=Type{Val{Symbol("$(F)2")}}   # used for fallback in type specific testargs
 
 # """
-# `@zerograd f(args...; kwargs...)` allows f to handle its Node inputs
+# `@zerograd f(args...; kwargs...)` allows f to handle its Value inputs
 # by unboxing them like @primitive, but unlike @primitive it does not
-# record its actions or return a Node result.  Some functions, like
-# sign(), have zero gradient.  These need to handle Node inputs, but do
+# record its actions or return a Value result.  Some functions, like
+# sign(), have zero gradient.  These need to handle Value inputs, but do
 # not need to record anything and can return regular values.  Their
 # output can be treated like a constant in the program.  Use the
 # @zerograd macro for those.  Note that kwargs are NOT unboxed. (other
