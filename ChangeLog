@@ -26,6 +26,14 @@
 	for i=1:6; print("$i "); @time g2(x[i]); end
 	#for i=1:6; print("$i "); @time g1(x[i]); end
 
+	# Is it map?  No:
+	f3(x)=(s=0; for i=2:length(x); s+=(1-x[i-1])^2 + 100*(x[i]-x[i-1]^2)^2; end; s)
+	g3 = grad(f3)
+	@time g3(rand(200)) =>  58.218724 seconds (143.24 M allocations: 7.839 GB, 3.70% gc time)
+	@time g3(rand(200)) =>    0.020137 seconds (203.65 k allocations: 5.928 MB)
+	what is going on the first time?  even if we change the length by
+	1 all slows down! memalloc shoots up.  only works fast on the
+	exact length it has seen before!
 
 	* TODO:
 	# finish all function gradients.

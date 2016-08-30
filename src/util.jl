@@ -410,6 +410,16 @@ function unbroadcast(x, dx)
     end
 end
 
+# The worker for sum_gradients:
+sum_helper(a::Number, b::Number)=a+b
+sum_helper(a::Tuple, b::Tuple)=tuple([sum_outgrads(c) for c in zip(a,b)]...)
+sum_helper(a::Associative, b::Associative) =
+    (z=similar(a); for d in (a,b), (k,v) in d; z[k]=v+get(z,k,0); end; z)
+sum_helper{T}(a::AbstractArray{T},b::AbstractArray{T})=
+    (isbits(T) ? (a+b) : [sum_outgrads(c) for c in zip(a,b)])
+@primitive sum_helper(x1,x2),dy dy dy  # No need for unbroadcast, they should all have the same shape
+
+
 # findfirst uses == which is inefficient for tapes, so we define findeq with ===
 function findeq(A,v)
     for i=1:length(A)

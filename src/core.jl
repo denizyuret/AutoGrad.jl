@@ -472,30 +472,13 @@ merge_tapes(::Type{Grad{2}},d,c,a,b) = d
 # However before we can do this we need to handle overwriting ops because sum_outgrads is a primitive.
 
 function sum_outgrads(x)
-    length(x) == 0 && return nothing
-    length(x) == 1 && return x[1]
-    a = remove_nothings(x)
-    length(a) == 0 && return nothing
-    length(a) == 1 && return a[1]
-    sum_helper(a...)
-end
-
-sum_helper(a::Number, b::Number, c::Number...)=sum([a,b,c...])
-sum_helper(a::Tuple, b::Tuple, c::Tuple...)=tuple([sum_outgrads(e) for e in zip(a,b,c...)]...)
-sum_helper{T}(a::AbstractArray{T},b::AbstractArray{T},c::AbstractArray{T}...) =
-    (isbits(T) ? broadcast(+,a,b,c...) : [sum_outgrads(e) for e in zip(a,b,c...)])
-sum_helper(a::Associative, b::Associative, c::Associative...) =
-    (z=similar(a); for d in (a,b,c...), (k,v) in d; z[k]=v+get(z,k,0); end; z)
-
-sum_helper_r = recorder(sum_helper)
-sum_helper(x...)=sum_helper_r(x...)
-sum_helper{N}(::Type{Grad{N}}, dy, y, x...)=dy
-
-function remove_nothings(x)
-    a = []
-    for xi in x
-        isa(xi,Void) || push!(a,xi)
+    a = nothing
+    for i=1:length(x)
+        if a == nothing
+            a = x[i]
+        elseif x[i] != nothing
+            a = sum_helper(a,x[i])
+        end
     end
     return a
 end
-
