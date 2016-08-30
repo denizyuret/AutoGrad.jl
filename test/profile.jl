@@ -74,7 +74,7 @@ function data()
     batch(xtrn,ytrn,100)
 end
 
-function gzload(file; dir=Pkg.dir("Knet/data/"), url="http://yann.lecun.com/exdb/mnist/")
+function gzload(file; dir=Pkg.dir("AutoGrad/data/"), url="http://yann.lecun.com/exdb/mnist/")
     path = dir*file
     isfile(path) || download(url*file, path)
     f = gzopen(path)

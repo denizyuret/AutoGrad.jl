@@ -1,3 +1,34 @@
+2016-08-30  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Profile speed
+	# Get rid of closures
+	# Make gradients generic
+
+	* TODO:
+	# Profile memory overhead, check cost of recording large number of ops, check slowdown in simple functions
+	# Update documentation and comments.
+	# finish all function gradients.
+	# Test higher order derivatives
+	# Email announce new release with profiling results.
+	# CUBLAS:master already has highlevel.jl implemented with A_mul_B etc. (it is incomplete!) (make sure it doesn't transpose). Update CUDNN as well.  Put the rest of the primitives in CUDArt?  General broadcasting make sense for GPU?
+	# Implement broadcast and reduce more efficiently then CUDNN.
+	# Check out https://github.com/timholy/FastAnonymous.jl
+	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.
+	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
+	# exporting @primitive by itself doesn't work, it needs recorder, getval etc. to be exported to work.
+	# optimize for (tuple) loops in core.jl?
+	# check and eliminate all tight uses of (?:)
+	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
+	# improve testing: generate multiple tests compatible with given types.
+	# subarrays: can be used to make gradients for concat faster: as long as we don't have overwriting.
+	# work on memory: overwriting: 3arg (overwriting) functions (Ax_mul_Bx, broadcast) or julia v0.5 overwrite syntax or InplaceOps.
+	# remove sum_outgrads by using the first outgrad as the accumulator
+	## but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
+	# use TypeNode <: Type instead of Node{Type}?
+	# finish abstractarray(hvcat), array, tuple and dict support.
+	# avoid double normalization in softmax.
+
 2016-08-29  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* Timing:
@@ -62,26 +93,6 @@
 	* DONE:
 	# Try autograd mnist with own memory allocator for the gpu (to use instead of similar).
 	# Finish math.jl.
-
-	* TODO:
-	# CUBLAS:master already has highlevel.jl implemented with A_mul_B etc. (it is incomplete!) (make sure it doesn't transpose). Update CUDNN as well.  Put the rest of the primitives in CUDArt?  General broadcasting make sense for GPU?
-	# Implement broadcast and reduce more efficiently then CUDNN.
-	# Check out https://github.com/timholy/FastAnonymous.jl
-	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.
-	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
-	# exporting @primitive by itself doesn't work, it needs recorder, getval etc. to be exported to work.
-	# optimize for (tuple) loops in core.jl?
-	# check and eliminate all tight uses of (?:)
-	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
-	# improve testing: generate multiple tests compatible with given types.
-	# subarrays: can be used to make gradients for concat faster: as long as we don't have overwriting.
-	# work on memory: overwriting: 3arg (overwriting) functions (Ax_mul_Bx, broadcast) or julia v0.5 overwrite syntax or InplaceOps.
-	# remove sum_outgrads by using the first outgrad as the accumulator
-	## but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
-	# use TypeNode <: Type instead of Node{Type}?
-	# finish all function gradients.
-	# finish abstractarray(hvcat), array, tuple and dict support.
-	# avoid double normalization in softmax.
 
 	* PLAN:
 	# exhaust primitives by implementing more models.
