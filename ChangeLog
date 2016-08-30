@@ -6,10 +6,11 @@
 	# Make gradients generic
 
 	* TODO:
-	# Profile memory overhead, check cost of recording large number of ops, check slowdown in simple functions
 	# Update documentation and comments.
 	# finish all function gradients.
 	# Test higher order derivatives
+	# Profile memory overhead, check cost of recording large number of ops, check slowdown in simple functions
+	# Implement backward operations in profile.jl.
 	# Email announce new release with profiling results.
 	# CUBLAS:master already has highlevel.jl implemented with A_mul_B etc. (it is incomplete!) (make sure it doesn't transpose). Update CUDNN as well.  Put the rest of the primitives in CUDArt?  General broadcasting make sense for GPU?
 	# Implement broadcast and reduce more efficiently then CUDNN.
