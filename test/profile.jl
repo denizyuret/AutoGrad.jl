@@ -1,4 +1,4 @@
-#								AutoGrad:3073e24
+#								AutoGrad:195cda1
 # fun		cpu	af	kn	kn+gc1	kn+gc2	kn+gc3	cpu	kn+gc3
 # 1 mul		0.94	0.56	0.56	0.56	0.56	0.56	0.95	0.56
 # 2 bias	1.05	0.56	0.59	0.59	0.59	0.59	1.05	0.59
