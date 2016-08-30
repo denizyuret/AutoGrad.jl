@@ -71,7 +71,7 @@ function forward_pass(fun, args, kwargs, argnum)
     @dbgcore((:forw, argnum, fun, args..., kwargs...))
     tape = Tape()
     arg_wrt = args[argnum]
-    start_value = Value(tofloat(getval(arg_wrt)), tape)
+    start_value = Value(tofloat(getval(arg_wrt)),tape)
     args = Any[args...] # to make args writeable
     args[argnum] = merge_tapes(start_value, arg_wrt)
     @dbgcore((:fcall, fun, args..., kwargs...))
@@ -124,7 +124,7 @@ function rfun(args...; kwargs...)
                 if s > 0
                     rnode = result.nodes[s]
                 else
-                    rnode = Node(self)
+                    rnode = Node(result.value)
                     push!(result.tapes, tape)
                     push!(result.nodes, rnode)
                 end
@@ -375,20 +375,14 @@ by call and back respectively.  Ordinarily there is only one tape
 
 """
 type Value{T}; value::T; tapes::Vector{Tape}; nodes::Vector{Node}; end
-end #if !isdefined(:Value)
 
-function Value(value, tapes::Tape...)
-    tapes = Tape[tapes...]
-    ntapes = length(tapes)
-    nodes = Array(Node, ntapes)
-    self = Value(value, tapes, nodes)
-    for i=1:ntapes
-        nodes[i] = Node(self)
-        push!(tapes[i],nodes[i])
-    end
-    @dbgcore((:Value,self))
-    return self
+function Value(value, tape::Tape=Tape())
+    node = Node(value)
+    push!(tape,node)
+    Value(value,Tape[tape],Node[node])
 end
+
+end #if !isdefined(:Value)
 
 # findfirst uses == which is inefficient for tapes
 function findeq(A,v)

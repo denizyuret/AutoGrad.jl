@@ -1,104 +1,59 @@
-# Adapted from mnist.jl
+# fun		cpu	af	kn	kn+gc1	kn+gc2	kn+gc3	delta
+# 1 mul		0.94	0.56	0.56	0.56	0.56	0.56	0.56
+# 2 bias	1.05	0.56	0.59	0.59	0.59	0.59	0.03
+# 3 max		1.34	0.56	0.63	0.62	0.62	0.62	0.03
+# 4 mul		1.44	0.74	0.75	0.75	0.75	0.75	0.13
+# 5 bias	1.48	0.75	0.79	0.78	0.78	0.78	0.03
+# 6 sub		1.49	0.81	0.82	0.81	0.81	0.82	0.03
+# 7 sq		1.62	0.93	0.85	0.84	0.84	0.85	0.03
+# 8 sum		1.62	1.22	1.19	1.07	1.08	1.07	0.24
+# 9 forw	2.47	2.60	2.25	1.67	1.46	1.68	0.38	:1.55,1.73?,1.93
+# 10 grad	5.52	6.53	5.86	3.52	3.62	3.30	2.16	:3.68,3.36?,3.53
+# 
+# (*) timeall(weights(), weights(64), data(), 10)
+# (*) af results with gc_enable=false and sync()
+# (*) kn uses `similar`, +gc1 runs tmpfree every epoch, +gc2 runs tmpfree every iteration (minibatch), +gc3 uses KnetFree and calls gc every 10 epochs.
+# AF: The forw records arrays preventing their reuse?
+# AF: They are merging consecutive ops in one kernel, which breaks down with forw?
 
-using AutoGrad
-using GZip
-using Main
-using Compat
+using AutoGrad, GZip
+using AutoGrad: forward_pass
 
-function predict(w, x)
-    i = 1
-    while i+2 < length(w)
-        x = max(0, w[i]*x .+ w[i+1])
-        i += 2
-    end
-    return w[i]*x .+ w[i+1]
-end
+fun = []
 
-function loss(w, x, ygold)
-    ypred = predict(w, x)
-    ynorm = ypred .- log(sum(exp(ypred),1))
-    -sum(ygold .* ynorm) / size(ygold,2)
-end
+# push!(fun,(w,x,y)->w[1]*x)
+# push!(fun,(w,x,y)->w[1]*x.+w[2])
+# push!(fun,(w,x,y)->max(0,w[1]*x.+w[2]))
+# push!(fun,(w,x,y)->w[3]*max(0,w[1]*x.+w[2]))
+# push!(fun,(w,x,y)->w[3]*max(0,w[1]*x.+w[2]).+w[4])
+# push!(fun,(w,x,y)->((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y))
+# push!(fun,(w,x,y)->(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2))
+fun1 = (w,x,y)->sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
+push!(fun, fun1)
+push!(fun,(w,x,y)->forward_pass(fun1,(w,x,y),(),1))
+push!(fun,grad(fun1))
 
-function accuracy(w, x, ygold)
-    ypred = predict(w, x)
-    sum((ypred .== maximum(ypred,1)) & (ygold .== maximum(ygold,1))) / size(ygold,2)
-end
-
-function profit(f; epochs=10)
-    timeit(f; epochs=epochs)
-    w = weights(64; seed=1);
-    sleep(2)
-    gc_enable(false)
-    @profile f(w; epochs=epochs)
-    gc_enable(true)
-end
-
-function timeit(f; epochs=1)
-    isdefined(:dtrn) || loaddata()
-    for i=1:3
-        w = weights(64; seed=1);
-        sleep(2)
-        gc_enable(false)
-        @time f(w; epochs=epochs)
-        gc_enable(true)
-    end
-end
-
-function train0(w=weights(64); lr=.1, epochs=1)
-    gradfun = grad(loss)
-    for epoch=1:epochs
-        for (x,y) in dtrn
-            g = gradfun(w, x, y)
-            for i in 1:length(w)
-                # w[i] -= lr * g[i]
-                Base.axpy!(-lr, g[i], w[i])
-            end
+function timeall(w=w2,d=d0,t=10)
+    for i=1:length(fun)
+        printfun(fun[i])
+        for j=1:3
+            sleep(2)
+            @time loop(fun[i],w,d,t)
         end
     end
-    return w
 end
 
-function train1(w=weights(64); lr=.1, epochs=1)
-    gradfun = grad(loss)
-    for epoch=1:epochs
-        for (x,y) in dtrn
-            g = gradfun(w, x, y)
+function loop(f,w,d,t)
+    for i in 1:t
+        for (x,y) in d
+            f(w,x,y)
         end
     end
-    return w
-end
-
-function train2(w=weights(64); lr=.1, epochs=1)
-    for epoch=1:epochs
-        for (x,y) in dtrn
-            z = loss(w, x, y)
-        end
-    end
-    return w
-end
-
-function train3(w=weights(64); lr=.1, epochs=1)
-    for epoch=1:epochs
-        for (x,y) in dtrn
-            y = predict(w, x)
-        end
-    end
-    return w
-end
-
-function train4(w=weights(64); lr=.1, epochs=1)
-    for epoch=1:epochs
-        for (x,y) in dtrn
-            z = AutoGrad.forward_pass(loss, (w, x, y), (), 1)
-        end
-    end
-    return w
 end
 
 function weights(h...; seed=nothing)
     seed==nothing || srand(seed)
-    w = Any[]
+    w = Array{Float32}[]
     x = 28*28
     for y in [h..., 10]
         push!(w, convert(Array{Float32}, 0.1*randn(y,x)))
@@ -108,29 +63,27 @@ function weights(h...; seed=nothing)
     return w
 end
 
-function loaddata()
+function data()
     info("Loading data...")
-    global xtrn, xtst, ytrn, ytst, dtrn
     xshape(a)=reshape(a./255f0,784,div(length(a),784))
     yshape(a)=(a[a.==0]=10; full(sparse(convert(Vector{Int},a),1:length(a),1f0)))
-    xtrn = xshape(gzread("train-images-idx3-ubyte.gz")[17:end])
-    xtst = xshape(gzread("t10k-images-idx3-ubyte.gz")[17:end])
-    ytrn = yshape(gzread("train-labels-idx1-ubyte.gz")[9:end])
-    ytst = yshape(gzread("t10k-labels-idx1-ubyte.gz")[9:end])
-    dtrn = minibatch(xtrn, ytrn, 100)
-    info("Loading done...")
+    xtrn = xshape(gzload("train-images-idx3-ubyte.gz")[17:end])
+    ytrn = yshape(gzload("train-labels-idx1-ubyte.gz")[9:end])
+    #xtst = xshape(gzload("t10k-images-idx3-ubyte.gz")[17:end])
+    #ytst = yshape(gzload("t10k-labels-idx1-ubyte.gz")[9:end])
+    batch(xtrn,ytrn,100)
 end
 
-function gzread(file; dir=Pkg.dir("AutoGrad/data/"), url="http://yann.lecun.com/exdb/mnist/")
+function gzload(file; dir=Pkg.dir("Knet/data/"), url="http://yann.lecun.com/exdb/mnist/")
     path = dir*file
     isfile(path) || download(url*file, path)
     f = gzopen(path)
-    a = @compat read(f)
+    a = readbytes(f)
     close(f)
     return(a)
 end
 
-function minibatch(x, y, batchsize)
+function batch(x, y, batchsize)
     data = Any[]
     nx = size(x,2)
     for i=1:batchsize:nx
@@ -139,3 +92,19 @@ function minibatch(x, y, batchsize)
     end
     return data
 end
+
+function printfun(x)
+    if isdefined(x,:code)
+        println(Base.uncompressed_ast(x.code).args[3].args[2].args[1])
+    else
+        println(x)
+    end
+end
+
+if !isdefined(:d0)
+    d0 = data()
+    w1 = weights(seed=1)
+    w2 = weights(64;seed=1)
+end
+
+:ok

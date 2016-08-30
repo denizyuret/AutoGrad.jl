@@ -8,6 +8,8 @@
 	@time 1.802994 seconds (3.67 M allocations: 160.433 MB, 1.86% gc time)
 	292b854 1.09	1.68	2.99	# fixed recorder
 	@time 1.715418 seconds (3.13 M allocations: 127.752 MB, 1.68% gc time)
+	8edef74	1.10	1.55	2.96	# eliminated gradient closures
+	@time 1.553175 seconds (2.59 M allocations: 110.687 MB)
 
 	* Operations: commented output from nnet shows unnecessary operations:
 
