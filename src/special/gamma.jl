@@ -9,17 +9,17 @@ gamma1arg = Dict{Symbol,Any}(
 )
 
 for (f,g) in gamma1arg
-    @eval @primitive  $f(x::AorN)::y  (dy->dy.*$g)
+    @eval @primitive  $f(x::AorN),dy,y  (dy.*($g))
 end
 
 gamma2arg = Dict{Symbol,Any}(
 #:beta => :todo,                          # gamma,operators
 #:lbeta => :todo,                         # gamma,operators
-:polygamma => (0,:(polygamma(x1+1,x2))), # first argument should be an integer; gamma,operators
+#:polygamma => (0,:(polygamma(x1+1,x2))), # first argument should be an integer; gamma,operators
 #:zeta => :todo,                 # domain >= 1?; gamma, operators
 )
 
-@primitive polygamma(x1::AorN,x2::AorN)::y  0  unbroadcast(y,x2,dy->dy.*polygamma(x1+1,x2))
+@primitive polygamma(x1::AorN,x2::AorN),dy,y  0  unbroadcast(x2,dy.*polygamma(x1+1,x2))
 fixdomain(::Fn{:polygamma},x1,x2)=(rand(0:9),x2)
 
 # testargs{T1<:Number,T2}(::Fn{:polygamma}, ::Type{T1}, ::Type{T2})=(rand(0:5),testargs(Fn2(:polygamma),T2)...)

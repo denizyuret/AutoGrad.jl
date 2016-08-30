@@ -16,27 +16,27 @@ float2zero = [
 for f in float2zero; @eval @zerograd $f(x1::AorN,x2::AorN); end
 
 float1arg = Dict{Symbol,Any}(
-:(+) => :identity,  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath abstractarraymath operators
-:(-) => :(-),  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath
-:abs => :(dy->dy.*sign(x)),             # float,operators
-:float => :identity,                    # float
+:(+) => :dy,  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath abstractarraymath operators
+:(-) => :(-dy),  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath
+:abs => :(dy.*sign(x)),             # float,operators
+:float => :dy,                    # float
 )
 
 for (f,g) in float1arg
-    @eval @primitive $f(x::AorN)::y $g
+    @eval @primitive $f(x::AorN),dy,y $g
 end
 
 float2arg = Dict{Symbol,Any}(
-:+ => (:identity,:identity), # extra (N,) (A,); float,arraymath,abstractarraymath,operators
-:- => (:identity,:(-)),                    # extra (N,) (A,); float,arraymath
-#:rem => (1,:(-trunc(x1./x2))),   # Remainder from Euclidean division, return same sign as x, BUG: missing (A,A); BUG: WARNING: (:check_grads,(:sum,:rem),:args,(-0.13412338383912367,[-0.00025363687477246275,0.4389355563026644]),:exact,(2.0,[-528.0,0.0]),:numeric,(1.9999999999997797,[0.8920182562441314,0.0])); float,arraymath
-#:% => (1,:(-trunc(x1./x2))),     # same as rem
-#:mod => (1,:(-floor(x1./x2))),   # BUG: WARNING: (:check_grads,(:sum,:mod),:args,([-1.850960311615227,-1.282613199024709],[0.8035558268314972,-0.32067619631949534]),:exact,([1.0,1.0],[3.0,-3.0]),:numeric,([1.0000000000021103,1.0000000000021103],[2.9999999999996696,3203.2619631949538])); Modulus after division, return same sign as y; float,arraymath
+:+ => (:dy,:dy), # extra (N,) (A,); float,arraymath,abstractarraymath,operators
+:- => (:dy,:(-dy)),                    # extra (N,) (A,); float,arraymath
+#:rem => (:dy,:(-dy.*trunc(x1./x2))),   # Remainder from Euclidean division, return same sign as x, BUG: missing (A,A); BUG: WARNING: (:check_grads,(:sum,:rem),:args,(-0.13412338383912367,[-0.00025363687477246275,0.4389355563026644]),:exact,(2.0,[-528.0,0.0]),:numeric,(1.9999999999997797,[0.8920182562441314,0.0])); float,arraymath
+#:% => (:dy,:(-dy.*trunc(x1./x2))),     # same as rem
+#:mod => (:dy,:(-dy.*floor(x1./x2))),   # BUG: WARNING: (:check_grads,(:sum,:mod),:args,([-1.850960311615227,-1.282613199024709],[0.8035558268314972,-0.32067619631949534]),:exact,([1.0,1.0],[3.0,-3.0]),:numeric,([1.0000000000021103,1.0000000000021103],[2.9999999999996696,3203.2619631949538])); Modulus after division, return same sign as y; float,arraymath
 #:(==) => 0,                      # BUG: StackOverflowError(). supports any pair of values; float,operators,abstractarray
 )
 
 for (f,g) in float2arg
-    @eval @primitive $f(x1::AorN,x2::AorN)::y unbroadcast(y,x1,$(g[1])) unbroadcast(y,x2,$(g[2]))
+    @eval @primitive $f(x1::AorN,x2::AorN),dy,y unbroadcast(x1,$(g[1])) unbroadcast(x2,$(g[2]))
 end
 
 # defgrads(float2arg, Number, Number)
@@ -57,9 +57,9 @@ end
 # defgrads(float2mul, AbstractArray, Number)
 # defgrads(float2mul, Number, AbstractArray)
 
-@primitive (*)(x1::Number,x2::Number) (dy->dy.*x2) (dy->dy.*x1)
-@primitive (*)(x1::Number,x2::AbstractArray)::y unbroadcast(y,x1,(dy->dy.*x2)) (dy->dy.*x1)
-@primitive (*)(x1::AbstractArray,x2::Number)::y (dy->dy.*x2) unbroadcast(y,x2,(dy->dy.*x1))
+@primitive (*)(x1::Number,x2::Number),dy,y (dy.*x2) (dy.*x1)
+@primitive (*)(x1::Number,x2::AbstractArray),dy,y unbroadcast(x1,dy.*x2) (dy.*x1)
+@primitive (*)(x1::AbstractArray,x2::Number),dy,y (dy.*x2) unbroadcast(x2,(dy.*x1))
 
 # Methods for division:
 # /(x::Float64, y::Float64) at float.jl:214
@@ -70,11 +70,8 @@ end
 # :/ => (:(1./x2),:(-x1./abs2(x2))), # (N,N) (A,N)
 # )                             
 
-# defgrads(float2div, Number, Number)
-# defgrads(float2div, AbstractArray, Number)
-
-@primitive (/)(x1::Number,x2::Number) (dy->dy./x2) (dy->-dy.*x1./abs2(x2))
-@primitive (/)(x1::AbstractArray,x2::Number)::y (dy->dy./x2) unbroadcast(y,x2,(dy->-dy.*x1./abs2(x2)))
+@primitive (/)(x1::Number,x2::Number),dy,y (dy/x2) (-dy*x1/abs2(x2))
+@primitive (/)(x1::AbstractArray,x2::Number),dy,y (dy/x2) unbroadcast(x2,(-dy.*x1./abs2(x2)))
 
 # These are defined in terms of isless which is handled in interfaces.jl
 # float2arg1 = Dict{Symbol,Any}(

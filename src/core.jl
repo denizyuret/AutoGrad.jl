@@ -1,3 +1,8 @@
+# Uncomment to debug:
+# macro dbgcore(x); esc(:(println(_dbg($x)))); end
+macro dbgcore(x); end
+
+
 # Contents:
 
 # Here are the rough steps performed by g(x) where g=grad(f):
@@ -19,6 +24,7 @@
 # 1.2 only one of the regular args is the gradient target, specified by the argnum argument of grad.
 # 1.3 in a typical model f would take parameters, return loss, with data kept in global variables.
 # 1.4 to support multiple parameters, they can be grouped in a single arg using Array, Dict, or Tuple.
+
 
 """
 grad(fun, argnum=1) -> gradfun    
@@ -103,11 +109,9 @@ function rfun(args...; kwargs...)
     @dbgcore((:call, f, args..., kwargs...))
     argvals = map(getval,args)
     result = f(argvals...; kwargs...)
-    #TODO: f(ZeroGrad) && return result
     for argnum = 1:length(args)
         arg = args[argnum]
         isa(arg,Value) || continue
-        #TODO: f(ZeroGrad{argnum},argvals...) && continue
         for t=1:length(arg.tapes)
             tape = arg.tapes[t]
             iscomplete(tape) && continue
@@ -125,8 +129,7 @@ function rfun(args...; kwargs...)
                     push!(result.nodes, rnode)
                 end
             end
-            #TODO: gfun = (f,argnum,result,args,kwargs)
-            gfun = f(Grad{argnum},result,args...;kwargs...)
+            gfun = (f,argnum,result,args,kwargs)
             push!(rnode.parents, parent)
             push!(rnode.gradfuns, gfun)
         end
@@ -143,7 +146,7 @@ end # let fdict
 #     tapes = []
 #     found_node = false
 
-# # 3.2 r goes through the arguments and unboxes any that are Nodes.
+# # 3.2 r goes through the arguments and unboxes any that are Values.
 # # For each unboxed Value, its tape, argnum, and Node is stored.
 
 #     for i=1:length(args)
@@ -162,7 +165,7 @@ end # let fdict
 #         end
 #     end
 
-# # 3.3 If no Nodes found we throw an error (the recorder method was
+# # 3.3 If no Values found we throw an error (the recorder method was
 # # supposed to catch calls with Value arguments).
 
 #     found_node || throw(MethodError(f, argvals))            # Otherwise undefined methods lead to infinite loop
@@ -171,8 +174,8 @@ end # let fdict
 #     result = f(argvals...; kwargs...)
 #     @dbgcore((:rcall,f,result,argvals...,kwargs...))
 
-# # 3.5 ops can be empty if no Nodes, zero_grads, or iscomplete(tape).
-# # No Nodes case is impossible, we throw an error.
+# # 3.5 ops can be empty if no Values, zero_grads, or iscomplete(tape).
+# # No Values case is impossible, we throw an error.
 # # zero_grads is handled differently.
 # # iscomplete is needed to prevent recording during backward_pass unless higher order derivatives.
 
@@ -261,10 +264,10 @@ function backward_pass(start_value, end_value, tape)
         for i=1:length(node.parents)
             @dbgcore((:back1,cur_outgrad))
             parent = node.parents[i]
-            #TODO: (fun,argnum,result,args,kwargs) = node.gradfuns[i]
-            #TODO: og = fun(Grad{argnum},cur_outgrad,result,args...; kwargs...)
-            gradfun = node.gradfuns[i]
-            og = gradfun(cur_outgrad)
+            (fun,argnum,result,args,kwargs) = node.gradfuns[i]
+            og = fun(Grad{argnum},cur_outgrad,result,args...; kwargs...)
+            #gradfun = node.gradfuns[i]
+            #og = gradfun(cur_outgrad)
             push!(parent.outgrads, og)
             @dbgcore((:back2,og))
         end
@@ -272,11 +275,11 @@ function backward_pass(start_value, end_value, tape)
 
 # 4.5 the last outgrad is returned.  How do we know this is the
 # correct gradient df/dx?  Only x and its descendents are marked as
-# Nodes and recorded on the tape. In the beginning the only non-empty
+# Values and recorded on the tape. In the beginning the only non-empty
 # outgrad is the one for the end_value.  Since the end_value is a Value
 # (otherwise we return 0), it must depend on input x.  The input is
 # the first thing recorded on tape by forward_pass, thus will be the
-# last thing whose gradient is seen.  If there are Nodes influenced by
+# last thing whose gradient is seen.  If there are Values influenced by
 # x but do not influence the end_value, their outgrads will remain
 # empty, thus only the necessary gradients are computed.  However, if
 # there is a nondifferentiable operation the chain breaks!  So let's
@@ -291,7 +294,7 @@ end
 # 5. How recording is done.
 
 # 5.2 Node: Each result Value created by a primitive keeps track
-# of the argument Nodes of that primitive (the non-Value arguments need
+# of the argument Values of that primitive (the non-Value arguments need
 # not be recorded since they do not depend on the input of f).  Along
 # with each argument Value i, a gradient function is recorded that will
 # turn the gradient wrt the result into a gradient wrt argument i.
@@ -303,6 +306,7 @@ end
 # descendents each of which will push a gradient to outgrads to be
 # summed.
 
+if !isdefined(:Node)
 """
 Node is a plain type with three slots:
 
@@ -313,9 +317,10 @@ Node is a plain type with three slots:
 type Node
     value
     parents::Vector{Node}
-    gradfuns::Vector
+    gradfuns::Vector{NTuple{5}}
     outgrads::Vector
-end
+end #type
+end #if
 Node(value) = Node(value, [], [], [])
 
 
@@ -381,7 +386,7 @@ function Value(value, tapes::Tape...)
         nodes[i] = Node(self)
         push!(tapes[i],nodes[i])
     end
-    @dbgcore((:node,self))
+    @dbgcore((:Value,self))
     return self
 end
 
@@ -400,12 +405,13 @@ end
 # 6.1 Primitives
 
 # AutoGrad primitives record their actions when they are called with
-# some arguments boxed in Nodes.  Julia supports multiple dispatch,
+# some arguments boxed in Values (However, see 6.3 for
+# undifferentiable primitives). Julia supports multiple dispatch,
 # i.e. a single function can have multiple methods with different arg
 # types.  AutoGrad supports multiple dispatch for primitives and
 # gradients, i.e. only some of the methods of a function can be
 # defined as primitives and have gradients.  Calls to a particular
-# method where some arguments are boxed in Nodes are directed to the
+# method where some arguments are boxed in Values are directed to the
 # recorder function. The following example makes `sin(x::Number)` a
 # primitive, but says nothing about e.g. `sin(x::Array)`.
 
@@ -415,7 +421,7 @@ end
 # With multiple arguments, things get a bit more complicated.  There
 # is no easy way to say "at least one argument is a Value" in Julia.
 # So one must define methods for all 2^N-1 combinations for
-# boxed/unboxed arguments.  This example makes
+# boxed/unboxed arguments to be safe.  This example makes
 # hypot(x1::Array,x2::Array) a primitive:
 
 #     local hypot_r = recorder(hypot)
@@ -434,52 +440,81 @@ end
 
 # This would send any argument combination not covered by regular
 # hypot methods to the recorder function, which presumably includes
-# Noded calls.  This is dangerous for several reasons: (1) the Julia
-# base may contain a typeless method (e.g. it does for `vcat`) we are
-# overwriting. (2) this catches Noded calls to hypot methods we may
-# not support yet.  So generally I would not recommend it.
+# calls with boxed arguments.  This is dangerous for several reasons:
+# (1) the Julia base may contain a typeless method (e.g. it does for
+# `vcat`) we are overwriting. (2) this catches boxed calls to hypot
+# methods we may not support yet.  So generally I would not recommend
+# it.
 
 # 6.2 Gradients
 
 if !isdefined(:Grad)
     immutable Grad{N}; end          # Gradient wrt N'th argument
-    immutable ZeroGrad{N}; end      # Indicates no gradient wrt N'th argument
 end
 
-# In AutoGrad, gradients are represented by high-order gradient maker
-# functions for each argument of each primitive method.  A gradient
-# maker takes an argument specifier `Grad{N}`, the return value `y`,
-# and the input arguments `x...`, and returns a gradient function (a
-# closure) that turns `dJ/dy` into `dJ/dx_N`.  For the first example
-# here is the gradient maker:
+# In AutoGrad, gradients are defined using gradient methods that have
+# the following signature:
 
-# `sin{T<:Number}(::Type{Grad{1}}, ::Value, x::Value{T})=(dy->dy*cos(x))`
+#     f(Grad{i},dy,y,x...) => dx[i]
 
-# Note that the parameters and the return variable of the original
-# function can be used in the gradient function.  For the second
-# example a different gradient maker is generated for each argument:
+# Here `f` is the name of original function, Grad{i} is a Type
+# constant that specifies the gradient wrt the i'th argument, `dy` is
+# the gradient wrt the output `y`, and `x...` are the input arguments.
+# In this case `f` was originally called with `f(x...)` and returned
+# `y`.  Somebody handed us the gradient `dy` wrt the output and
+# `f(Grad{i},...)` above is going to give us the gradient `dx[i]` wrt
+# the i'th argument.
 
-# `hypot{T<:Array,S<:Array}(::Type{Grad{1}},y::Value,x1::Value{T},x2::Value{S})=(dy->dy.*x1./y)`
-# `hypot{T<:Array,S<:Array}(::Type{Grad{2}},y::Value,x1::Value{T},x2::Value{S})=(dy->dy.*x2./y)`
+# Note that type declarations on the x's can be used to specialize
+# this gradient to any method of the function `f`.  Here is the
+# gradient for `sin`:
+
+# `sin{T<:Number}(::Type{Grad{1}}, dy, y, x::Value{T})=dy*cos(x)
+
+# For the second example a different gradient method is needed for
+# each argument:
+
+# `hypot{T<:Array,S<:Array}(::Type{Grad{1}},dy,y,x1::Value{T},x2::Value{S})=(dy.*x1./y)`
+# `hypot{T<:Array,S<:Array}(::Type{Grad{2}},dy,y,x1::Value{T},x2::Value{S})=(dy.*x2./y)`
 
 # And of course we need four more definitions for the other
 # boxed/unboxed argument combinations, which the @primitive macro
 # generates automatically.
 
-# Zero gradient functions such as `sign`, and non-numeric functions
-# such as `size` should be defined using the @zerograd macro instead.
-# Unlike primitives, zerograd functions neither record their action
-# nor return a Value.  They just unbox their arguments and return a
-# regular value.
+# Finally, there are three cases of zero gradients that need to be
+# handled:
 
-# Finally some methods such as `sum(a::Array,i::Int)` are only
-# differentiable wrt some of their arguments (here `a` but not `i`).
-# These methods must record when their differentiable argument(s) are
-# boxed and return boxed values.  The gradient makers for the other
-# arguments can be left undefined (if they cannot be boxed as in the
-# sum example), or defined as returning 0 instead of a gradient
-# function (if they can be boxed, see ungetindex).
+# 6.3 Undifferentiable functions
 
+# Piecewise constant functions such as `sign`, and non-numeric
+# functions such as `size` are not differentiable wrt any of their
+# arguments.  Unlike primitives, these functions do not need to record
+# their action or return a boxed Value.  They can just unbox their
+# arguments and return an unboxed value:
+
+# `size(a::Value,i...)=size(a.value,i...)`
+
+# The @zerograd macro defined in util.jl can be used to automate this.
+
+# 6.4 Undifferentiable wrt unboxed arguments
+
+# Methods such as `sum(a::Array,i::Int)` are only differentiable wrt
+# some of their arguments (here `a` but not `i`).  These methods must
+# record when their differentiable argument(s) are boxed and return
+# boxed values.  If we are certain that their undifferentiable
+# arguments are never going to be boxed, we can leave their gradients
+# undefined:
+
+#     local sum_r = recorder(sum)
+#     sum{T<:Array}(a::Value{T},i::Int)=sum_r(a,i)
+#     sum{T<:Array}(::Type{Grad{1}},dy,y,a::Value{T},i::Int)=dy.+zeros(a)
+
+# 6.5 Undifferentiable wrt boxed arguments
+
+# Finally, in the rare cases when an undifferentiable argument can be
+# boxed, its gradient must be defined and must return 0.  The utility
+# function `ungetindex` in intefaces.jl which uses its first
+# argument's shape as a template is one example of this rare class.
 
 # 7. How higher order gradients work.
 
@@ -496,12 +531,12 @@ end
 # the nodes on t2 only point to other nodes in t2, so backward_pass(f) fills outgrads on t2.
 # backward_pass(f) calls gradfuns recorded by ops in f(n3).
 # these gradfuns are defined generically like f, they can handle regular or Value input.
-# a gradfun is a closure (dy->dx) with an environment (x,y).  dy may be a Value or value, (x,y) are typically Nodes recorded during the call.
+# a gradfun is a closure (dy->dx) with an environment (x,y).  dy may be a Value or value, (x,y) are typically Values recorded during the call.
 # the operations of gradfuns are recorded only on t1, that is why we need iscomplete(t2) once we start backward_pass on t2.
 # backward_pass(f) returns n5=Value(df/dx,t1:r5) which becomes the output of forward_pass(g,x)
 # h(x) calls backward_pass(g)(n1,n5,t1).
 # backward_pass(g) calls gradfuns recorded in t1.
-# even though some inputs are Nodes again, nothing gets recorded and all primitives return values because t1 is complete.
+# even though some inputs are Values again, nothing gets recorded and all primitives return values because t1 is complete.
 # backward_pass(g) returns a regular value which becomes the output of h(x).
 
 
@@ -509,19 +544,19 @@ end
 
 # These are helper functions used in forward_pass, backward_pass, and
 # recorder.  We need to be careful about whether they take or return
-# Nodes and record their gradients.  merge_tapes, sum_outgrads are defined as primitives.
+# Values and record their gradients.  merge_tapes, sum_outgrads are defined as primitives.
 
 # 8.1 Value, getval: these box, unbox, and float values.
 
 getval(x) = (if isa(x, Value); x.value; else; x; end)  # we never create Value(Value).
 
 # 8.2 merge_tapes: Used by forward_pass to support higher order
-# gradients. Records its operation if both its arguments are Nodes.
+# gradients. Records its operation if both its arguments are Values.
 # Its first argument is a newly created Value.  Its second argument is
 # the original input argument, which is only a Value if this is a
 # higher order gradient, in which case it is a Value that belongs to
 # another tape and merge_tapes in effect creates a third Value on both
-# tapes that point to their respective parent Nodes.  If the second
+# tapes that point to their respective parent Values.  If the second
 # argument is not a Value, simply returns its first arg without
 # recording anything.
 
@@ -541,7 +576,7 @@ merge_tapes{N,T}(::Type{Grad{N}},c::Value{T},a::Value{T},b::Value{T}) = identity
 # i.e. does not have a gradient, so they do not need to be recorded
 # even though they have Value arguments.  A gradfun is run by back to
 # compute dx from dy.  It is a composite function with a single
-# argument dy and closure variables (x,y).  These may be Nodes, in
+# argument dy and closure variables (x,y).  These may be Values, in
 # which case boxing and unboxing will be performed by the primitives
 # used in gradfun.
 
@@ -549,24 +584,24 @@ merge_tapes{N,T}(::Type{Grad{N}},c::Value{T},a::Value{T},b::Value{T}) = identity
 # gradients where the higher order tape is not closed.  If the tapes
 # are closed (in the final backward_pass), no recording will be done
 # and a regular value will be returned even if some of the inputs are
-# Nodes.
+# Values.
 
 
 # 8.4 sum_outgrads: only used in backward_pass to produce the input to
 # a gradient function df/dy.  Does it ever need to record its
 # operation and give a Value output?  Gradient functions are closures
 # that take df/dy, return df/dx and have the environment (x,y) which
-# is the original input/output and almost certainly Nodes.  The input
+# is the original input/output and almost certainly Values.  The input
 # df/dy may or may not be a Value.  If we encounter a Value with an open
 # tape, we need to record the sum operation.  This will happen in
 # higher order derivatives.
 
 # A: what if first outgrad is a Value and others aren't, or vice versa?  handled by @primitive.
-# A: what should the output be if some of the inputs are Nodes?  Is sum_outgrads a primitive? No, its input is never a Value, maybe an array including Nodes.  Its helper is a primitive.
+# A: what should the output be if some of the inputs are Values?  Is sum_outgrads a primitive? No, its input is never a Value, maybe an array including Values.  Its helper is a primitive.
 # A: for array and dict can we just modify the first element of outgrads?  This may be dangerous because the same outgrad may be passed back to more than one target e.g. by `+`.
 
 # TODO: Instead of maintaining an array of outgrads then summing them, why not keep a sum to avoid allocation?
-# (instead of pushing to parent.outgrads, we'd have to call sum directly, deal with Nodes etc.)
+# (instead of pushing to parent.outgrads, we'd have to call sum directly, deal with Values etc.)
 # However before we can do this we need to handle overwriting ops because sum_outgrads is a primitive.
 
 function sum_outgrads(x)

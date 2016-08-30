@@ -1,3 +1,7 @@
+# Uncomment to debug:
+# macro dbgutil(x); esc(:(println(_dbg($x)))); end
+macro dbgutil(x); end
+
 """
 
 `@primitive fx g1 g2...` can be used to define a new primitive
@@ -9,12 +13,12 @@ multiple dispatch for primitives and gradients.  Thus fx is a
 typed method declaration such as:
 
 * @primitive sin(x::Number)
-* @primitive hypot(x1::Array,x2::Array)::y
+* @primitive hypot(x1::Array,x2::Array),dy,y
 
-The second example shows the nonstandard extension of specifying
-a return variable `y` after a final `::` which can be used in
-gradient expressions.  Untyped, ellipsis and keyword arguments
-are ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
+The second example specifies variable names for the output gradient
+`dy` and the output `y` after the method declaration which can be used
+in gradient expressions.  Untyped, ellipsis and keyword arguments are
+ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
 `f{T<:Number}(x::T)` cannot be used.
 
 The @primitive macro turns the first example into:
@@ -38,40 +42,49 @@ the macro generates all 2^N-1 boxed/unboxed argument combinations.
 The method declaration can optionally be followed by gradient
 expressions.  Here are the same examples with gradients:
 
-* @primitive sin(x::Number) (dy->dy*cos(x))
-* @primitive hypot(x1::Array,x2::Array)::y  `(dy->dy.*x1./y)`  `(dy->dy.*x2./y)`
+* @primitive sin(x::Number),dy (dy*cos(x))
+* @primitive hypot(x1::Array,x2::Array),dy,y  `(dy.*x1./y)`  `(dy.*x2./y)`
 
-In AutoGrad, gradients are represented by high-order gradient maker
-functions for each primitive.  A gradient maker takes an argument
-specifier `Grad{N}`, the return value `y`, and the input arguments
-`x...`, and returns a gradient function that turns `dJ/dy` into
-`dJ/dx_N`.  For the first example here is the generated gradient
-maker:
+Note that the parameters, the return variable and the output gradient
+of the original function can be used in the gradient expressions.
 
-`sin{T<:Number}(::Type{Grad{1}}, ::Value, x::Value{T})=(dy->dy*cos(x))`
+In AutoGrad, gradients are defined using gradient methods that have
+the following signature:
 
-Note that the parameters and the return variable of the original
-function can be used in the gradient expressions.  For the second
-example a different gradient maker is generated for each argument:
+    f(Grad{i},dy,y,x...) => dx[i]
 
-`hypot{T<:Array,S<:Array}(::Type{Grad{1}},y::Value,x1::Value{T},x2::Value{S})=(dy->dy.*x1./y)`
-`hypot{T<:Array,S<:Array}(::Type{Grad{2}},y::Value,x1::Value{T},x2::Value{S})=(dy->dy.*x2./y)`
+For the first example here is the generated gradient method:
+
+`sin{T<:Number}(::Type{Grad{1}}, dy, y, x::Value{T})=(dy*cos(x))`
+
+For the second example a different gradient method is generated for
+each argument:
+
+`hypot{T<:Array,S<:Array}(::Type{Grad{1}},dy,y,x1::Value{T},x2::Value{S})=(dy.*x1./y)`
+`hypot{T<:Array,S<:Array}(::Type{Grad{2}},dy,y,x1::Value{T},x2::Value{S})=(dy.*x2./y)`
 
 In fact @primitive generates four more definitions for the other
 boxed/unboxed argument combinations.
 
-Zero gradient functions such as `sign`, and non-numeric functions such
-as `size` should be defined using the @zerograd macro instead.
+Non-differentiable functions such as `sign`, and non-numeric functions
+such as `size` should be defined using the @zerograd macro instead.
 
 """
 macro primitive(f,g...)
     isa(f,Expr) || error("'$f' not a method signature")
-    if f.head == :(::) # Using f(x)::y to indicate return variable for gradients
-        (f,y) = f.args
+    if f.head == :tuple # Using f(x),dy,y to indicate return variable for gradients
+        if length(f.args) == 3
+            (f,dy,y) = f.args
+        elseif length(f.args) == 2
+            (f,dy) = f.args; y = gensym()
+        else
+            error("The first arg '$f' should have the format f(x),dy,y")
+        end
     else
-        y = gensym()
+        dy = gensym(); y = gensym()
     end
     f.head == :call || error("'$f' not a method signature")
+    isa(dy,Symbol) || error("Output gradient '$dy' not a symbol")
     isa(y,Symbol) || error("Return variable '$y' not a symbol")
     b = Expr(:block)
     r = gensym()
@@ -80,16 +93,11 @@ macro primitive(f,g...)
     for fx in fsigs(f)
         push!(b.args, esc(:($fx = $rx)))
         for i=1:length(g)
-            gx = gsig(fx,y,i)
-            # TODO: this may be slightly more involved than just g[i]
+            gx = gsig(fx,dy,y,i)
             push!(b.args, esc(:($gx = $(g[i]))))
         end
     end
-    if isempty(g)
-        # TODO: add a global zerograd definition here
-    else
-        addtest(f)
-    end
+    addtest(f)
     return b
 end
 
@@ -121,7 +129,22 @@ function zcall(f)
     isa(z1,Expr) && z1.head==:curly && (z.args[1]=z1.args[1])
     for i=2:length(z.args)
         zi = z.args[i]
-        isa(zi,Expr) && zi.head==:(::) && (z.args[i] = :(getval($(zi.args[1]))))
+        if isa(zi,Symbol)
+            # all done
+        elseif !isa(zi,Expr)
+            error("Unrecognized argtype '$zi'")
+        elseif zi.head==:(::)
+            (v,t) = zi.args
+            if t==:Value || (isa(t,Expr) && t.head==:curly && t.args[1]==:Value)
+                z.args[i] = :($v.value)
+            else
+                z.args[i] = v
+            end
+        elseif zi.head==:(...)  # done
+        elseif zi.head==:parameters # done
+        else
+            error("Unrecognized argtype '$zi'")
+        end
     end
     return z
 end
@@ -209,32 +232,31 @@ function fsigs(f)
     return flist
 end
 
-function gsig(f,y,i)
+function gsig(f,dy,y,i)
     g = copy(f)
     a = (g.args[2].head == :parameters ? 3 : 2)
     insert!(g.args, a, :(::Type{Grad{$i}}))
-    insert!(g.args, a+1, :($y::Value))
+    insert!(g.args, a+1, dy)
+    insert!(g.args, a+2, y)
     return g
 end
 
-function make_tester(a=[])
-    _add(fx)=push!(a,fx)
-    _all()=a
-    function _run()
+if !isdefined(:runtests)
+let tests=[]
+    global addtest,runtests,alltests
+    alltests()=tests
+    addtest(t)=push!(tests,t)
+    function runtests(a=tests)
         for fx in a
             tx = fixtest(fx)
             try 
                 check_grads(tx...; fname=fx.args[1])
             catch e
-                warn((fx,tx[2:end]...,e))
+                warn((fx,tx[2:end]...,"$e"))
             end
         end
     end
-    return (_add,_run,_all)
 end
-
-if !isdefined(:addtest)
-    (addtest,runtests,alltests) = make_tester()
 end
 
 function fixtest(fx::Expr)
@@ -268,13 +290,13 @@ function fixtest(fx::Expr)
     plist = Any[]
     alist = Any[x...]           # define fnew(plist)=f(alist)
     args = Any[]                   # call fnew(args...)
-    gargs = (Value(y), map(Value,x)...)
+    gargs = (Value(y), Value(y), map(Value,x)...)
     for i=1:length(alist)
         g = 0
         try
             g = f(Grad{i},gargs...)
         catch e
-            # warn("OK: $e")
+            # warn("No grad $i for $f: $e")
             continue            # undefined grads
         end
         g == 0 && continue      # zero grads
@@ -369,29 +391,20 @@ isequivalent{T<:Number}(z::Void,x::AbstractArray{T}; rtol::Real=Base.rtoldefault
 # size(x,i) = 1 or size(y,i) for all x and i<=ndims(x)
 # if ndims(x) < ndims(y) the extra dimensions of x are treated as 1
 
-function unbroadcast(ynode, xnode, gradfun)
-    x, y = getval(xnode), getval(ynode)
-    if !isa(x, Number)
-        if (size(x)==size(y))
-            return gradfun
-        else
-            function new_fun(dy)
-                result = gradfun(dy)
-                d = []
-                for i=1:ndims(result)
-                    size(x,i) == size(result,i) && continue
-                    size(x,i) != 1 && throw(DimensionMismatch())
-                    push!(d,i)
-                end
-                length(d)==1 && (d=d[1])
-                return sum(result, d)
-            end
-            return new_fun
-        end
-    elseif !isa(y, Number)
-        return (dy->sum(gradfun(dy)))
+function unbroadcast(x, dx)
+    if size(x)==size(dx)
+        return dx
+    elseif isa(getval(x),Number)
+        return sum(dx)
     else
-        return gradfun
+        d = []
+        for i=1:ndims(dx)
+            size(x,i) == size(dx,i) && continue
+            size(x,i) != 1 && throw(DimensionMismatch())
+            push!(d,i)
+        end
+        length(d)==1 && (d=d[1])
+        return sum(dx, d)
     end
 end
 
@@ -407,6 +420,7 @@ typealias Dn{N} Type{Grad{N}}
 end
 
 # Pretty print for debugging:
+_dbg(x)=x # extend to define short printable representations
 _dbg(x::Tuple)=map(_dbg,x)
 _dbg(x::Node)=Symbol("N$(id2(x))_$(id2(x.value))")
 _dbg(x::Value)=Symbol("V$(id2(x))_$(id2(x.value))")

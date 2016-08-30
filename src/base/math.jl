@@ -37,7 +37,11 @@ math1arg = Dict{Symbol,Any}(
 )
 
 for (f,g) in math1arg
-    @eval @primitive  $f(x::AorN)::y  (dy->dy.*$g)
+    if g==0
+        @eval @zerograd $f(x::AorN)
+    else
+        @eval @primitive  $f(x::AorN),dy,y  (dy.*($g))
+    end
 end
 
 for f in (:log, :log2, :log10, :sqrt); fixdomain(::Fn{f},x)=(abs(x),); end
@@ -78,21 +82,21 @@ log{T<:AorN}(x1::Irrational{:e},x2::Value{T})=log(float(x1),x2) # to avoid clash
 fixdomain(::Fn{:log},x,y)=(abs(x),abs(y))
 
 for (f,g) in math2arg
-    @eval @primitive $f(x1::AorN,x2::AorN)::y  unbroadcast(y,x1,dy->dy.*$(g[1]))  unbroadcast(y,x2,dy->dy.*$(g[2]))
+    @eval @primitive $f(x1::AorN,x2::AorN),dy,y  unbroadcast(x1,dy.*($(g[1])))  unbroadcast(x2,dy.*($(g[2])))
 end
 
 # ^ only supports (N,N), arrays not supported in math.jl, only M^N in linalg/dense.jl
 (^){T<:Number}(x1::Value{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
-@primitive (^)(x1::Number,x2::Number)::y  (dy->dy*x2*x1^(x2-1))  (dy->dy*y*log(x1))
+@primitive (^)(x1::Number,x2::Number),dy,y  (dy*x2*x1^(x2-1))  (dy*y*log(x1))
 fixdomain(::Fn{:^},x,y)=(abs(x),y)
 
-@primitive clamp(x::AorN,i...)::y  unbroadcast(y,x,dy->dy.*(i[1] .<= x .<= i[2]))
+@primitive clamp(x::AorN,i...),dy,y  unbroadcast(x,dy.*(i[1] .<= x .<= i[2]))
 fixdomain(::Fn{:clamp},x...)=(rand(5),0.3,0.7)
 
-@primitive ldexp(x::AbstractFloat,n...)  (dy->dy*(2.0^n[1]))
+@primitive ldexp(x::AbstractFloat,n...),dy  (dy*(2.0^n[1]))
 fixdomain(::Fn{:ldexp},x...)=(rand(),rand(-10:10))
 
-@primitive mod2pi(x::Number) identity
+@primitive mod2pi(x::Number),dy dy
 
 # Other functions defined in julia/base/math.jl
 # add22condh: Not exported

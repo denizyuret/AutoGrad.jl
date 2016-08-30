@@ -5,13 +5,6 @@ importall Base  # defining getindex, sin, etc.
 export grad, check_grads, @primitive, @zerograd
 export Value, getval, recorder, Grad, fixdomain, Fn  # these are required for the above to work
 
-# Uncomment to debug:
-# macro dbgcore(x); esc(:(println(_dbg($x)))); end
-# macro dbgutil(x); esc(:(println(_dbg($x)))); end
-macro dbgcore(x); end
-macro dbgutil(x); end
-_dbg(x)=x # extend to define short printable representations
-
 include("core.jl")
 include("util.jl")
 include("interfaces.jl")

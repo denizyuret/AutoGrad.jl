@@ -9,7 +9,7 @@
 
 # So we can handle these container types by overloading getindex
 
-@primitive  getindex(x,i...)  dy->ungetindex(x,dy,i...)
+@primitive  getindex(x,i...),dy  ungetindex(x,dy,i...)
 setindex!(x::Value,i...)=error("Overwriting operations currently not supported.")
 fixdomain(::Fn{:getindex},i...)=(rand(2),1)
 
@@ -34,8 +34,8 @@ ungetindex(x::Tuple, dy, i) = ntuple(j->(j==i ? dy : nothing), length(x))
 @primitive ungetindex(x::Associative,dy,i...)
 @primitive ungetindex(x::Tuple,dy,i...)
 fixdomain(::Fn{:ungetindex},x...)=(rand(2),rand(),1)
-ungetindex(::Type{Grad{1}},dx::Value,x,dy,i...) = 0
-ungetindex(::Type{Grad{2}},dx::Value,x,dy,i...) = ddx->getindex(ddx,i...)
+ungetindex(::Type{Grad{1}},ddx,dx,x,dy,i...) = 0
+ungetindex(::Type{Grad{2}},ddx,dx,x,dy,i...) = getindex(ddx,i...)
 
 # Iteration is used in `for x in a` loops and for `(x,y)=a` multiple
 # assignments.
@@ -73,7 +73,7 @@ interfaces1arg = [
 ]
 
 for f in interfaces1arg
-    @eval $f(a::Value)=$f(a.value)
+    @eval @zerograd $f(x)
 end
 
 interfacesNarg = [
@@ -87,7 +87,7 @@ interfacesNarg = [
 ]
 
 for f in interfacesNarg
-    @eval $f(a::Value, i...)=$f(a.value,i...)
+    @eval @zerograd $f(x,i...)
 end
 
 interfaces2arg = [
@@ -100,12 +100,10 @@ interfaces2arg = [
 ==(a::Value,b::WeakRef)=(a.value==b) # prevents clash with base.jl:69
 
 for f in interfaces2arg
-    @eval $f(a::Value,b::Value)=$f(a.value,b.value)
-    @eval $f(a::Value,b)=$f(a.value,b)
-    @eval $f(a,b::Value)=$f(a,b.value)
+    @eval @zerograd $f(a,b)
 end
 
-@primitive copy(x) identity
+@primitive copy(x),dy dy
 fixdomain(::Fn{:copy},x)=(rand(2),)
 
 ### DEAD CODE:

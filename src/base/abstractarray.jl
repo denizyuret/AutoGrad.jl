@@ -18,7 +18,7 @@
 # _internal_checkbounds: Not exported
 # similar: interfaces.jl
 # reshape
-@primitive  reshape(x::AbstractArray,i...)  (dy->reshape(dy,size(x)))
+@primitive reshape(x::AbstractArray,i...),dy  reshape(dy,size(x))
 fixdomain(::Fn{:reshape},x...)=(rand(2,2),(4,1))
 # copy!: Overwriting operation
 # copy: interfaces.jl
@@ -32,7 +32,7 @@ fixdomain(::Fn{:reshape},x...)=(rand(2,2),(4,1))
 # isempty: interfaces.jl
 # convert: Cannot support.
 # full
-@primitive full(x::AbstractArray) identity
+@primitive full(x::AbstractArray),dy dy
 # map: Cannot support.
 # pointer: interfaces.jl
 # getindex: interfaces.jl
@@ -69,12 +69,12 @@ get{T<:AbstractArray}(A::Value{T}, I::Dims, default)    = checkbounds(Bool, size
 # After catdims, cat can take 0 or more arguments of any type.  We
 # only catch the cases where one of the first two args is a Value.
 
+typealias CatDims Union{Int,Tuple,Array}
 cat_r = recorder(cat)
-cat(i,a::Value,b::Value,c...)=cat_r(i,a,b,c...)
-cat(i,a,b::Value,c...)=cat_r(i,a,b,c...)
-cat(i,a::Value,b...)=cat_r(i,a,b...)
-cat{N}(g::Type{Grad{N}},y::Value,i::Value,x...)=cat(g,y,i.value,x...) # to avoid ambiguity
-cat{N}(::Type{Grad{N}},y::Value,i,x...)=(dy->uncat(dy,N-1,i,x...))   # N-1 because first arg is catdims
+cat(i::CatDims,a::Value,b::Value,c...)=cat_r(i,a,b,c...)
+cat(i::CatDims,a,b::Value,c...)=cat_r(i,a,b,c...)
+cat(i::CatDims,a::Value,b...)=cat_r(i,a,b...)
+cat{N}(::Type{Grad{N}},dy,y,i,x...)=uncat(dy,N-1,i,x...)   # N-1 because first arg is catdims
 
 # We need to extract the n'th block from dy which has the same shape
 # as y=cat(catdims,x...).

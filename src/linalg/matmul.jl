@@ -1,11 +1,11 @@
 matmul2arg = Dict{Symbol,Any}(
-:* => (:(dy->A_mul_Bc(dy,x2)), :(dy->Ac_mul_B(x1,dy))),
-:Ac_mul_B  => (:(dy->A_mul_Bc(x2,dy)), :(dy->x1*dy)),
-:A_mul_Bc  => (:(dy->dy*x2), :(dy->Ac_mul_B(dy,x1))),
-:Ac_mul_Bc => (:(dy->Ac_mul_Bc(x2,dy)), :(dy->Ac_mul_Bc(dy,x1))),
-:At_mul_B  => (:(dy->A_mul_Bt(x2,dy)), :(dy->x1*dy)),
-:A_mul_Bt  => (:(dy->dy*x2), :(dy->At_mul_B(dy,x1))),
-:At_mul_Bt => (:(dy->At_mul_Bt(x2,dy)), :(dy->At_mul_Bt(dy,x1))),
+:* => (:(A_mul_Bc(dy,x2)), :(Ac_mul_B(x1,dy))),
+:Ac_mul_B  => (:(A_mul_Bc(x2,dy)), :(x1*dy)),
+:A_mul_Bc  => (:(dy*x2), :(Ac_mul_B(dy,x1))),
+:Ac_mul_Bc => (:(Ac_mul_Bc(x2,dy)), :(Ac_mul_Bc(dy,x1))),
+:At_mul_B  => (:(A_mul_Bt(x2,dy)), :(x1*dy)),
+:A_mul_Bt  => (:(dy*x2), :(At_mul_B(dy,x1))),
+:At_mul_Bt => (:(At_mul_Bt(x2,dy)), :(At_mul_Bt(dy,x1))),
 )
 
 # Methods for multiplication:
@@ -25,7 +25,7 @@ matmul2arg = Dict{Symbol,Any}(
 # defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat; dymul=false)
 
 for (f,d) in matmul2arg
-    @eval @primitive $f(x1::AbstractVecOrMat,x2::AbstractVecOrMat)::y $(d[1]) $(d[2])
+    @eval @primitive $f(x1::AbstractVecOrMat,x2::AbstractVecOrMat),dy,y $(d[1]) $(d[2])
     fixdomain(::Fn{f},t1,t2)=(rand(2,2),rand(2,2))
 end
 
