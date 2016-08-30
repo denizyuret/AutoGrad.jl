@@ -21,7 +21,7 @@ macro dbgcore(x); end
 
 # 1. g is called with the same inputs as f.
 # 1.1 g supports both regular and keyword args.
-# 1.2 only one of the regular args is the gradient target, specified by the argnum argument of grad.
+# 1.2 only one of the regular args is the gradient target, specified by the argnum argument of grad (defaults to 1).
 # 1.3 in a typical model f would take parameters, return loss, with data kept in global variables.
 # 1.4 to support multiple parameters, they can be grouped in a single arg using Array, Dict, or Tuple.
 
@@ -46,27 +46,17 @@ function grad(fun::Function, argnum::Int=1)
 end
 
 
-# 2. g calls forward_pass which boxes x in a Value type and calls f(Value(x))
+# 2. g calls forward_pass which boxes argnum'th arg x in a Value type and calls f(Value(x))
 # 2.1 f must be defined generically to accept Value arguments.
-# 2.2 before the call a Tape (tape1) is created (this is the only place a new tape is created)
-# 2.3 n1=Value(x,tape1) is created, each node is associated with one or more tapes.
-# 2.4 x may already be a n0=Value(x,tape0) from another tape (this happens with higher order derivatives)
-# 2.5 if 2.4, another n2=Value(x,[tape0,tape1]) is created by merge_tapes on both tapes with dependencies on n0 and n1.
-# 2.6 if not 2.4, merge_tapes simply returns n1.
-# 2.7 f is called with n1 or n2 (depending on 2.4).
-# 2.8 if n2, the downstream operations on x are recorded on both tape0 and tape1.
-# 2.9 the output of f (end_value) could be a Value or a regular value (if it does not depend on x)
+# 2.2 before the call a new Tape (tape1) is created (this is the only place a new tape is created)
+# 2.3 v1=Value(x,tape1) is created, each boxed value is associated with one or more tapes.
+# 2.4 x may already be boxed in a v0=Value(x,tape0) from another tape (this happens with higher order derivatives)
+# 2.5 if 2.4, another v2=Value(x,[tape0,tape1]) is created by merge_tapes connecting both tapes with dependencies on v0 and v1.
+# 2.6 if not 2.4, merge_tapes simply returns v1.
+# 2.7 f is called with v1 or v2 (depending on 2.4).
+# 2.8 if v2, the downstream operations on x are recorded on both tape0 and tape1.
+# 2.9 the output of f (end_value) could be a boxed Value or a regular value (if it does not depend on x)
 
-"""
-forward_pass(fun, args, kwargs, argnum) -> (start_value, end_value, tape)
-
-Wraps the `argnum`'th arg in a Value with an empty tape and calls `fun`
-which returns a Value or a regular value.  The input node, the output
-and the tape are returned.  Note that forward_pass is only called for
-the top level function, the internal operations use regular `call`.
-This is the only place where a tape is created.  Multiple tapes only
-enter the picture for higher order derivatives.
-"""    
 function forward_pass(fun, args, kwargs, argnum)
     @dbgcore((:forw, argnum, fun, args..., kwargs...))
     tape = Tape()
@@ -79,15 +69,16 @@ function forward_pass(fun, args, kwargs, argnum)
     return start_value, end_value, tape
 end
 
-# forward_pass: ((N(X)->N(Y)/Y),N(X)/X,K,I)->(N(X),N(Y)/Y,T)
-# forward deps: Tape, Value, getval, tofloat, merge_tapes
+# forward_pass type: ((N(X)->N(Y)/Y),N(X)/X,K,I)->(N(X),N(Y)/Y,T)
+# forward_pass deps: Tape, Value, getval, tofloat, merge_tapes
+
 
 # 3. If a primitive operator inside f gets a Value input, it records its action and returns a Value output.
 
 # 3.1 We implement this by dispatching f to r=recorder(f) if any of
 # its arguments is a Value.  r unboxes the arguments, calls f, boxes
-# and returns the result, recording the result and its gradient
-# functions for each argument.
+# and returns the result, recording the result and its dependencies on
+# each boxed argument.
 
 # We only need one recorder per function, but recorder(f) may be
 # called many times for different methods.  To avoid duplication we
@@ -97,9 +88,10 @@ let fdict=ObjectIdDict()
 global recorder
 
 """
-recorder(fun) returns rfun, a recording version of fun.  rfun is defined with
-a generic signature r(args...; kwargs...) and is intended to catch all
-invocations that have at least one Value argument.
+recorder(fun) returns rfun, a recording version of fun.  It is used to
+define primitive operations. rfun is defined with a generic signature
+r(args...; kwargs...) and is intended to catch all invocations that
+have at least one Value argument.
 """
 function recorder(f)
 r = get(fdict,f,0)
@@ -138,98 +130,27 @@ return (fdict[f] = rfun)
 end # function recorder
 end # let fdict
 
+# recorder deps: Value, Node, iscomplete, findeq
 
-#     argvals = Any[args...]
-#     ops = []
-#     tapes = []
-#     found_node = false
-
-# # 3.2 r goes through the arguments and unboxes any that are Values.
-# # For each unboxed Value, its tape, argnum, and Node is stored.
-
-#     for i=1:length(args)
-#         arg = args[i]
-#         if isa(arg, Value)
-#             found_node = true
-#             argvals[i] = arg.value
-#             # if i in p.zero_grads; continue; end               # we represent zero_grads using gradmakers that return 0 instead of a function
-#             for i=1:length(arg.tapes)
-#                 tape = arg.tapes[i]
-#                 if !iscomplete(tape)                            # why do we need iscomplete? to prevent recording during the backward_pass unless we are doing higher order derivatives.
-#                     push!(ops, (tape, i, arg.nodes[i]))        # ops should be called args or inputs!
-#                     in(tape,tapes) || push!(tapes,tape)
-#                 end
-#             end
-#         end
-#     end
-
-# # 3.3 If no Values found we throw an error (the recorder method was
-# # supposed to catch calls with Value arguments).
-
-#     found_node || throw(MethodError(f, argvals))            # Otherwise undefined methods lead to infinite loop
-
-# # 3.4 The primitive is called with unboxed arguments.
-#     result = f(argvals...; kwargs...)
-#     @dbgcore((:rcall,f,result,argvals...,kwargs...))
-
-# # 3.5 ops can be empty if no Values, zero_grads, or iscomplete(tape).
-# # No Values case is impossible, we throw an error.
-# # zero_grads is handled differently.
-# # iscomplete is needed to prevent recording during backward_pass unless higher order derivatives.
-
-#     if !isempty(ops) 
-
-# # 3.6 We box the result in a Value attached to all the tapes we
-# # encountered in 3.2.  This boxed result gets returned.
-
-#         result = Value(result, tapes...)
-#         @dbgcore((:ncall,f,result,args...,kwargs...))
-
-# # 3.7 For each of our Value inputs, we create a gradient function for
-# # the specific argnum of the primitive.  This gradfun takes dy and
-# # returns dx and has access to the original x,y through a closure.
-# # The gradfun and the Node of the associated input is stored in
-# # parent_grad_ops.
-
-#         for (tape, argnum, parent) in ops                       
-#             @dbgcore((:gcall,f,argnum,:out,result,:args,args...,kwargs...))
-#             gradfun = f(Grad{argnum}, result, args...; kwargs...) # Creates a node specific gradfun (dy->dx) with x,y in a closure
-#             if gradfun == 0 # indicates zero_grad arguments
-#                 @dbgcore("WARNING: gradfun=0 for $f,$argnum")
-#                 continue
-#             end
-#             rnode = result.tapes[tape]
-#             push!(rnode.parent_grad_ops, (gradfun, parent, f))
-#             @dbgcore((:deps,tape,rnode))
-#         end
-#     end
-#     return result
-# end # function rfun
-
-# recorder deps: iscomplete, Value, Grad
 
 # 4. g calls backward_pass which returns the gradient df/dx.
 
 # 4.1 backward_pass is called with start_value: Value(x), end_value:
-# f(Value(x)), which may or may not be a Value, and the tape created by
-# the corresponding forward_pass.  Note that Value(x) may point to more
-# tapes in case of a higher order gradient.
+# f(Value(x)) (which may or may not be a boxed Value), and the tape
+# created by the corresponding forward_pass.  Note that Value(x) may
+# point to more tapes in case of a higher order gradient.  It returns
+# the gradient wrt the start_value.
 
-"""
-backward_pass(start_value, end_value, tape) -> gradient wrt start_value.value
-"""
 function backward_pass(start_value, end_value, tape)
     @dbgcore((:back,:start,start_value,:end,end_value,:tape,tape,tape...))
 
-# 4.2 If end_value is not a Value on the given tape, we return zero df/fx.
-# end_value may not be a Value if the output of f does not depend on x.
-# Q: Could the end_value be a Value but in a different tape?    
-# A: Could df/dx be a Value?  Yes, for a higher order gradient.
-# A: Should zeros_like return a Value if the input is a Value?  No need, it is a constant.
+# 4.2 If end_value is not a Value on the given tape, we return zero
+# df/fx if x is a bits type, `nothing` otherwise.  end_value may not
+# be a Value if the output of f does not depend on x.
 
-    if !isa(end_value, Value) || 0==(tapeidx=findeq(end_value.tapes, tape))    # This may happen e.g. if the function returns a constant
+    if !isa(end_value, Value) || 0==(tapeidx=findeq(end_value.tapes, tape))
         @dbgcore("Output seems independent of input. Returning zero gradient.")
-        return (isa(start_value,Number) ? zero(start_value) : nothing) # Using nothing for zero arrays and other structures.
+        return (isa(start_value,Number) ? zero(start_value) : nothing)
     end
 
     if !isa(end_value.value, Number)
@@ -237,27 +158,26 @@ function backward_pass(start_value, end_value, tape)
     end
 
 # 4.3 backward_pass resets all node gradients except for the scalar
-# output Value whose gradient is set to 1.0.
-# A: Why do we need complete!(tape)?  To prevent recording during backward_pass.
+# output Value whose gradient is set to 1.0.  Each node has an array
+# of gradients which will get summed up.
 
-    for node in tape                                            # tape is created by forw_pass
+    for node in tape
         node.outgrads = []
     end
-    end_value.nodes[tapeidx].outgrads = [1.0]                       # end_value.tapes[tape] is the Node corresponding to end_value::Value
+    end_value.nodes[tapeidx].outgrads = [1.0]
+
+# Why do we need complete!(tape)?  To prevent recording during backward_pass.
 
     complete!(tape)
 
 # 4.4 the tape is read in reverse and for each node with a non-empty
-# outgrad its ingrads are computed using the closures recorded by the
-# primitive recorders.
+# outgrad its ingrads are computed using the gradient methods.
 
     cur_outgrad = nothing
-    for node in tape[end-1:-1:1]                                # note the end-1 because we pushed a marker to complete
+    for node in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
         isempty(node.outgrads) && continue
         @dbgcore((:sum1,node,:args,node.outgrads...))
         cur_outgrad = sum_outgrads(node.outgrads)
-        # This bombs when we have different types of Dict or Array
-        # typeof(getval(cur_outgrad)) == typeof(node.node.value) || error("Type mismatch: y=$(node.node.value) dy=$(getval(cur_outgrad))")
         @dbgcore((:sum2,node,:out,cur_outgrad))
         for i=1:length(node.parents)
             @dbgcore((:back1,cur_outgrad))
@@ -273,14 +193,13 @@ function backward_pass(start_value, end_value, tape)
 # 4.5 the last outgrad is returned.  How do we know this is the
 # correct gradient df/dx?  Only x and its descendents are marked as
 # Values and recorded on the tape. In the beginning the only non-empty
-# outgrad is the one for the end_value.  Since the end_value is a Value
-# (otherwise we return 0), it must depend on input x.  The input is
-# the first thing recorded on tape by forward_pass, thus will be the
-# last thing whose gradient is seen.  If there are Values influenced by
-# x but do not influence the end_value, their outgrads will remain
-# empty, thus only the necessary gradients are computed.  However, if
-# there is a nondifferentiable operation the chain breaks!  So let's
-# test for it anyway.
+# outgrad is the one for the end_value.  Since the end_value is a
+# boxed Value (otherwise we returned 0/nothing), it must depend on
+# input x.  The input is the first thing recorded on tape by
+# forward_pass, thus will be the last thing whose gradient is seen.
+# If there are Values influenced by x but do not influence the
+# end_value, their outgrads will remain empty, thus only the necessary
+# gradients are computed.  But let's test for it anyway.
 
     isempty(tape[1].outgrads) && error("Output independent of input?")
     return cur_outgrad
@@ -288,63 +207,8 @@ end
 
 # back deps: getval, complete!, sum_outgrads
 
+
 # 5. How recording is done.
-
-# 5.2 Node: Each result Value created by a primitive keeps track
-# of the argument Values of that primitive (the non-Value arguments need
-# not be recorded since they do not depend on the input of f).  Along
-# with each argument Value i, a gradient function is recorded that will
-# turn the gradient wrt the result into a gradient wrt argument i.
-# For reasons that will become clear, these dependencies are kept in a
-# separate data structure called a Node in its parent_grad_ops
-# field).  The gradient wrt the result is kept in the outgrads field.
-# parent_grad_ops is an array because a node can have multiple
-# arguments.  outgrads is an array because a node can have multiple
-# descendents each of which will push a gradient to outgrads to be
-# summed.
-
-if !isdefined(:Node)
-"""
-Node is a plain type with three slots:
-
-* `parent_grad_ops`: `call` fills this array with (gradfun,parent_rnode) pairs for each Value argument.
-* `outgrads`: used by backward_pass, array of gradients for this node (has multiple elements if fanout > 1).
-* `node`: corresponding Value
-"""    
-type Node
-    value
-    parents::Vector{Node}
-    outgrads::Vector
-    Node(v) = new(v, Array(Node,length(v.args)))
-end #type
-end #if
-
-
-# 5.3 Tape: When forward_pass is done, we have the
-# computation graph (dependency tree) of the result recorded in
-# Depss.  However we also need the time order in which these
-# Depss were created for the backward_pass.  The gradient
-# functions of all the children of a node need to be called before its
-# own gradient function.  For example if z depends on x and y, and y
-# depends on x, we want to compute the gradients in z-y-x order.  If
-# we do it in z-x-y order, the gradient function of x will be called
-# before its descendent y.  Thus we keep a Tape which is an
-# array of Depss in the order they are created.
-
-# Primitives with Value arguments may be called during the
-# backward_pass. We do not want those primitives being recorded any
-# more (at least on the tape created by the corresponding
-# forward_pass, see Sec 7 for details).  We stop the recording on a
-# Tape by calling its complete! method.
-
-# A Value may have multiple corresponding Depss in multiple
-# Tapes.  It keeps track of all its Depss via the
-# tapes field which is a Tape=>Node dictionary.
-# Multiple tapes are only needed for higher order gradients, see
-# Section 7, How higher order gradients work.
-
-"Tape is an array of Nodes that supports `complete!` and `iscomplete`."
-typealias Tape Vector{Node}
 
 # 5.1 Value: g=grad(f) calls forward_pass which calls f with one
 # argument boxed in a Value type.  The primitives inside f call their
@@ -353,21 +217,36 @@ typealias Tape Vector{Node}
 # cause downstream primitives to be recorded as well.  The final
 # output of f, if not independent of the input, will thus be a Value.
 
-if !isdefined(:Value)            # to prevent error on reload
-"""
-Value(value, tapes...) creates a new Value:
+# 5.2 Node: Each result Value created by a primitive keeps track of
+# the function and the arguments that created the Value.  Because a
+# Value may need to be recorded in multiple tapes for higher order
+# derivatives (see Sec. 7) these dependencies are kept in a separate
+# data structure called a Node.  The parents field of a Node is an
+# array that points to the Nodes of the arguments.  The gradient wrt
+# the result is kept in the outgrads field.  outgrads is an array
+# because a node can have multiple descendents each of which will push
+# a gradient to outgrads to be summed.
 
-1. in forward_pass for the argument we are taking gradient w.r.t.
-2. for the output of a primitive operation with Value input.
+# 5.3 Tape: When forward_pass is done, we have the computation graph
+# (dependency tree) of the result recorded in Nodes.  However we also
+# need the time order in which these Nodes were created for the
+# backward_pass.  The gradient functions of all the children of a node
+# need to be called before its own gradient function.  For example if
+# z depends on x and y, and y depends on x, we want to compute the
+# gradients in z-y-x order.  If we do it in z-x-y order, the gradient
+# function of x will be called before its descendent y.  Thus we keep
+# a Tape which is an array of Nodes in the order they were created.
 
-When a Value is created, it pushes corresponding Depss on each
-of the tapes given in the second argument, and records pointers to
-each tape and its Node in its `tapes` dictionary.  These
-Depss have empty parent_grad_ops and outgrads which are written
-by call and back respectively.  Ordinarily there is only one tape
-(unless we do higher order derivatives).
+if !isdefined(:Node)
+type Node
+    value
+    parents::Vector{Node}
+    outgrads::Vector
+    Node(v) = new(v, Array(Node,length(v.args)))
+end #type
 
-"""
+typealias Tape Vector{Node}
+
 type Value{T}
     value::T
     func::Function
@@ -376,7 +255,6 @@ type Value{T}
     tapes::Vector{Tape}
     nodes::Vector{Node}
 end # type Value{T}
-end # if !isdefined(:Value)
 
 function Value(value, tape::Tape=Tape(); func=rand, args=(), kwargs=[])
     self = Value(value,func,args,kwargs,Tape[tape],Array(Node,1))
@@ -386,21 +264,20 @@ function Value(value, tape::Tape=Tape(); func=rand, args=(), kwargs=[])
     return self
 end
 
+# Primitives with Value arguments may be called during the
+# backward_pass. We do not want those primitives being recorded any
+# more (at least on the tape created by the corresponding
+# forward_pass, see Sec 7 for details).  We stop the recording on a
+# Tape by calling its complete! method.
+
 let eot = Node(Value(nothing))
     global iscomplete, complete!
     iscomplete(a::Tape)=(!isempty(a) && a[end]===eot)
     complete!(a::Tape)=push!(a,eot)
 end
 
-# findfirst uses == which is inefficient for tapes
-function findeq(A,v)
-    for i=1:length(A)
-        if A[i] === v
-            return i
-        end
-    end
-    return 0
-end
+end # if !isdefined(:Node)
+
 
 # 6. How new primitives and their gradients are defined.
 
@@ -451,7 +328,8 @@ end
 # 6.2 Gradients
 
 if !isdefined(:Grad)
-    immutable Grad{N}; end          # Gradient wrt N'th argument
+"Grad{N} creates a type used by AutoGrad to represent the gradient wrt N'th arg."    
+immutable Grad{N}; end
 end
 
 # In AutoGrad, gradients are defined using gradient methods that have
@@ -518,25 +396,26 @@ end
 # function `ungetindex` in intefaces.jl which uses its first
 # argument's shape as a template is one example of this rare class.
 
+
 # 7. How higher order gradients work.
 
 # Say g=grad(f) and h=grad(g) and we call h(x).
-# h(x) calls forward_pass(g,x), which wraps x in n1=Value(x,t1:r1) and calls g(n1).
+# h(x) calls forward_pass(g,x), which wraps x in v1=Value(x,t1:n1) and calls g(v1).
 # merge_tapes in forward_pass(g,x) is a noop because x is not a Value.
-# g(n1) calls forward_pass(f,n1), which creates n2=Value(x,t2:r2)
-# merge_tapes in forward_pass(f,n1) creates n3=Value(x,[t1:r31,t2:r32]) with pointers r31->r1, r32->r2.
-# forward_pass(f,n1) calls f(n3)
-# ops in f(n3) push their results on [t1,t2] and record gradfuns and parents on each tape separately.
-# f(n3) returns n4=Value(y,[t1:r41,t2:r42]).
-# g(n1) calls backward_pass(f)(n2,n4,t2).
+# g(v1) calls forward_pass(f,v1), which creates v2=Value(x,t2:n2)
+# merge_tapes in forward_pass(f,v1) creates v3=Value(x,[t1:n31,t2:n32]) with pointers n31->n1, n32->n2.
+# forward_pass(f,v1) calls f(v3)
+# ops in f(v3) push their results on [t1,t2] and record gradfuns and parents on each tape separately.
+# f(v3) returns v4=Value(y,[t1:n41,t2:n42]).
+# g(v1) calls backward_pass(f)(v2,v4,t2).
 # backward_pass(f) calls complete!(t2) and starts processing the nodes on t2 in reverse.
 # the nodes on t2 only point to other nodes in t2, so backward_pass(f) fills outgrads on t2.
-# backward_pass(f) calls gradfuns recorded by ops in f(n3).
+# backward_pass(f) calls gradfuns recorded by ops in f(v3).
 # these gradfuns are defined generically like f, they can handle regular or Value input.
 # a gradfun is a closure (dy->dx) with an environment (x,y).  dy may be a Value or value, (x,y) are typically Values recorded during the call.
 # the operations of gradfuns are recorded only on t1, that is why we need iscomplete(t2) once we start backward_pass on t2.
-# backward_pass(f) returns n5=Value(df/dx,t1:r5) which becomes the output of forward_pass(g,x)
-# h(x) calls backward_pass(g)(n1,n5,t1).
+# backward_pass(f) returns v5=Value(df/dx,t1:n5) which becomes the output of forward_pass(g,x)
+# h(x) calls backward_pass(g)(v1,v5,t1).
 # backward_pass(g) calls gradfuns recorded in t1.
 # even though some inputs are Values again, nothing gets recorded and all primitives return values because t1 is complete.
 # backward_pass(g) returns a regular value which becomes the output of h(x).
@@ -550,6 +429,7 @@ end
 
 # 8.1 Value, getval: these box, unbox, and float values.
 
+"getval(x) unboxes x if it is a Value, otherwise returns x."
 getval(x) = (if isa(x, Value); x.value; else; x; end)  # we never create Value(Value).
 
 # 8.2 merge_tapes: Used by forward_pass to support higher order
@@ -645,3 +525,13 @@ tofloat(x::Tuple)=(all(isfloat,x) ? x : ntuple(i->tofloat(x[i]), length(x)))
 tofloat(x::Associative)=(all(isfloat,values(x)) ? x : (a=similar(x); for (k,v) in x; a[k]=tofloat(v); end; a))
 tofloat(x::AbstractArray)=(all(isfloat,x) ? x : map(tofloat,x))
 isfloat(x)=isa(x,AbstractFloat)
+
+# findfirst uses == which is inefficient for tapes, so we define findeq with ===
+function findeq(A,v)
+    for i=1:length(A)
+        if A[i] === v
+            return i
+        end
+    end
+    return 0
+end

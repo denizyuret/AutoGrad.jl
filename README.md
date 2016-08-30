@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/denizyuret/AutoGrad.jl.svg?branch=master)](https://travis-ci.org/denizyuret/AutoGrad.jl)
 
 AutoGrad.jl is an automatic differentiation package for Julia.  It is
-a Julia port of the popular Python
+based on the popular Python
 [autograd](https://github.com/HIPS/autograd) package. It can
 differentiate regular Julia code that includes loops, conditionals,
 helper functions, closures etc. by keeping track of the primitive
@@ -85,14 +85,15 @@ or using the `@primitive` and `@zerograd` macros in
 Here is an example:
 
 ```
-@primitive hypot(x1::Number,x2::Number)::y  (dy->dy*x1/y)  (dy->dy*x2/y)
+@primitive hypot(x1::Number,x2::Number),dy,y  (dy->dy*x1/y)  (dy->dy*x2/y)
 ```
 
 The `@primitive` macro marks the `hypot(::Number,::Number)` method as
 a new primitive and the next two expressions define gradient functions
 wrt the first and second argument.  The gradient expressions can refer
-to the parameters and the return variable (indicated after the final
-`::`) of the method declaration.
+to the parameters `(x1,x2)`, the return variable `y` and its gradient
+`dy` (optionally indicated after the argument list) in the method
+declaration.
 
 Note that Julia supports multiple-dispatch, i.e. a function may have
 multiple methods each supporting different argument types.  For
