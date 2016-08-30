@@ -117,21 +117,19 @@ function rfun(args...; kwargs...)
             iscomplete(tape) && continue
             parent = arg.nodes[t]
             if !isa(result,Value) 
-                result=Value(result,tape)
+                result = Value(result, tape; func=f, args=args, kwargs=kwargs)
                 rnode = result.nodes[1]
             else
                 s = findeq(result.tapes, tape)
                 if s > 0
                     rnode = result.nodes[s]
                 else
-                    rnode = Node(result.value)
+                    rnode = Node(result)
                     push!(result.tapes, tape)
                     push!(result.nodes, rnode)
                 end
             end
-            gfun = (f,argnum,result,args,kwargs)
-            push!(rnode.parents, parent)
-            push!(rnode.gradfuns, gfun)
+            rnode.parents[argnum] = parent
         end
     end
     return result
@@ -263,11 +261,10 @@ function backward_pass(start_value, end_value, tape)
         @dbgcore((:sum2,node,:out,cur_outgrad))
         for i=1:length(node.parents)
             @dbgcore((:back1,cur_outgrad))
+            isassigned(node.parents,i) || continue
             parent = node.parents[i]
-            (fun,argnum,result,args,kwargs) = node.gradfuns[i]
-            og = fun(Grad{argnum},cur_outgrad,result,args...; kwargs...)
-            #gradfun = node.gradfuns[i]
-            #og = gradfun(cur_outgrad)
+            v = node.value
+            og = v.func(Grad{i},cur_outgrad,v.value,v.args...;v.kwargs...)
             push!(parent.outgrads, og)
             @dbgcore((:back2,og))
         end
@@ -317,11 +314,10 @@ Node is a plain type with three slots:
 type Node
     value
     parents::Vector{Node}
-    gradfuns::Vector{NTuple{5}}
     outgrads::Vector
+    Node(v) = new(v, Array(Node,length(v.args)))
 end #type
 end #if
-Node(value) = Node(value, [], [], [])
 
 
 # 5.3 Tape: When forward_pass is done, we have the
@@ -349,8 +345,6 @@ Node(value) = Node(value, [], [], [])
 
 "Tape is an array of Nodes that supports `complete!` and `iscomplete`."
 typealias Tape Vector{Node}
-iscomplete(a::Tape)=(!isempty(a) && a[end].value==nothing)
-complete!(a::Tape)=push!(a,Node(nothing))
 
 # 5.1 Value: g=grad(f) calls forward_pass which calls f with one
 # argument boxed in a Value type.  The primitives inside f call their
@@ -374,15 +368,29 @@ by call and back respectively.  Ordinarily there is only one tape
 (unless we do higher order derivatives).
 
 """
-type Value{T}; value::T; tapes::Vector{Tape}; nodes::Vector{Node}; end
+type Value{T}
+    value::T
+    func::Function
+    args::Tuple
+    kwargs::Vector
+    tapes::Vector{Tape}
+    nodes::Vector{Node}
+end # type Value{T}
+end # if !isdefined(:Value)
 
-function Value(value, tape::Tape=Tape())
-    node = Node(value)
+function Value(value, tape::Tape=Tape(); func=rand, args=(), kwargs=[])
+    self = Value(value,func,args,kwargs,Tape[tape],Array(Node,1))
+    node = Node(self)
     push!(tape,node)
-    Value(value,Tape[tape],Node[node])
+    self.nodes[1] = node
+    return self
 end
 
-end #if !isdefined(:Value)
+let eot = Node(Value(nothing))
+    global iscomplete, complete!
+    iscomplete(a::Tape)=(!isempty(a) && a[end]===eot)
+    complete!(a::Tape)=push!(a,eot)
+end
 
 # findfirst uses == which is inefficient for tapes
 function findeq(A,v)
