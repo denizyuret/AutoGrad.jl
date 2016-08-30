@@ -4,16 +4,18 @@
 	# Profile speed
 	# Get rid of closures
 	# Make gradients generic
+	# Implement broadcast and reduce more efficiently then CUDNN.
 
 	* TODO:
 	# Update documentation and comments.
 	# finish all function gradients.
 	# Test higher order derivatives
 	# Profile memory overhead, check cost of recording large number of ops, check slowdown in simple functions
+	# rosenbrock(x) = sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
+	## grad fails with very large inputs.  Debug memory usage.  Closures?
 	# Implement backward operations in profile.jl.
 	# Email announce new release with profiling results.
 	# CUBLAS:master already has highlevel.jl implemented with A_mul_B etc. (it is incomplete!) (make sure it doesn't transpose). Update CUDNN as well.  Put the rest of the primitives in CUDArt?  General broadcasting make sense for GPU?
-	# Implement broadcast and reduce more efficiently then CUDNN.
 	# Check out https://github.com/timholy/FastAnonymous.jl
 	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.
 	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
