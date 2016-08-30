@@ -38,9 +38,9 @@ math1arg = Dict{Symbol,Any}(
 
 for (f,g) in math1arg
     if g==0
-        @eval @zerograd $f(x::AorN)
+        @eval @zerograd $f(x)
     else
-        @eval @primitive  $f(x::AorN),dy,y  (dy.*($g))
+        @eval @primitive  $f(x),dy,y  (dy.*($g))
     end
 end
 
@@ -78,11 +78,11 @@ math2arg = Dict{Symbol,Any}(
 :min => (:(y.==x1),:(y.==x2)),    # math,operators; 
 )
 
-log{T<:AorN}(x1::Irrational{:e},x2::Value{T})=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
+log(x1::Irrational{:e},x2::Value)=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
 fixdomain(::Fn{:log},x,y)=(abs(x),abs(y))
 
 for (f,g) in math2arg
-    @eval @primitive $f(x1::AorN,x2::AorN),dy,y  unbroadcast(x1,dy.*($(g[1])))  unbroadcast(x2,dy.*($(g[2])))
+    @eval @primitive $f(x1,x2),dy,y  unbroadcast(x1,dy.*($(g[1])))  unbroadcast(x2,dy.*($(g[2])))
 end
 
 # ^ only supports (N,N), arrays not supported in math.jl, only M^N in linalg/dense.jl
@@ -90,10 +90,10 @@ end
 @primitive (^)(x1::Number,x2::Number),dy,y  (dy*x2*x1^(x2-1))  (dy*y*log(x1))
 fixdomain(::Fn{:^},x,y)=(abs(x),y)
 
-@primitive clamp(x::AorN,i...),dy,y  unbroadcast(x,dy.*(i[1] .<= x .<= i[2]))
+@primitive clamp(x,i...),dy,y  unbroadcast(x,dy.*(i[1] .<= x .<= i[2]))
 fixdomain(::Fn{:clamp},x...)=(rand(5),0.3,0.7)
 
-@primitive ldexp(x::AbstractFloat,n...),dy  (dy*(2.0^n[1]))
+@primitive ldexp(x,n...),dy  (dy*(2.0^n[1]))
 fixdomain(::Fn{:ldexp},x...)=(rand(),rand(-10:10))
 
 @primitive mod2pi(x::Number),dy dy

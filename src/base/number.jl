@@ -1,5 +1,5 @@
-@zerograd sign(x::AorN)
-@primitive abs2(x::AorN),dy (dy.*2.*x)
+@zerograd sign(x)
+@primitive abs2(x),dy (dy.*2.*x)
 
 # number1arg = Dict{Symbol,Any}(
 # :abs2 => :(2.*x),               # number,operators

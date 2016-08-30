@@ -18,7 +18,7 @@
 # _internal_checkbounds: Not exported
 # similar: interfaces.jl
 # reshape
-@primitive reshape(x::AbstractArray,i...),dy  reshape(dy,size(x))
+@primitive reshape(x,i...),dy  reshape(dy,size(x))
 fixdomain(::Fn{:reshape},x...)=(rand(2,2),(4,1))
 # copy!: Overwriting operation
 # copy: interfaces.jl
@@ -32,7 +32,7 @@ fixdomain(::Fn{:reshape},x...)=(rand(2,2),(4,1))
 # isempty: interfaces.jl
 # convert: Cannot support.
 # full
-@primitive full(x::AbstractArray),dy dy
+@primitive full(x),dy dy
 # map: Cannot support.
 # pointer: interfaces.jl
 # getindex: interfaces.jl

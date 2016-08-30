@@ -7,13 +7,13 @@ float1zero = [
 :round,                    # float,operators
 :trunc,                    # float,operators
 ]
-for f in float1zero; @eval @zerograd $f(x::AorN); end
+for f in float1zero; @eval @zerograd $f(x); end
 
 float2zero = [
 :div,                       # The quotient from Euclidean division. Computes x/y, truncated to an integer; operators
 #:÷, 			 # Same as div.
 ]
-for f in float2zero; @eval @zerograd $f(x1::AorN,x2::AorN); end
+for f in float2zero; @eval @zerograd $f(x1,x2); end
 
 float1arg = Dict{Symbol,Any}(
 :(+) => :dy,  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath abstractarraymath operators
@@ -23,7 +23,7 @@ float1arg = Dict{Symbol,Any}(
 )
 
 for (f,g) in float1arg
-    @eval @primitive $f(x::AorN),dy,y $g
+    @eval @primitive $f(x),dy,y $g
 end
 
 float2arg = Dict{Symbol,Any}(
@@ -36,7 +36,7 @@ float2arg = Dict{Symbol,Any}(
 )
 
 for (f,g) in float2arg
-    @eval @primitive $f(x1::AorN,x2::AorN),dy,y unbroadcast(x1,$(g[1])) unbroadcast(x2,$(g[2]))
+    @eval @primitive $f(x1,x2),dy,y unbroadcast(x1,$(g[1])) unbroadcast(x2,$(g[2]))
 end
 
 # defgrads(float2arg, Number, Number)
@@ -57,9 +57,7 @@ end
 # defgrads(float2mul, AbstractArray, Number)
 # defgrads(float2mul, Number, AbstractArray)
 
-@primitive (*)(x1::Number,x2::Number),dy,y (dy.*x2) (dy.*x1)
-@primitive (*)(x1::Number,x2::AbstractArray),dy,y unbroadcast(x1,dy.*x2) (dy.*x1)
-@primitive (*)(x1::AbstractArray,x2::Number),dy,y (dy.*x2) unbroadcast(x2,(dy.*x1))
+@primitive (*)(x1,x2),dy,y unbroadcast(x1,dy.*x2) unbroadcast(x2,dy.*x1)
 
 # Methods for division:
 # /(x::Float64, y::Float64) at float.jl:214
@@ -70,8 +68,7 @@ end
 # :/ => (:(1./x2),:(-x1./abs2(x2))), # (N,N) (A,N)
 # )                             
 
-@primitive (/)(x1::Number,x2::Number),dy,y (dy/x2) (-dy*x1/abs2(x2))
-@primitive (/)(x1::AbstractArray,x2::Number),dy,y (dy/x2) unbroadcast(x2,(-dy.*x1./abs2(x2)))
+@primitive (/)(x1,x2::Number),dy,y  (dy/x2)  unbroadcast(x2,-dy.*x1./abs2(x2))
 
 # These are defined in terms of isless which is handled in interfaces.jl
 # float2arg1 = Dict{Symbol,Any}(

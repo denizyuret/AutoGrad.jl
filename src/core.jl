@@ -556,9 +556,10 @@ getval(x) = (if isa(x, Value); x.value; else; x; end)  # we never create Value(V
 
 merge_tapes(a,b)=a
 merge_tapes_r = recorder(merge_tapes)
-merge_tapes{T}(a::Value{T},b::Value{T})=merge_tapes_r(a,b)
+merge_tapes(a::Value,b::Value)=merge_tapes_r(a,b)
 # The derivatives simply pass the gradients back.
-merge_tapes{N,T}(::Type{Grad{N}},c::Value{T},a::Value{T},b::Value{T}) = identity
+merge_tapes(::Type{Grad{1}},d,c,a,b) = d
+merge_tapes(::Type{Grad{2}},d,c,a,b) = d
 
 
 # 8.3 gradient makers like merge_tapes(::D1,c,a,b) and gradfuns they return
@@ -616,7 +617,7 @@ sum_helper(a::Associative, b::Associative, c::Associative...) =
 
 sum_helper_r = recorder(sum_helper)
 sum_helper(x...)=sum_helper_r(x...)
-sum_helper{N}(::Type{Grad{N}}, y, x...)=identity
+sum_helper{N}(::Type{Grad{N}}, dy, y, x...)=dy
 
 function remove_nothings(x)
     a = []

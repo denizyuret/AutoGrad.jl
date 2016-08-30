@@ -18,7 +18,7 @@ broadcast2arg = Dict{Symbol,Any}(
 )
 
 for (f,g) in broadcast2arg
-    @eval @primitive $f(x1::AorN,x2::AorN),dy,y  unbroadcast(x1,$(g[1]))  unbroadcast(x2,$(g[2]))
+    @eval @primitive $f(x1,x2),dy,y  unbroadcast(x1,$(g[1]))  unbroadcast(x2,$(g[2]))
 end
 
 broadcast2cmp = [
@@ -31,11 +31,10 @@ broadcast2cmp = [
 
 for f in broadcast2cmp
     @eval begin
-        # To avoid conflict at broadcast.jl:414 we cannot use AorN
-        @zerograd $f(x1::AbstractArray,x2::AbstractArray)
-        @zerograd $f(x1::AbstractArray,x2::Number)
-        @zerograd $f(x1::Number,x2::AbstractArray)
-        @zerograd $f(x1::Number,x2::Number)
+        # To avoid conflict at broadcast.jl:414
+        $f(x1::AbstractArray,x2::Value)=$f(x1,x2.value)
+        $f(x1::Value,x2::AbstractArray)=$f(x1,x2.value)
+        @zerograd $f(x1,x2)
     end
 end
 

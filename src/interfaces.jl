@@ -30,7 +30,7 @@ ungetindex(x::Tuple, dy, i) = ntuple(j->(j==i ? dy : nothing), length(x))
 # gradient wrt its dy input, we just need to extract ddx[i].  It is
 # not differentiable wrt other inputs.
 
-@primitive ungetindex(x::AbstractArray,dy,i...)
+@primitive ungetindex(x::AbstractArray,dy,i...) # Need types to avoid ambiguity warnings
 @primitive ungetindex(x::Associative,dy,i...)
 @primitive ungetindex(x::Tuple,dy,i...)
 fixdomain(::Fn{:ungetindex},x...)=(rand(2),rand(),1)

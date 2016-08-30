@@ -269,7 +269,7 @@ function fixtest(fx::Expr)
     x = Any[]
     for i=2:length(fx.args)
         ai = fx.args[i]
-        isa(ai,Symbol) ? push!(x,nothing) :
+        isa(ai,Symbol) ? push!(x,randn(2)) :
         !isa(ai,Expr) ? error("Neither Symbol nor Expr: $ai") :
         ai.head == :parameters ? nothing :
         ai.head == :(...) ? nothing :
@@ -278,7 +278,7 @@ function fixtest(fx::Expr)
         ai.args[2] == :AbstractFloat ? push!(x,randn()) :
         ai.args[2] == :AbstractArray ? push!(x,randn(2)) :
         ai.args[2] == :AbstractVecOrMat ? push!(x,rand()<0.5 ? randn(2) : randn(2,2)) :
-        ai.args[2] == :AorN ? push!(x,rand()<0.5 ? randn() : randn(2)) :
+        # ai.args[2] == :AorN ? push!(x,rand()<0.5 ? randn() : randn(2)) :
         ai.args[2] == :Associative ? push!(x,Dict()) :
         ai.args[2] == :Tuple ? push!(x,()) :
         (warn("Don't know how to sample $(ai.args[2])"); push!(x,nothing))
@@ -408,7 +408,7 @@ function unbroadcast(x, dx)
     end
 end
 
-typealias AorN Union{AbstractArray,Number}
+# typealias AorN Union{AbstractArray,Number}
 
 # It gets tiresome to write `Type{Grad{1}}` after a while, here are
 # some convenient aliases:

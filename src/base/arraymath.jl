@@ -34,9 +34,9 @@
 # ctransposeblock!: Not exported
 # ccopy!: Not exported
 # transpose
-@primitive transpose(x::AbstractVecOrMat),dy  transpose(dy)
+@primitive transpose(x),dy  transpose(dy)
 # ctranspose
-@primitive ctranspose(x::AbstractVecOrMat),dy ctranspose(dy)
+@primitive ctranspose(x),dy ctranspose(dy)
 # _cumsum_type: Not exported
 # cumsum
 # cumsum!
