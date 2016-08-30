@@ -15,7 +15,7 @@ macro dbgcore(x); end
 # 5. How recording is done.
 # 6. How new primitives and their gradients are defined.
 # 7. How higher order gradients work.
-# 8. Support functions.
+
 
 # Details:
 
@@ -49,28 +49,30 @@ end
 # 2. g calls forward_pass which boxes argnum'th arg x in a Value type and calls f(Value(x))
 # 2.1 f must be defined generically to accept Value arguments.
 # 2.2 before the call a new Tape (tape1) is created (this is the only place a new tape is created)
-# 2.3 v1=Value(x,tape1) is created, each boxed value is associated with one or more tapes.
-# 2.4 x may already be boxed in a v0=Value(x,tape0) from another tape (this happens with higher order derivatives)
-# 2.5 if 2.4, another v2=Value(x,[tape0,tape1]) is created by merge_tapes connecting both tapes with dependencies on v0 and v1.
-# 2.6 if not 2.4, merge_tapes simply returns v1.
-# 2.7 f is called with v1 or v2 (depending on 2.4).
-# 2.8 if v2, the downstream operations on x are recorded on both tape0 and tape1.
-# 2.9 the output of f (end_value) could be a boxed Value or a regular value (if it does not depend on x)
+# 2.3 we box the argument if it is not already (as may happen in higher order derivatives) and add it to the new tape
+# 2.4 f is called with the boxed argument
+# 2.5 the downstream operations on x are recorded on all its tapes
+# 2.6 the output of f (end_value) could be a boxed Value or a regular value (if it does not depend on x)
 
 function forward_pass(fun, args, kwargs, argnum)
     @dbgcore((:forw, argnum, fun, args..., kwargs...))
     tape = Tape()
     arg_wrt = args[argnum]
-    start_value = Value(tofloat(getval(arg_wrt)),tape)
+    if isa(arg_wrt,Value)
+        Node(arg_wrt, tape)
+        start_value = arg_wrt
+    else
+        start_value = Value(arg_wrt,tape)
+    end
     args = Any[args...] # to make args writeable
-    args[argnum] = merge_tapes(start_value, arg_wrt)
+    args[argnum] = start_value
     @dbgcore((:fcall, fun, args..., kwargs...))
     end_value = fun(args...; kwargs...)
     return start_value, end_value, tape
 end
 
 # forward_pass type: ((N(X)->N(Y)/Y),N(X)/X,K,I)->(N(X),N(Y)/Y,T)
-# forward_pass deps: Tape, Value, getval, tofloat, merge_tapes
+# forward_pass deps: Tape, Value, Node
 
 
 # 3. If a primitive operator inside f gets a Value input, it records its action and returns a Value output.
@@ -116,10 +118,7 @@ function rfun(args...; kwargs...)
                 if s > 0
                     rnode = result.nodes[s]
                 else
-                    rnode = Node(result)
-                    push!(result.tapes, tape)
-                    push!(result.nodes, rnode)
-                    push!(tape, rnode)
+                    rnode = Node(result, tape)
                 end
             end
             rnode.parents[argnum] = parent
@@ -133,6 +132,19 @@ end # function recorder
 end # let fdict
 
 # recorder deps: Value, Node, iscomplete, findeq
+
+"getval(x) unboxes x if it is a Value, otherwise returns x."
+getval(x) = (if isa(x, Value); x.value; else; x; end)  # we never create Value(Value).
+
+# findfirst uses == which is inefficient for tapes, so we define findeq with ===
+function findeq(A,v)
+    for i=1:length(A)
+        if A[i] === v
+            return i
+        end
+    end
+    return 0
+end
 
 
 # 4. g calls backward_pass which returns the gradient df/dx.
@@ -160,39 +172,31 @@ function backward_pass(start_value, end_value, tape)
     end
 
 # 4.3 backward_pass resets all node gradients except for the scalar
-# output Value whose gradient is set to 1.0.  Each node has an array
-# of gradients which will get summed up.
+# output Value whose gradient is set to 1.0.
 
-    for node in tape
-        node.outgrads = []
-    end
-    end_value.nodes[tapeidx].outgrads = [1.0]
+    end_value.nodes[tapeidx].outgrad = 1.0
 
-# Why do we need complete!(tape)?  To prevent recording during backward_pass.
+# We need to complete!(tape) to prevent recording during backward_pass.
 
     complete!(tape)
 
-# 4.4 the tape is read in reverse and for each node with a non-empty
+# 4.4 the tape is read in reverse and for each node with a non-zero
 # outgrad its ingrads are computed using the gradient methods.
 
-    cur_outgrad = nothing
     for node in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
-        isempty(node.outgrads) && continue
-        @dbgcore((:sum1,node,:args,node.outgrads...))
-        cur_outgrad = sum_outgrads(node.outgrads)
-        @dbgcore((:sum2,node,:out,cur_outgrad))
+        node.outgrad == nothing && continue
         for i=1:length(node.parents)
-            @dbgcore((:back1,cur_outgrad))
+            @dbgcore((:back1,node.outgrad))
             isassigned(node.parents,i) || continue
             parent = node.parents[i]
             v = node.value
-            og = v.func(Grad{i},cur_outgrad,v.value,v.args...;v.kwargs...)
-            push!(parent.outgrads, og)
+            og = v.func(Grad{i},node.outgrad,v.value,v.args...;v.kwargs...)
+            parent.outgrad = sum_outgrads(parent.outgrad, og)
             @dbgcore((:back2,og))
         end
     end
 
-# 4.5 the last outgrad is returned.  How do we know this is the
+# 4.5 tape[1].outgrad is returned.  How do we know this is the
 # correct gradient df/dx?  Only x and its descendents are marked as
 # Values and recorded on the tape. In the beginning the only non-empty
 # outgrad is the one for the end_value.  Since the end_value is a
@@ -200,14 +204,13 @@ function backward_pass(start_value, end_value, tape)
 # input x.  The input is the first thing recorded on tape by
 # forward_pass, thus will be the last thing whose gradient is seen.
 # If there are Values influenced by x but do not influence the
-# end_value, their outgrads will remain empty, thus only the necessary
-# gradients are computed.  But let's test for it anyway.
+# end_value, their outgrad will remain empty, thus only the necessary
+# gradients are computed.
 
-    isempty(tape[1].outgrads) && error("Output independent of input?")
-    return cur_outgrad
+    return tape[1].outgrad
 end
 
-# back deps: getval, complete!, sum_outgrads
+# back deps: complete!, sum_outgrads
 
 
 # 5. How recording is done.
@@ -225,9 +228,9 @@ end
 # derivatives (see Sec. 7) these dependencies are kept in a separate
 # data structure called a Node.  The parents field of a Node is an
 # array that points to the Nodes of the arguments.  The gradient wrt
-# the result is kept in the outgrads field.  outgrads is an array
+# the result is kept in the outgrad field.  outgrad is an array
 # because a node can have multiple descendents each of which will push
-# a gradient to outgrads to be summed.
+# a gradient to outgrad to be summed.
 
 # 5.3 Tape: When forward_pass is done, we have the computation graph
 # (dependency tree) of the result recorded in Nodes.  However we also
@@ -242,9 +245,9 @@ end
 if !isdefined(:Node)
 type Node
     value
+    outgrad
     parents::Vector{Node}
-    outgrads::Vector
-    Node(v) = new(v, Array(Node,length(v.args)))
+    Node(v) = new(v, nothing, Array(Node,length(v.args)))
 end #type
 end #if
 
@@ -267,6 +270,14 @@ function Value(value, tape::Tape=Tape(); func=rand, args=(), kwargs=[])
     push!(tape,node)
     self.nodes[1] = node
     return self
+end
+
+function Node(v::Value, t::Tape) # assumes v is not already in t
+    n = Node(v)
+    push!(t, n)
+    push!(v.nodes, n)
+    push!(v.tapes, t)
+    return n
 end
 
 # Primitives with Value arguments may be called during the
@@ -401,6 +412,25 @@ end
 # function `ungetindex` in intefaces.jl which uses its first
 # argument's shape as a template is one example of this rare class.
 
+# 6.6 sum_outgrads
+
+sum_outgrads(a::Number, b::Number)=a+b
+sum_outgrads(a::Tuple, b::Tuple)=tuple([sum_outgrads(x,y) for (x,y) in zip(a,b)]...)
+sum_outgrads(a::Associative, b::Associative) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=v+get(z,k,0); end; z)
+sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T})= (isbits(T) ? (a+b) : [sum_outgrads(x,y) for (x,y) in zip(a,b)])
+# sum_outgrads needs to be a primitive for higher order gradients:
+sum_outgrads_r = recorder(sum_outgrads)
+sum_outgrads(a::Value,b::Value)=sum_outgrads_r(a,b)
+sum_outgrads(a::Value,b)=sum_outgrads_r(a,b)
+sum_outgrads(a,b::Value)=sum_outgrads_r(a,b)
+sum_outgrads{N}(::Type{Grad{N}},dy,y,x1,x2)=dy
+# we use `nothing` to indicate zero gradients
+sum_outgrads(::Void,::Void)=nothing
+sum_outgrads(a::Value,::Void)=a   # to avoid ambiguity
+sum_outgrads(::Void,a::Value)=a   # to avoid ambiguity
+sum_outgrads(a,::Void)=a
+sum_outgrads(::Void,a)=a
+
 
 # 7. How higher order gradients work.
 
@@ -425,60 +455,3 @@ end
 # backward_pass(g) returns a regular value which becomes the output of h(x).
 
 
-# 8. Support functions.
-
-# These are helper functions used in forward_pass, backward_pass, and
-# recorder.  We need to be careful about whether they take or return
-# boxed/unboxed Values and record their gradients.  merge_tapes,
-# sum_outgrads are defined as primitives.
-
-# 8.1 getval
-
-"getval(x) unboxes x if it is a Value, otherwise returns x."
-getval(x) = (if isa(x, Value); x.value; else; x; end)  # we never create Value(Value).
-
-# 8.2 merge_tapes: Used by forward_pass to support higher order
-# gradients. Records its operation if both its arguments are Values.
-# Its first argument is a newly created Value.  Its second argument is
-# the original input argument, which is only a Value if this is a
-# higher order gradient, in which case it is a Value that has a Node
-# on another tape and merge_tapes in effect creates a third Node on
-# both tapes that point to their respective parent Nodes.  If the
-# second argument is not a Value, merge_tapes simply returns its first
-# arg without recording anything.
-
-merge_tapes(a,b)=a
-merge_tapes_r = recorder(merge_tapes)
-merge_tapes(a::Value,b::Value)=merge_tapes_r(a,b)
-# The derivatives simply pass the gradients back.
-merge_tapes(::Type{Grad{1}},d,c,a,b) = d
-merge_tapes(::Type{Grad{2}},d,c,a,b) = d
-
-
-# 8.3 sum_outgrads: only used in backward_pass to produce the input to
-# a gradient function df/dy.  Does it ever need to record its
-# operation and give a Value output?  Gradient methods take df/dy,y,x
-# and return df/dx.  (x,y) is the original input/output and almost
-# certainly Values.  The input df/dy may or may not be a Value.  If we
-# encounter a Value with an open tape, we need to record the sum
-# operation.  This will happen in higher order derivatives.
-
-# FAQ:
-# what if first outgrad is a Value and others aren't, or vice versa?  handled by @primitive sum_helper.
-# what should the output be if some of the inputs are Values?  Is sum_outgrads a primitive? No, its input is never a Value, maybe an array including Values.  Its helper is a primitive.
-# for array and dict can we just modify the first element of outgrads?  This may be dangerous because the same outgrad may be passed back to more than one target e.g. by `+`.
-# Instead of maintaining an array of outgrads then summing them, why not keep a sum to avoid allocation?
-# (instead of pushing to parent.outgrads, we'd have to call sum directly, deal with Values etc.)
-# However before we can do this we need to handle overwriting ops because sum_outgrads is a primitive.
-
-function sum_outgrads(x)
-    a = nothing
-    for i=1:length(x)
-        if a == nothing
-            a = x[i]
-        elseif x[i] != nothing
-            a = sum_helper(a,x[i])
-        end
-    end
-    return a
-end

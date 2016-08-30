@@ -349,7 +349,7 @@ end
 function nd(f, args...; eps=EPS)
     @dbgutil((:nd,f,args..., :eps, eps))
     unary_f = x->f(x...)
-    unary_nd(unary_f, tofloat(args), eps)
+    unary_nd(unary_f, args, eps)
 end
 
 unary_nd(f, x::Tuple, eps)         = ntuple(i->unary_nd(indexed_function(f, x, i), x[i], eps), length(x))
@@ -410,25 +410,9 @@ function unbroadcast(x, dx)
     end
 end
 
-# The worker for sum_gradients:
-sum_helper(a::Number, b::Number)=a+b
-sum_helper(a::Tuple, b::Tuple)=tuple([sum_outgrads(c) for c in zip(a,b)]...)
-sum_helper(a::Associative, b::Associative) =
-    (z=similar(a); for d in (a,b), (k,v) in d; z[k]=v+get(z,k,0); end; z)
-sum_helper{T}(a::AbstractArray{T},b::AbstractArray{T})=
-    (isbits(T) ? (a+b) : [sum_outgrads(c) for c in zip(a,b)])
-@primitive sum_helper(x1,x2),dy dy dy  # No need for unbroadcast, they should all have the same shape
 
 
-# findfirst uses == which is inefficient for tapes, so we define findeq with ===
-function findeq(A,v)
-    for i=1:length(A)
-        if A[i] === v
-            return i
-        end
-    end
-    return 0
-end
+
 
 # typealias AorN Union{AbstractArray,Number}
 
@@ -454,21 +438,3 @@ Base.show(io::IO, n::Value) = print(io, _dbg(n))
 Base.show(io::IO, n::Node) = print(io, _dbg(n))
 Base.show(io::IO, n::Tape) = print(io, _dbg(n))
 
-# TODO: check if we really need tofloat.
-# converts nested values to float.
-# tofloat uses float for Number and AbstractArray (for isleaftype)
-# tofloat extends to Tuple, Associative, and arbitrary Arrays
-
-isfloat(x)=false
-isfloat(::AbstractFloat)=true
-isfloat{T<:AbstractFloat}(::AbstractArray{T})=true
-isfloat{T}(x::AbstractArray{T})=(!isbits(T) && all(isfloat,x))
-isfloat(x::Tuple)=all(isfloat,x)
-isfloat(x::Associative)=all(isfloat,values(x))
-
-tofloat(x)=float(x)
-tofloat(x::AbstractFloat)=x
-tofloat{T<:AbstractFloat}(x::AbstractArray{T})=x
-tofloat{T}(x::AbstractArray{T})=(isfloat(x) ? x : isbits(T) ? float(x) : map(tofloat,x))
-tofloat(x::Tuple)=(isfloat(x) ? x : ntuple(i->tofloat(x[i]), length(x)))
-tofloat(x::Associative)=(isfloat(x) ? x : (a=similar(x); for (k,v) in x; a[k]=tofloat(v); end; a))
