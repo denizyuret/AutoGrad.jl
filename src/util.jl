@@ -435,7 +435,7 @@ end
 _dbg(x)=x # extend to define short printable representations
 _dbg(x::Tuple)=map(_dbg,x)
 _dbg(x::Node)=Symbol("N$(id2(x))_$(id2(x.value))")
-_dbg(x::Value)=Symbol("V$(id2(x))_$(id2(x.value))")
+_dbg(x::Value)=Symbol("V$(id2(x))_$(_dbg(x.value))")
 _dbg(x::Tape)=Symbol("T$(join([id2(x),map(id2,x)...],'_'))")
 _dbg(x::AbstractArray)=Symbol("A$(join([id2(x),size(x)...],'_'))")
 id2(x)=Int(object_id(x)%1000)

@@ -119,12 +119,13 @@ function rfun(args...; kwargs...)
                     rnode = Node(result)
                     push!(result.tapes, tape)
                     push!(result.nodes, rnode)
+                    push!(tape, rnode)
                 end
-                push!(tape, rnode)
             end
             rnode.parents[argnum] = parent
         end
     end
+    @dbgcore((:retn, f, result, args..., kwargs...))
     return result
 end # function rfun
 return (fdict[f] = rfun)
@@ -186,12 +187,6 @@ function backward_pass(start_value, end_value, tape)
             parent = node.parents[i]
             v = node.value
             og = v.func(Grad{i},cur_outgrad,v.value,v.args...;v.kwargs...)
-            if !isdefined(parent,:outgrads)
-                global _node = node
-                global _value = node.value
-                global _parent = parent
-                error(:ok)
-            end
             push!(parent.outgrads, og)
             @dbgcore((:back2,og))
         end

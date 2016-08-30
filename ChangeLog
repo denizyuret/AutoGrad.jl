@@ -7,11 +7,27 @@
 	# Implement broadcast and reduce more efficiently then CUDNN.
 	# Test higher order derivatives
 	# Update documentation and comments.
+	# Problem with getindex.  Fix it, then test small version of mnist.
 
-	* TODO:
+	* Rosenbrock:
 	# Profile memory overhead, check cost of recording large number of ops, check slowdown in simple functions
 	# rosenbrock(x) = sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
-	## grad fails with very large inputs.  Debug memory usage.  Closures?
+	# grad fails with very large inputs.  Debug memory usage. Closures?
+
+	# Vectorized version:
+	# rosenbrock2(x) = sum((1-x[1:end-1]).^2 + 100*(x[2:end]-x[1:end-1].^2).^2)
+
+	using AutoGrad
+	f1(x)=sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
+	f2(x)=sum((1-x[1:end-1]).^2 + 100*(x[2:end]-x[1:end-1].^2).^2)
+	g1=grad(f1)
+	g2=grad(f2)
+	x = [ rand(10^i) for i=1:6 ]
+	for i=1:6; print("$i "); @time g2(x[i]); end
+	#for i=1:6; print("$i "); @time g1(x[i]); end
+
+
+	* TODO:
 	# finish all function gradients.
 	# Email announce new release with profiling results.
 	# Implement backward operations in profile.jl.
