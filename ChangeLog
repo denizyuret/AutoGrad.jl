@@ -1,16 +1,7 @@
-2016-08-30  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* DONE:
-	# Profile speed
-	# Get rid of closures
-	# Make gradients generic
-	# Implement broadcast and reduce more efficiently then CUDNN.
-	# Test higher order derivatives
-	# Update documentation and comments.
-	# Problem with getindex.  Fix it, then test small version of mnist.
+2016-08-31  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* Rosenbrock:
-	# Profile memory overhead, check cost of recording large number of ops, check slowdown in simple functions
+	# Profile memory overhead, check cost of recording large number of ops
 	# rosenbrock(x) = sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
 	# grad fails with very large inputs.  Debug memory usage. Closures?
 
@@ -35,26 +26,51 @@
 	1 all slows down! memalloc shoots up.  only works fast on the
 	exact length it has seen before!
 
+	Changed the way we do sum_outgrads.  Much better performance.
+	Still explodes when much more than 10K entries used.  The reason
+	is ungetindex.  It creates N dense copies of an N element array,
+	one for each element.  Could use sparse arrays?  SparseMatrix only
+	covers 2-D.  No gpu implementation Slows everything down.  Still
+	cannot handle 100K.  Giving up for now but will think about
+	ungetindex improvements.
+
 	* TODO:
+	# check slowdown in simple functions
 	# finish all function gradients.
 	# Email announce new release with profiling results.
 	# Implement backward operations in profile.jl.
-	# CUBLAS:master already has highlevel.jl implemented with A_mul_B etc. (it is incomplete!) (make sure it doesn't transpose). Update CUDNN as well.  Put the rest of the primitives in CUDArt?  General broadcasting make sense for GPU?
-	# Check out https://github.com/timholy/FastAnonymous.jl
 	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.
 	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
-	# exporting @primitive by itself doesn't work, it needs recorder, getval etc. to be exported to work.
-	# optimize for (tuple) loops in core.jl?
-	# check and eliminate all tight uses of (?:)
 	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
 	# improve testing: generate multiple tests compatible with given types.
 	# subarrays: can be used to make gradients for concat faster: as long as we don't have overwriting.
-	# work on memory: overwriting: 3arg (overwriting) functions (Ax_mul_Bx, broadcast) or julia v0.5 overwrite syntax or InplaceOps.
-	# remove sum_outgrads by using the first outgrad as the accumulator
-	## but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
-	# use TypeNode <: Type instead of Node{Type}?
 	# finish abstractarray(hvcat), array, tuple and dict support.
 	# avoid double normalization in softmax.
+	# improve ungetindex (sparse container?)
+
+2016-08-30  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Profile speed
+	# Get rid of closures
+	# Make gradients generic
+	# Implement broadcast and reduce more efficiently then CUDNN.
+	# Test higher order derivatives
+	# Update documentation and comments.
+	# Problem with getindex.  Fix it, then test small version of mnist.
+	# exporting @primitive by itself doesn't work, it needs recorder, getval etc. to be exported to work.
+	# remove sum_outgrads by using the first outgrad as the accumulator
+	## but sum_outgrads is a primitive and we can only do this after we support overwriting operations.
+	## did this by using a functional accumulator
+	# optimize for (tuple) loops in core.jl?
+	# check and eliminate all tight uses of (?:)
+
+	* CANCELLED:
+	# CUBLAS:master already has highlevel.jl implemented with A_mul_B etc. (it is incomplete!) (make sure it doesn't transpose). Update CUDNN as well.  Put the rest of the primitives in CUDArt?  General broadcasting make sense for GPU?
+	# Check out https://github.com/timholy/FastAnonymous.jl -- don't use them any more.
+	# work on memory: overwriting: 3arg (overwriting) functions (Ax_mul_Bx, broadcast) or julia v0.5 overwrite syntax or InplaceOps.
+	# use TypeNode <: Type instead of Node{Type}?
+
 
 2016-08-29  Deniz Yuret  <dyuret@ku.edu.tr>
 
