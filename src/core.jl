@@ -120,6 +120,7 @@ function rfun(args...; kwargs...)
                     push!(result.tapes, tape)
                     push!(result.nodes, rnode)
                 end
+                push!(tape, rnode)
             end
             rnode.parents[argnum] = parent
         end
@@ -185,6 +186,12 @@ function backward_pass(start_value, end_value, tape)
             parent = node.parents[i]
             v = node.value
             og = v.func(Grad{i},cur_outgrad,v.value,v.args...;v.kwargs...)
+            if !isdefined(parent,:outgrads)
+                global _node = node
+                global _value = node.value
+                global _parent = parent
+                error(:ok)
+            end
             push!(parent.outgrads, og)
             @dbgcore((:back2,og))
         end
@@ -244,9 +251,11 @@ type Node
     outgrads::Vector
     Node(v) = new(v, Array(Node,length(v.args)))
 end #type
+end #if
 
 typealias Tape Vector{Node}
 
+if !isdefined(:Value)
 type Value{T}
     value::T
     func::Function
@@ -255,6 +264,7 @@ type Value{T}
     tapes::Vector{Tape}
     nodes::Vector{Node}
 end # type Value{T}
+end # if
 
 function Value(value, tape::Tape=Tape(); func=rand, args=(), kwargs=[])
     self = Value(value,func,args,kwargs,Tape[tape],Array(Node,1))
@@ -270,13 +280,13 @@ end
 # forward_pass, see Sec 7 for details).  We stop the recording on a
 # Tape by calling its complete! method.
 
+if !isdefined(:iscomplete)
 let eot = Node(Value(nothing))
     global iscomplete, complete!
     iscomplete(a::Tape)=(!isempty(a) && a[end]===eot)
     complete!(a::Tape)=push!(a,eot)
-end
-
-end # if !isdefined(:Node)
+end # let
+end # if 
 
 
 # 6. How new primitives and their gradients are defined.
@@ -400,23 +410,22 @@ end
 # 7. How higher order gradients work.
 
 # Say g=grad(f) and h=grad(g) and we call h(x).
-# h(x) calls forward_pass(g,x), which wraps x in v1=Value(x,t1:n1) and calls g(v1).
+# h(x) calls forward_pass(g,x)
 # merge_tapes in forward_pass(g,x) is a noop because x is not a Value.
+# forward_pass(g,x) wraps x in v1=Value(x,t1:n1) with tape t1 and node n1 and calls g(v1).
 # g(v1) calls forward_pass(f,v1), which creates v2=Value(x,t2:n2)
-# merge_tapes in forward_pass(f,v1) creates v3=Value(x,[t1:n31,t2:n32]) with pointers n31->n1, n32->n2.
+# merge_tapes in forward_pass(f,v1) creates v3=Value(x,[t1:n31,t2:n32]) with parents n31->n1, n32->n2.
 # forward_pass(f,v1) calls f(v3)
-# ops in f(v3) push their results on [t1,t2] and record gradfuns and parents on each tape separately.
+# primitives in f(v3) push their result Nodes on both [t1,t2] and record parents on each tape separately.
 # f(v3) returns v4=Value(y,[t1:n41,t2:n42]).
 # g(v1) calls backward_pass(f)(v2,v4,t2).
 # backward_pass(f) calls complete!(t2) and starts processing the nodes on t2 in reverse.
 # the nodes on t2 only point to other nodes in t2, so backward_pass(f) fills outgrads on t2.
-# backward_pass(f) calls gradfuns recorded by ops in f(v3).
-# these gradfuns are defined generically like f, they can handle regular or Value input.
-# a gradfun is a closure (dy->dx) with an environment (x,y).  dy may be a Value or value, (x,y) are typically Values recorded during the call.
-# the operations of gradfuns are recorded only on t1, that is why we need iscomplete(t2) once we start backward_pass on t2.
+# backward_pass(f) calls gradient methods of the recorded primitives in f(v3).
+# the operations of gradient methods are recorded only on t1, that is why we need iscomplete(t2) once we start backward_pass on t2.
 # backward_pass(f) returns v5=Value(df/dx,t1:n5) which becomes the output of forward_pass(g,x)
 # h(x) calls backward_pass(g)(v1,v5,t1).
-# backward_pass(g) calls gradfuns recorded in t1.
+# backward_pass(g) calls gradient methods recorded in t1.
 # even though some inputs are Values again, nothing gets recorded and all primitives return values because t1 is complete.
 # backward_pass(g) returns a regular value which becomes the output of h(x).
 
@@ -425,9 +434,10 @@ end
 
 # These are helper functions used in forward_pass, backward_pass, and
 # recorder.  We need to be careful about whether they take or return
-# Values and record their gradients.  merge_tapes, sum_outgrads are defined as primitives.
+# boxed/unboxed Values and record their gradients.  merge_tapes,
+# sum_outgrads are defined as primitives.
 
-# 8.1 Value, getval: these box, unbox, and float values.
+# 8.1 getval
 
 "getval(x) unboxes x if it is a Value, otherwise returns x."
 getval(x) = (if isa(x, Value); x.value; else; x; end)  # we never create Value(Value).
@@ -436,11 +446,11 @@ getval(x) = (if isa(x, Value); x.value; else; x; end)  # we never create Value(V
 # gradients. Records its operation if both its arguments are Values.
 # Its first argument is a newly created Value.  Its second argument is
 # the original input argument, which is only a Value if this is a
-# higher order gradient, in which case it is a Value that belongs to
-# another tape and merge_tapes in effect creates a third Value on both
-# tapes that point to their respective parent Values.  If the second
-# argument is not a Value, simply returns its first arg without
-# recording anything.
+# higher order gradient, in which case it is a Value that has a Node
+# on another tape and merge_tapes in effect creates a third Node on
+# both tapes that point to their respective parent Nodes.  If the
+# second argument is not a Value, merge_tapes simply returns its first
+# arg without recording anything.
 
 merge_tapes(a,b)=a
 merge_tapes_r = recorder(merge_tapes)
@@ -450,40 +460,19 @@ merge_tapes(::Type{Grad{1}},d,c,a,b) = d
 merge_tapes(::Type{Grad{2}},d,c,a,b) = d
 
 
-# 8.3 gradient makers like merge_tapes(::D1,c,a,b) and gradfuns they return
-
-# The gradmakers don't record even when their input is a Value, is that
-# a problem?  Let's think about this.  gradmakers are only run during
-# forward call of primitives to generate a gradfun.  They are always
-# run with Value arguments.  However their output is a Function,
-# i.e. does not have a gradient, so they do not need to be recorded
-# even though they have Value arguments.  A gradfun is run by back to
-# compute dx from dy.  It is a composite function with a single
-# argument dy and closure variables (x,y).  These may be Values, in
-# which case boxing and unboxing will be performed by the primitives
-# used in gradfun.
-
-# The gradfun operations will only be recorded for high order
-# gradients where the higher order tape is not closed.  If the tapes
-# are closed (in the final backward_pass), no recording will be done
-# and a regular value will be returned even if some of the inputs are
-# Values.
-
-
-# 8.4 sum_outgrads: only used in backward_pass to produce the input to
+# 8.3 sum_outgrads: only used in backward_pass to produce the input to
 # a gradient function df/dy.  Does it ever need to record its
-# operation and give a Value output?  Gradient functions are closures
-# that take df/dy, return df/dx and have the environment (x,y) which
-# is the original input/output and almost certainly Values.  The input
-# df/dy may or may not be a Value.  If we encounter a Value with an open
-# tape, we need to record the sum operation.  This will happen in
-# higher order derivatives.
+# operation and give a Value output?  Gradient methods take df/dy,y,x
+# and return df/dx.  (x,y) is the original input/output and almost
+# certainly Values.  The input df/dy may or may not be a Value.  If we
+# encounter a Value with an open tape, we need to record the sum
+# operation.  This will happen in higher order derivatives.
 
-# A: what if first outgrad is a Value and others aren't, or vice versa?  handled by @primitive.
-# A: what should the output be if some of the inputs are Values?  Is sum_outgrads a primitive? No, its input is never a Value, maybe an array including Values.  Its helper is a primitive.
-# A: for array and dict can we just modify the first element of outgrads?  This may be dangerous because the same outgrad may be passed back to more than one target e.g. by `+`.
-
-# TODO: Instead of maintaining an array of outgrads then summing them, why not keep a sum to avoid allocation?
+# FAQ:
+# what if first outgrad is a Value and others aren't, or vice versa?  handled by @primitive sum_helper.
+# what should the output be if some of the inputs are Values?  Is sum_outgrads a primitive? No, its input is never a Value, maybe an array including Values.  Its helper is a primitive.
+# for array and dict can we just modify the first element of outgrads?  This may be dangerous because the same outgrad may be passed back to more than one target e.g. by `+`.
+# Instead of maintaining an array of outgrads then summing them, why not keep a sum to avoid allocation?
 # (instead of pushing to parent.outgrads, we'd have to call sum directly, deal with Values etc.)
 # However before we can do this we need to handle overwriting ops because sum_outgrads is a primitive.
 
@@ -515,23 +504,3 @@ function remove_nothings(x)
     return a
 end
 
-# TODO: check if we really need tofloat.
-# converts nested values to float.
-# tofloat uses float for Number and AbstractArray (for isleaftype)
-tofloat(x::Number)=float(x)
-tofloat{T<:Number}(x::AbstractArray{T})=float(x)
-# tofloat extends to Tuple, Associative, and arbitrary Arrays
-tofloat(x::Tuple)=(all(isfloat,x) ? x : ntuple(i->tofloat(x[i]), length(x)))
-tofloat(x::Associative)=(all(isfloat,values(x)) ? x : (a=similar(x); for (k,v) in x; a[k]=tofloat(v); end; a))
-tofloat(x::AbstractArray)=(all(isfloat,x) ? x : map(tofloat,x))
-isfloat(x)=isa(x,AbstractFloat)
-
-# findfirst uses == which is inefficient for tapes, so we define findeq with ===
-function findeq(A,v)
-    for i=1:length(A)
-        if A[i] === v
-            return i
-        end
-    end
-    return 0
-end

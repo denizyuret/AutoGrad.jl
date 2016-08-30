@@ -106,33 +106,3 @@ end
 @primitive copy(x),dy dy
 fixdomain(::Fn{:copy},x)=(rand(2),)
 
-### DEAD CODE:
-
-# Here are some examples for next, actual definitions are under base.
-# next can be defined in terms of getindex, no need to make it a primitive.
-# next{A<:AbstractArray}(a::Value{A},i)=(a[i],i+1)
-# next{T<:Tuple}(a::Value{T},i)=(a[i],i+1)
-# next{T<:Number}(a::Value{T},i)=(a,true)
-
-# We no longer define getindex for each type as a primitive:
-# import Base: getindex
-# @primitive getindex{T<:Associative}(x::Value{T},i...)
-# @primitive getindex{T<:Tuple}(x::Value{T},i)
-# getindex(::D1,y,x,i...) = dy->ungetindex(x,dy,i...) 
-# getindex{N}(::Dn{N},a...) = 0                 # only the first argument has a gradient
-
-# ungetindex exampes:
-# ungetindex(x::Tuple, dy, i)            = ntuple(j->(j==i ? dy : nothing), length(x))
-# ungetindex(x::Associative, dy, i...)   = (dx=similar(x);setindex!(dx,dy,i...);dx)
-
-# In case of a higher order gradient, ungetindex would be called with
-# Value inputs and needs to be recorded.
-# @primitive ungetindex{T<:Associative}(x::Value{T},dy,i...)
-# @primitive ungetindex{T<:Tuple}(x::Value{T},dy,i)
-
-# ungetindex{N}(::Dn{N}, dx...) = 0 # only arg 2 has a gradient
-
-# getindex_r = recorder(getindex)
-# getindex(x::Value,i...)=getindex_r(x,i...)
-# getindex(::D1,y::Value,x::Value,i...) = dy->ungetindex(x,dy,i...) # y=x[i], dy=dJ/dy
-

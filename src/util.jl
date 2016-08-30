@@ -2,6 +2,8 @@
 # macro dbgutil(x); esc(:(println(_dbg($x)))); end
 macro dbgutil(x); end
 
+### @primitive and @zerograd macros:
+
 """
 
 `@primitive fx g1 g2...` can be used to define a new primitive
@@ -102,7 +104,6 @@ macro primitive(f,g...)
 end
 
 """
-
 `@zerograd f(args...; kwargs...)` allows f to handle its Value inputs
 by unboxing them like @primitive, but unlike @primitive it does not
 record its actions or return a Value result.  Some functions, like
@@ -111,7 +112,6 @@ constant outputs.  These need to handle Value inputs, but do not need
 to record anything and can return regular values.  Their output can be
 treated like a constant in the program.  Use the @zerograd macro for
 those.  Note that kwargs are NOT unboxed.
-
 """
 macro zerograd(f)
     b = Expr(:block)
@@ -241,6 +241,10 @@ function gsig(f,dy,y,i)
     return g
 end
 
+
+
+### Testing Utilities:
+
 if !isdefined(:runtests)
 let tests=[]
     global addtest,runtests,alltests
@@ -328,10 +332,8 @@ EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
 
 # TODO: do sampling or random direction for large args
 """
-
 check_grads(fun, args...) checks the computed gradients for fun(args)
 comparing them with numeric approximations.
-
 """
 function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL, fname=fun)
     @dbgutil((:check_grads,fname,:args,args...))
@@ -408,6 +410,16 @@ function unbroadcast(x, dx)
     end
 end
 
+# findfirst uses == which is inefficient for tapes, so we define findeq with ===
+function findeq(A,v)
+    for i=1:length(A)
+        if A[i] === v
+            return i
+        end
+    end
+    return 0
+end
+
 # typealias AorN Union{AbstractArray,Number}
 
 # It gets tiresome to write `Type{Grad{1}}` after a while, here are
@@ -432,10 +444,6 @@ Base.show(io::IO, n::Value) = print(io, _dbg(n))
 Base.show(io::IO, n::Node) = print(io, _dbg(n))
 Base.show(io::IO, n::Tape) = print(io, _dbg(n))
 
-#Base.show(io::IO, n::Value) = print(io,"$(name(n))$((name(n.value),[(name(t),name(r)) for (t,r) in n.tapes]...))")
-#Base.show(io::IO, n::Node) = print(io,"$(name(n))$((name(n.node.value),map(name,n.outgrads),[(name(y),name(x)) for (x,y) in n.parent_grad_ops]...))")
-
-
 # TODO: check if we really need tofloat.
 # converts nested values to float.
 # tofloat uses float for Number and AbstractArray (for isleaftype)
@@ -454,224 +462,3 @@ tofloat{T<:AbstractFloat}(x::AbstractArray{T})=x
 tofloat{T}(x::AbstractArray{T})=(isfloat(x) ? x : isbits(T) ? float(x) : map(tofloat,x))
 tofloat(x::Tuple)=(isfloat(x) ? x : ntuple(i->tofloat(x[i]), length(x)))
 tofloat(x::Associative)=(isfloat(x) ? x : (a=similar(x); for (k,v) in x; a[k]=tofloat(v); end; a))
-
-
-# tofloat(x::Number)=float(x)
-# tofloat{T<:Number}(x::AbstractArray{T})=float(x)
-# tofloat(x::AbstractArray)=(all(isfloat,x) ? x : map(tofloat,x))
-
-
-### DEAD CODE:
-# """
-# `@primitive f(args...; kwargs...)` causes f to call its recorder
-# method for the argument signature provided (see `recorder`).  Note
-# that the recorder method will give an error unless one of the
-# arguments is a Value. Examples:
-
-# `@primitive log(x...; o...)` will cause all calls to `log` not matched
-# by any other method to call the recorder method.  This is not
-# recommended, it is usually better to specify argument types.
-
-# `@primitive log` is defined as syntactic sugar for `@primitive log(x...; o...)`.
-
-# `@primitive getindex(x::Value, i)` will cause `getindex` to call its
-# recorder method only if the first argument is a Value.
-
-# `@primitive sum{T<:Number}(a::Value{Array{T}})` will cause `sum` to
-# call its recorder method for Nodes that box Arrays of Number subtypes.
-# """
-# macro primitive(fx)
-#     isa(fx, Symbol) && (fx = :($fx(x...;o...)))
-#     (isa(fx, Expr) && fx.head == :call) || error("Malformed @primitive $fx, see `doc @primitive`.")
-#     rx = notypes(fx)
-#     f = rx.args[1]
-#     rx.args[1] = r = gensym()
-#     esc(:(local $r = recorder($f); $fx=$rx))
-# end
-
-
-# 6.2 @zerograd
-
-
-# Finally, some functions may have non-zero gradients for some
-# arguments, zero for others.  My untested method (TODO: test): use
-# @primitive, when defining gradients, define the non-zero ones
-# normally with f(::Di,y,x...)=(dy->...), and mark the zero gradients
-# with gradmaker returning 0 instead of a function: f(::Di,y,x...)=0.
-
-# 6.3 Gradients: For gradients we define a gradmaker for each
-# primitive method p and argnum.  The gradmaker returns a gradient
-# function (df/dy->df/dx) that has access to the original input/output
-# through a closure.  Julia has multiple-dispatch, which means each
-# argument type combination for a function might end up calling a
-# different method, each potentially requiring different gradients.
-# So we store gradmakers in methods called with `f(Grad{N}, y, x...)`.
-# `Grad{N}` represents the gradient wrt the N'th argument, y is the
-# output and x... are the inputs of the original function.  This way
-# we can use method dispatch to find the appropriate gradient by
-# specifying types for x.  Example:
-# `sin{T<:Number}(::Type{Grad{1}},y::Value{T},x::Value{T})=(dy->dy*cos(x))`
-
-# Some functions do not have gradients wrt some arguments.  Example:
-# getindex(array, index) is not differentiable wrt index.  We indicate
-# this using a gradmaker function that returns 0 (serving the same
-# role as zero_grads in Python autograd).
-
-# function defgrads(grads::Dict{Symbol,Any}, argtypes...; dymul=true)
-#     addtests(grads, argtypes...)
-#     for (_f,_d) in grads
-#         if _d == :todo
-#             continue
-#         elseif _d == 0
-#             for fsig in addtypes(:($_f{}()), argtypes...)
-#                 @eval @zerograd $fsig # This defines gradient=0 for all args
-#             end
-#         else
-#             for fsig in addtypes(:($_f{}()), argtypes...)
-#                 @eval @primitive $fsig
-#             end
-#             isa(_d,Union{AbstractArray,Tuple}) || (_d = (_d,))
-#             for i=1:length(_d)  # _d could be shorter than argtypes in which case the other gradients will be undefined
-#                 if _d[i] == 0
-#                     gexp = 0  # This defines gradient=0 for one arg
-#                 elseif dymul
-#                     if _d[i] == 1
-#                         gexp = :identity
-#                     elseif _d[i] == -1
-#                         gexp = :-
-#                     else
-#                         gexp = :(dy->dy.*$(_d[i]))
-#                     end
-#                     if length(_d) > 1
-#                         xi = Symbol("x$i")
-#                         gexp = :(unbroadcast(y, $xi, $gexp))
-#                     end
-#                 else
-#                     gexp = _d[i]
-#                 end
-#                 for gsig in addtypes(:($_f{}(::Type{Grad{$i}},y::Value)), argtypes...)
-#                     @eval $gsig=$gexp
-#                 end
-#             end
-#         end
-#     end
-# end
-
-# function addtypes(ex::Expr, types...)
-#     # construct method signatures
-#     # example input: :(exp{}()), Number
-#     # example output: exp{T<:Number}(x::Value{T})
-#     # for multiple arguments, constructs all signatures with at least one Value
-#     ntypes = length(types)
-#     ans = []
-#     if ntypes == 0
-#         error("Need argument types")
-#     elseif ntypes == 1
-#         push!(ex.args[1].args, Expr(:<:, :T, types[1]))
-#         push!(ex.args, :(x::Value{T}))
-#         push!(ans, ex)
-#     else
-#         for i=1:ntypes
-#             Ti = Symbol("T$i")
-#             push!(ex.args[1].args, Expr(:<:, Ti, types[i]))
-#         end
-#         for nodes=1:(1<<ntypes-1)
-#             ex2 = copy(ex)
-#             for i=1:ntypes
-#                 Ti = Symbol("T$i"); xi = Symbol("x$i")
-#                 if nodes & (1<<(i-1)) > 0
-#                     push!(ex2.args, :($xi::Value{$Ti}))
-#                 else
-#                     push!(ex2.args, :($xi::$Ti))
-#                 end
-#             end
-#             push!(ans, ex2)
-#         end
-#     end
-#     return ans
-# end
-
-# function addtests(grads::Dict{Symbol,Any}, argtypes...)
-#     global _tests
-#     isdefined(:_tests) || (_tests = Any[])
-#     push!(_tests, (grads, argtypes...))
-# end
-
-# function runtests1()
-#     global _tests
-#     for test in _tests
-#         testgrads(test...)
-#     end
-# end
-
-# function testgrads(grads::Dict{Symbol,Any}, argtypes...)
-#     for (_f,_d) in grads
-#         _d == :todo && continue
-#         f = eval(_f)
-#         args = testargs(Val{_f}, argtypes...) # so we can handle functions like acos with restricted domains
-#         # if f has non-scalar output, sum it
-#         y = f(args...)
-#         if !isa(y,Number)
-#             f1 = f
-#             f = (x...)->sum(f1(x...))
-#         end
-#         # detect and prevent testing of zero grads
-#         if isa(_d,Tuple) && length(_d)>1 && in(0,_d)
-#             alist = Any[args...]
-#             plist = Any[]
-#             args = Any[]
-#             for i=1:length(_d)
-#                 if _d[i] != 0
-#                     push!(args, alist[i])
-#                     alist[i] = Symbol("x$i")
-#                     push!(plist, alist[i])
-#                 end
-#             end
-#             ex = Expr(:->, Expr(:tuple, plist...), Expr(:call, f, alist...))
-#             f = eval(ex)
-#         end
-#         try 
-#             check_grads(f, args...; fname=_f)
-#         catch e
-#             warn((_f,args...,e))
-#         end
-#     end
-# end
-
-# function testargs(f, a...)
-#     @dbgutil((:testargs,f,a...))
-#     ntuple(length(a)) do i
-#         a[i] <: Number ? randn() :
-#         a[i] <: AbstractArray ? randn(2) :
-#         error("testargs: $(a[i])")
-#     end
-# end
-
-# Fn2(F)=Type{Val{Symbol("$(F)2")}}   # used for fallback in type specific testargs
-
-# """
-# `@zerograd f(args...; kwargs...)` allows f to handle its Value inputs
-# by unboxing them like @primitive, but unlike @primitive it does not
-# record its actions or return a Value result.  Some functions, like
-# sign(), have zero gradient.  These need to handle Value inputs, but do
-# not need to record anything and can return regular values.  Their
-# output can be treated like a constant in the program.  Use the
-# @zerograd macro for those.  Note that kwargs are NOT unboxed. (other
-# exceptions to recording: gradient functions, some utilities, zerograd
-# functions, a completed tape).
-# """
-# macro zerograd(fx)
-#     isa(fx, Symbol) && (fx = :($fx(x...;o...)))
-#     (isa(fx, Expr) && fx.head == :call) || error("Malformed @zerograd $fx, see `doc @zerograd`.")
-#     rx = notypes(fx)
-#     f = rx.args[1]
-#     rx.args[1] = r = gensym()
-#     esc(:(local $r = unboxnodes($f); $fx=$rx))
-# end
-
-# # call f with unboxed arguments
-# function unboxnodes(f)
-#     u(x...; o...)=f(map(getval,x)...; o...)
-#     return u
-# end
-
