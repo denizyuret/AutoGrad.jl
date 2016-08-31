@@ -191,6 +191,7 @@ function backward_pass(start_value, end_value, tape)
             parent = node.parents[i]
             v = node.value
             og = v.func(Grad{i},node.outgrad,v.value,v.args...;v.kwargs...)
+            @dbgcore((:sum,parent.outgrad, og))
             parent.outgrad = sum_outgrads(parent.outgrad, og)
             @dbgcore((:back2,og))
         end
@@ -408,8 +409,8 @@ end
 # 6.5 Undifferentiable wrt boxed arguments
 
 # Finally, in the rare cases when an undifferentiable argument can be
-# boxed, its gradient must be defined and must return 0.  The utility
-# function `ungetindex` in intefaces.jl which uses its first
+# boxed, its gradient must be defined and must return `nothing`.  The
+# utility function `ungetindex` in intefaces.jl which uses its first
 # argument's shape as a template is one example of this rare class.
 
 # 6.6 sum_outgrads

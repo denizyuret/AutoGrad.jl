@@ -7,21 +7,52 @@
 # getindex(obj, key...) => value
 # setindex!(obj, val, key...) => obj
 
-# So we can handle these container types by overloading getindex
+# We do not allow overwriting:
+
+setindex!(x::Value,i...)=error("Overwriting operations currently not supported.")
+
+# We handle these container types by overloading getindex
 
 @primitive  getindex(x,i...),dy  ungetindex(x,dy,i...)
-setindex!(x::Value,i...)=error("Overwriting operations currently not supported.")
 fixdomain(::Fn{:getindex},i...)=(rand(2),1)
 
-# If y=getindex(x,i...) and we receive dy, ungetindex creates dx as
-# zeros similar to x, with only dx[i] set to dy.  For efficiency zero
-# arrays are represented with `nothing`. The user should define
-# ungetindex for specific types.
+# If y=getindex(x,i...) and we receive dy, ungetindex creates dx
+# representing zeros similar to x, with only dx[i] set to dy.  
 
-ungetindex(x,a...)=throw(MethodError(ungetindex,x))
-ungetindex{T}(x::AbstractArray{T}, dy, i...)=(dx = isbits(T) ? zeros(x) : fill!(Array(Any, size(x)), nothing); setindex!(dx,dy,i...); dx)
-ungetindex(x::Associative, dy, i...) = (dx=similar(x);setindex!(dx,dy,i...);dx)
-ungetindex(x::Tuple, dy, i) = ntuple(j->(j==i ? dy : nothing), length(x))
+ungetindex(x,dy,i...)=OneHot(x,dy,i)
+
+# For higher order derivatives, the operation of ungetindex might be
+# recorded and differentiated.
+
+@primitive ungetindex(x,dy,i...),ddx,dx nothing getindex(ddx,i...)
+fixdomain(::Fn{:ungetindex},x...)=(rand(2),rand(),1)
+
+# For efficiency we use the following sparse container
+
+immutable OneHot{T}; container::T; value; index; end
+_dbg(x::OneHot)=Symbol("O$(id2(x))_$(id2(x.container))_$(join(x.index...,'_'))")
+Base.show(io::IO, n::OneHot)= print(io, _dbg(n))
+
+Base.full(b::OneHot)=(c=zeroslike(b.container);setindex!(c,b.value,b.index...);c)
+Base.full{T<:Tuple}(b::OneHot{T})=(ntuple(length(b.container)) do i; if i==b.index[1]; b.value; else; nothing; end; end)
+zeroslike(a)=zeros(a)
+zeroslike(a::Associative)=similar(a)
+
+# sum_outgrads needs to handle OneHot values:
+sum_outgrads(a::OneHot,b::OneHot)=(if a.index==b.index; OneHot(a.container,sum_outgrads(a.value,b.value),a.index); else; sum_outgrads(full(a),b); end)
+sum_outgrads(a::Value,b::OneHot)=error((:sum,a,b))
+sum_outgrads(a::OneHot,b::Value)=error((:sum,a,b))
+sum_outgrads(a::Void,b::OneHot)=full(b)
+sum_outgrads(a::OneHot,b::Void)=error((:sum,a,b))
+sum_outgrads(a::OneHot,b)=error((:sum,a,Any))
+sum_outgrads(a,b::OneHot)=setindex!(a,sum_outgrads(get(a,b.index,nothing),b.value),b.index...)
+sum_outgrads(a::Tuple,b::OneHot)=(ntuple(length(a)) do i; if i==b.index[1]; sum_outgrads(a[i],b.value); else; a[i]; end; end)
+
+
+# ungetindex(x,a...)=throw(MethodError(ungetindex,x))
+# ungetindex{T}(x::AbstractArray{T}, dy, i...)=(dx = isbits(T) ? zeros(x) : fill!(Array(Any, size(x)), nothing); setindex!(dx,dy,i...); dx)
+# ungetindex(x::Associative, dy, i...) = (dx=similar(x);setindex!(dx,dy,i...);dx)
+# ungetindex(x::Tuple, dy, i) = ntuple(j->(j==i ? dy : nothing), length(x))
 
 # In case of a higher order gradient, ungetindex would be called with
 # Value inputs and needs to be recording primitive.
@@ -30,12 +61,11 @@ ungetindex(x::Tuple, dy, i) = ntuple(j->(j==i ? dy : nothing), length(x))
 # gradient wrt its dy input, we just need to extract ddx[i].  It is
 # not differentiable wrt other inputs.
 
-@primitive ungetindex(x::AbstractArray,dy,i...) # Need types to avoid ambiguity warnings
-@primitive ungetindex(x::Associative,dy,i...)
-@primitive ungetindex(x::Tuple,dy,i...)
-fixdomain(::Fn{:ungetindex},x...)=(rand(2),rand(),1)
-ungetindex(::Type{Grad{1}},ddx,dx,x,dy,i...) = 0
-ungetindex(::Type{Grad{2}},ddx,dx,x,dy,i...) = getindex(ddx,i...)
+# @primitive ungetindex(x::AbstractArray,dy,i...) # Need types to avoid ambiguity warnings
+# @primitive ungetindex(x::Associative,dy,i...)
+# @primitive ungetindex(x::Tuple,dy,i...)
+# ungetindex(::Type{Grad{1}},ddx,dx,x,dy,i...) = 0
+# ungetindex(::Type{Grad{2}},ddx,dx,x,dy,i...) = getindex(ddx,i...)
 
 # Iteration is used in `for x in a` loops and for `(x,y)=a` multiple
 # assignments.
