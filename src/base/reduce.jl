@@ -1,4 +1,5 @@
 @primitive  sum(x),dy  (convert(eltype(x),getval(dy)).+zeros(x))
+@primitive  sum(x::Tuple),dy  ntuple(i->dy,length(x))
 @primitive  sum(x,i...),dy  (dy.+zeros(x))
 fixdomain(::Fn{:sum},x...)=(rand()<0.5 ? (rand(2,2),) : (rand(2,2),1))
 
