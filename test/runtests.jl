@@ -53,8 +53,8 @@ g8 = grad(g7);  @test g8(1)==sin(1)
 g9 = grad(g8);  @test g9(1)==cos(1)
 
 info("Test neural net...")
-fun1(w,x,y)=sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
-@test check_grads(fun1, Any[rand(2,3),rand(2),rand(2,2),rand(2)], rand(3,10), rand(2,10))
+_fun1(w,x,y)=sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
+@test check_grads(_fun1, Any[rand(2,3),rand(2),rand(2,2),rand(2)], rand(3,10), rand(2,10))
 
 info("Test primitives...")
 AutoGrad.runtests()

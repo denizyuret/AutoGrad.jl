@@ -1,28 +1,10 @@
-@primitive  sum(x),dy  (convert(eltype(x),getval(dy)).+zeros(x))
+@primitive  sum(x),dy        (dy.+zeros(x))
+@primitive  sum(x,i...),dy   (dy.+zeros(x))
 @primitive  sum(x::Tuple),dy  ntuple(i->dy,length(x))
-@primitive  sum(x,i...),dy  (dy.+zeros(x))
 fixdomain(::Fn{:sum},x...)=(rand()<0.5 ? (rand(2,2),) : (rand(2,2),1))
 
-# reduce1sum = Dict{Symbol,Any}(
-# :sum => :(dy->dy.+zeros(x)),
-# )
-# defgrads(reduce1sum, AbstractArray; dymul=false)
-
-# reduce2sum = Dict{Symbol,Any}(
-# :sum => (:(dy->dy.+zeros(x1)),0)
-# )
-
-# sum{T<:Integer}(x1::BitArray,x2::Value{T})=sum(x1,x2.value) # To avoid clash with bitarray.jl:1501.
-# defgrads(reduce2sum, AbstractArray, Integer; dymul=false)
-
-# testargs{T1<:AbstractArray,T2<:Number}(::Fn{:sum}, ::Type{T1}, ::Type{T2})=(randn(2,2),1)
-
-# Base.zeros(x::Value)=zeros(x.value)
-
 # TODO: implement more general sum ops
-
-# TODO:
-
+# TODO: other functions in reduce.jl:
 # eval
 # r_promote: Not exported
 # mapfoldl_impl: Not exported

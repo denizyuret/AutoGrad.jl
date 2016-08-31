@@ -19,7 +19,7 @@ gamma2arg = Dict{Symbol,Any}(
 #:zeta => :todo,                 # domain >= 1?; gamma, operators
 )
 
-@primitive polygamma(x1,x2),dy,y  0  unbroadcast(x2,dy.*polygamma(x1+1,x2))
+@primitive polygamma(x1,x2),dy,y  nothing  unbroadcast(x2,dy.*polygamma(x1+1,x2))
 fixdomain(::Fn{:polygamma},x1,x2)=(rand(0:9),x2)
 
 # testargs{T1<:Number,T2}(::Fn{:polygamma}, ::Type{T1}, ::Type{T2})=(rand(0:5),testargs(Fn2(:polygamma),T2)...)
