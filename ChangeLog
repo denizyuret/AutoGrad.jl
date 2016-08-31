@@ -1,6 +1,7 @@
 2016-08-31  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
+	# fix rosenbrock(x) = sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
 	# improve ungetindex (sparse container?)
 	# improve testing: generate multiple tests compatible with given types.
 	# f4ccc0d is faster than ae84389 ?

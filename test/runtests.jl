@@ -59,6 +59,19 @@ _fun1(w,x,y)=sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
 info("Test primitives...")
 AutoGrad.runtests()
 
+info("Test rosenbrock with map...")
+rosenbrock(x) = sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
+g = grad(rosenbrock)
+gsum(x)=sum(g(x))
+@test check_grads(rosenbrock,a1)
+@test check_grads(gsum,a1)
+@test check_grads(rosenbrock,t1)
+@test check_grads(gsum,t1)
+
+
+
+
+### UTILS...
 
 "Find out where different methods are."
 function where(k)

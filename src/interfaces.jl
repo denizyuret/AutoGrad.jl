@@ -73,9 +73,9 @@ sum_outgrads(a::OneHot,b::Value)=error((:sum,a,b))
 sum_outgrads(a::Void,b::OneHot)=full(b)
 sum_outgrads(a::OneHot,b::Void)=error((:sum,a,b))
 sum_outgrads(a::OneHot,b)=error((:sum,a,Any))
-sum_outgrads(a,b::OneHot)=setindex!(a,sum_outgrads(get(a,b.index,nothing),b.value),b.index...)
 sum_outgrads(a::Tuple,b::OneHot)=(ntuple(length(a)) do i; if i==b.index[1]; sum_outgrads(a[i],b.value); else; a[i]; end; end)
-
+sum_outgrads(a::AbstractArray,b::OneHot)=setindex!(a,sum_outgrads(getindex(a,b.index...),b.value),b.index...)
+sum_outgrads(a::Associative,b::OneHot)=setindex!(a,sum_outgrads(get(a,b.index...,nothing),b.value),b.index...)
 
 # Iteration is used in `for x in a` loops and for `(x,y)=a` multiple
 # assignments.
