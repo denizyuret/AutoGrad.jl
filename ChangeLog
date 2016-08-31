@@ -1,5 +1,20 @@
 2016-08-31  Deniz Yuret  <dyuret@ku.edu.tr>
 
+	* TODO:
+	# f4ccc0d is faster than ae84389 ?
+	# check slowdown in simple functions
+	# finish all function gradients.
+	# Email announce new release with profiling results.
+	# Implement backward operations in profile.jl.
+	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.
+	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
+	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
+	# improve testing: generate multiple tests compatible with given types.
+	# subarrays: can be used to make gradients for concat faster: as long as we don't have overwriting.
+	# finish abstractarray(hvcat), array, tuple and dict support.
+	# avoid double normalization in softmax.
+	# improve ungetindex (sparse container?)
+
 	* Rosenbrock:
 	# Profile memory overhead, check cost of recording large number of ops
 	# rosenbrock(x) = sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
@@ -33,20 +48,6 @@
 	covers 2-D.  No gpu implementation Slows everything down.  Still
 	cannot handle 100K.  Giving up for now but will think about
 	ungetindex improvements.
-
-	* TODO:
-	# check slowdown in simple functions
-	# finish all function gradients.
-	# Email announce new release with profiling results.
-	# Implement backward operations in profile.jl.
-	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.
-	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
-	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
-	# improve testing: generate multiple tests compatible with given types.
-	# subarrays: can be used to make gradients for concat faster: as long as we don't have overwriting.
-	# finish abstractarray(hvcat), array, tuple and dict support.
-	# avoid double normalization in softmax.
-	# improve ungetindex (sparse container?)
 
 2016-08-30  Deniz Yuret  <dyuret@ku.edu.tr>
 
