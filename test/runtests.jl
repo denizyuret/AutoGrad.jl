@@ -9,7 +9,34 @@ using Base.Test
 # write your own tests here
 @test 1 == 1
 
-AutoGrad.runtests()
+# Test indexing
+a1 = rand(2)
+t1 = (a1...)
+d1 = Dict(1=>a1[1],2=>a1[2])
+
+s0(x)=x[1]^2+x[2]^2
+s1 = grad(s0)
+s1sum(x)=sum(s1(x))
+s2 = grad(s1sum)
+
+@test check_grads(s0,a1)
+@test check_grads(s0,t1)
+@test check_grads(s0,d1)
+
+@test check_grads(s1sum,a1)
+@test check_grads(s1sum,t1) # broken
+@test check_grads(s1sum,d1)
+
+f0(x)=(a=0;for i=1:length(x);a+=x[i]^2;end;a)
+f1=grad(f0)
+f1sum(x)=sum(f1(x))
+f2=grad(f1sum)
+
+r0(x)=(s=0; for i=2:length(x); s+=(1-x[i-1])^2 + 100*(x[i]-x[i-1]^2)^2; end; s)
+r1 = grad(r0)
+r1sum(x)=sum(r1(x))
+r2 = grad(r1sum)
+
 
 # Test higher order gradients:
 g1 = grad(sin); @test g1(1)==cos(1)
@@ -22,15 +49,13 @@ g7 = grad(g6);  @test g7(1)==-cos(1)
 g8 = grad(g7);  @test g8(1)==sin(1)
 g9 = grad(g8);  @test g9(1)==cos(1)
 
-# Test indexing
-f12(x)=x[1]+x[2]
-@test check_grads(f12,rand(2))
-@test check_grads(f12,(rand(2)...))
-@test check_grads(f12,Dict(1=>rand(),2=>rand()))
-
 # Test neural net
 fun1(w,x,y)=sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
 @test check_grads(fun1, Any[rand(2,3),rand(2),rand(2,2),rand(2)], rand(3,10), rand(2,10))
+
+# Test primitives
+AutoGrad.runtests()
+
 
 "Find out where different methods are."
 function where(k)
