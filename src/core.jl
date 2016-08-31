@@ -1,4 +1,4 @@
-# Uncomment to debug:
+# Switch to debug:
 # macro dbgcore(x); esc(:(println(_dbg($x)))); end
 macro dbgcore(x); end
 
@@ -186,14 +186,14 @@ function backward_pass(start_value, end_value, tape)
     for node in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
         node.outgrad == nothing && continue
         for i=1:length(node.parents)
-            @dbgcore((:back1,node.outgrad))
             isassigned(node.parents,i) || continue
             parent = node.parents[i]
             v = node.value
+            @dbgcore((:back,v.func,Grad{i},node.outgrad,v.value,v.args...,v.kwargs...))
             og = v.func(Grad{i},node.outgrad,v.value,v.args...;v.kwargs...)
-            @dbgcore((:sum,parent.outgrad, og))
+            @dbgcore((:sum1,parent.outgrad,og))
             parent.outgrad = sum_outgrads(parent.outgrad, og)
-            @dbgcore((:back2,og))
+            @dbgcore((:sum2,parent.outgrad))
         end
     end
 

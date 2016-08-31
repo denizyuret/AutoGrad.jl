@@ -301,9 +301,13 @@ function fixtest(fx::Expr)
             g = f(Grad{i},gargs...)
         catch e
             # warn("No grad $i for $f: $e")
-            continue            # undefined grads
+            if isa(e,MethodError) && e.f === f && e.args[1] === Grad{i}
+                continue            # undefined grads
+            else
+                error("Error during $f$((Grad{i},gargs...)): $e")
+            end
         end
-        g == 0 && continue      # zero grads
+        g == nothing && continue      # zero grads
         push!(args, alist[i])
         alist[i] = Symbol("x$i")
         push!(plist, alist[i])
@@ -313,6 +317,7 @@ function fixtest(fx::Expr)
     isa(f(args...),Number) || (f2=f; f=(x...)->sum(f2(x...)))
     return (f,args...)
 end
+
 
 # Override this for testing restricted domain functions like acos:
 fixdomain(f,x...)=x

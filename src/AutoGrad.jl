@@ -1,4 +1,4 @@
-#module AutoGrad
+module AutoGrad
 
 using Compat
 importall Base  # defining getindex, sin, etc.
@@ -23,4 +23,4 @@ include("linalg/matmul.jl")
 include("special/gamma.jl")
 # include("special/trig.jl")
 
-#end # module
+end # module

@@ -9,14 +9,14 @@ using Base.Test
 # write your own tests here
 @test 1 == 1
 
-# Test indexing
+info("Test indexing...")
 a1 = rand(2)
 t1 = (a1...)
 d1 = Dict(1=>a1[1],2=>a1[2])
 
 s0(x)=x[1]^2+x[2]^2
 s1 = grad(s0)
-s1sum(x)=sum(s1(x))
+s1sum(x)=(y=s1(x);y[1]+y[2])
 s2 = grad(s1sum)
 
 @test check_grads(s0,a1)
@@ -24,21 +24,24 @@ s2 = grad(s1sum)
 @test check_grads(s0,d1)
 
 @test check_grads(s1sum,a1)
-@test check_grads(s1sum,t1) # broken
+@test check_grads(s1sum,t1)
 @test check_grads(s1sum,d1)
 
 f0(x)=(a=0;for i=1:length(x);a+=x[i]^2;end;a)
 f1=grad(f0)
 f1sum(x)=sum(f1(x))
 f2=grad(f1sum)
+@test check_grads(f0,rand(10))
+@test check_grads(f1sum,rand(10))
 
 r0(x)=(s=0; for i=2:length(x); s+=(1-x[i-1])^2 + 100*(x[i]-x[i-1]^2)^2; end; s)
 r1 = grad(r0)
 r1sum(x)=sum(r1(x))
 r2 = grad(r1sum)
+@test check_grads(r0,rand(10))
+@test check_grads(r1sum,rand(10))
 
-
-# Test higher order gradients:
+info("Test higher order gradients...")
 g1 = grad(sin); @test g1(1)==cos(1)
 g2 = grad(g1);  @test g2(1)==-sin(1)
 g3 = grad(g2);  @test g3(1)==-cos(1)
@@ -49,11 +52,11 @@ g7 = grad(g6);  @test g7(1)==-cos(1)
 g8 = grad(g7);  @test g8(1)==sin(1)
 g9 = grad(g8);  @test g9(1)==cos(1)
 
-# Test neural net
+info("Test neural net...")
 fun1(w,x,y)=sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
 @test check_grads(fun1, Any[rand(2,3),rand(2),rand(2,2),rand(2)], rand(3,10), rand(2,10))
 
-# Test primitives
+info("Test primitives...")
 AutoGrad.runtests()
 
 

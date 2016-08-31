@@ -13,30 +13,45 @@ setindex!(x::Value,i...)=error("Overwriting operations currently not supported."
 
 # We handle these container types by overloading getindex
 
-@primitive  getindex(x,i...),dy  ungetindex(x,dy,i...)
+@primitive  getindex(x,i...),dxi,xi  ungetindex(dxi,x,i...)
+getindex{N}(::Type{Grad{N}},o...)=nothing
 fixdomain(::Fn{:getindex},i...)=(rand(2),1)
 
-# If y=getindex(x,i...) and we receive dy, ungetindex creates dx
-# representing zeros similar to x, with only dx[i] set to dy.  
+# If xi=getindex(x,i...) and we receive dxi, ungetindex creates dx
+# representing zeros similar to x, with only dx[i] set to dxi.  We use
+# the sparse container OneHot for efficiency.
 
-ungetindex(x,dy,i...)=OneHot(x,dy,i)
+ungetindex(dxi,x,i...)=OneHot(dxi,x,i)
 
 # For higher order derivatives, the operation of ungetindex might be
 # recorded and differentiated.
 
-@primitive ungetindex(x,dy,i...),ddx,dx nothing getindex(ddx,i...)
-fixdomain(::Fn{:ungetindex},x...)=(rand(2),rand(),1)
+@primitive ungetindex(dxi,x,i...),ddx,dx  getindex(ddx,i...)
+ungetindex{N}(::Type{Grad{N}},::Value,o...)=nothing
+
+# x -> getindex -> xi -> grad -> dxi -> ungetindex -> dx -> grad -> ddx -> getindex -> ddxi
+
+#@primitive ungetindex(x,dxi,i...),ddx,dx  nothing  getindex(ddx,i...)
+#@primitive ungetindex(x,dxi,i...),ddx,dx (println((:ug1,nothing));nothing) (ddxi=getindex(ddx,i...);println((:ug2,ddxi,x,dxi,i...));ddxi)
+# ungetindex_r = recorder(ungetindex)
+# ungetindex(x::Value,dxi::Value,i...)=ungetindex_r(x,dxi,i...)
+# ungetindex(::Type{Grad{2}},ddx,dx,x,dxi,i...)=getindex(ddx,i...)
+# ungetindex{N}(::Type{Grad{N}},o...)=nothing
+fixdomain(::Fn{:ungetindex},x...)=(rand(),rand(2),2)
 
 # For efficiency we use the following sparse container
 
-immutable OneHot{T}; container::T; value; index; end
-_dbg(x::OneHot)=Symbol("O$(id2(x))_$(id2(x.container))_$(join(x.index...,'_'))")
-Base.show(io::IO, n::OneHot)= print(io, _dbg(n))
+immutable OneHot{T}; value; container::T; index; end
 
+Base.sum(b::OneHot)=b.value
 Base.full(b::OneHot)=(c=zeroslike(b.container);setindex!(c,b.value,b.index...);c)
 Base.full{T<:Tuple}(b::OneHot{T})=(ntuple(length(b.container)) do i; if i==b.index[1]; b.value; else; nothing; end; end)
-zeroslike(a)=zeros(a)
+Base.getindex(b::OneHot,i...)=(if i==b.index; b.value; else; nothing; end)
+zeroslike{T<:Number}(a::AbstractArray{T})=zeros(a)
+zeroslike(a::AbstractArray)=fill!(similar(a),nothing)
 zeroslike(a::Associative)=similar(a)
+_dbg(x::OneHot)="OH$(id2(x))_$(id2(x.container))_$((x.index...))_$(x.value)"
+Base.show(io::IO, n::OneHot)= print(io, _dbg(n))
 
 # sum_outgrads needs to handle OneHot values:
 sum_outgrads(a::OneHot,b::OneHot)=(if a.index==b.index; OneHot(a.container,sum_outgrads(a.value,b.value),a.index); else; sum_outgrads(full(a),b); end)
