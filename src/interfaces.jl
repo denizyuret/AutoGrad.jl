@@ -45,13 +45,13 @@ Base.zeros(b::OneHot)=zeros(b.container)
 
 function Base.full(b::OneHot)
     if isa(b.container,Tuple)
-        ntuple(length(b.container)) do i
-            if i==b.index[1]
-                b.value
-            else
-                nothing
-            end
+        c=zeroslike(collect(b.container))
+        if isa(b.value,Tuple)
+            setindex!(c,[b.value...],b.index...)
+        else
+            setindex!(c,b.value,b.index...)
         end
+        return tuple(c...)
     else
         c=zeroslike(b.container)
         setindex!(c,b.value,b.index...)
@@ -73,7 +73,7 @@ sum_outgrads(a::OneHot,b::Value)=error((:sum,a,b))
 sum_outgrads(a::Void,b::OneHot)=full(b)
 sum_outgrads(a::OneHot,b::Void)=error((:sum,a,b))
 sum_outgrads(a::OneHot,b)=error((:sum,a,Any))
-sum_outgrads(a::Tuple,b::OneHot)=(ntuple(length(a)) do i; if i==b.index[1]; sum_outgrads(a[i],b.value); else; a[i]; end; end)
+sum_outgrads(a::Tuple,b::OneHot)=(b=full(b);ntuple(length(a)) do i; sum_outgrads(a[i],b[i]); end)
 sum_outgrads(a::AbstractArray,b::OneHot)=setindex!(a,sum_outgrads(getindex(a,b.index...),b.value),b.index...)
 sum_outgrads(a::Associative,b::OneHot)=setindex!(a,sum_outgrads(get(a,b.index...,nothing),b.value),b.index...)
 
@@ -95,6 +95,8 @@ next(a::Value,i)=throw(MethodError(next,(a,i)))
 next{T<:Array}(a::Value{T},i) = (a[i],i+1)
 next{T<:Tuple}(a::Value{T},i) = (a[i],i+1)
 next{T<:Number}(a::Value{T},i) = (a,true)
+# This needs more work:
+# next{T<:Base.ValueIterator}(a::Value{T},i) = (d=a.value.dict; (d.vals[i], skip_deleted(d,i+1)))
 
 # Finally here are some common functions that do not return floats
 # (e.g. length) or return constant outputs (e.g. zero).
