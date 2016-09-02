@@ -1,11 +1,12 @@
-2016-08-31  Deniz Yuret  <dyuret@ku.edu.tr>
+2016-09-01  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# test dict and tuple access.
 
 	* TODO:
-	# fix rosenbrock(x) = sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
-	# improve ungetindex (sparse container?)
 	# improve testing: generate multiple tests compatible with given types.
-	# f4ccc0d is faster than ae84389 ?
 	# check slowdown in simple functions
+	# f4ccc0d is faster than ae84389 ?
 	# finish all function gradients.
 	# Email announce new release with profiling results.
 	# Implement backward operations in profile.jl.
@@ -15,6 +16,13 @@
 	# subarrays: can be used to make gradients for concat faster: as long as we don't have overwriting.
 	# finish abstractarray(hvcat), array, tuple and dict support.
 	# avoid double normalization in softmax.
+	# find the problem with runtests when length=2 and higher order	dict support, open issues.
+
+2016-08-31  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# fix rosenbrock(x) = sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
+	# improve ungetindex (sparse container?)
 
 	* Rosenbrock:
 	# Profile memory overhead, check cost of recording large number of ops
