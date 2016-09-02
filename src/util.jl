@@ -314,7 +314,7 @@ function fixtest(fx::Expr)
     end
     f1=f; f = eval(Expr(:->, Expr(:tuple, plist...), Expr(:call, f1, alist...)))
     # if f has non-scalar output, sum it
-    isa(f(args...),Number) || (f2=f; f=(x...)->sum(f2(x...)))
+    isa(f(args...),Number) || (f2=f; f=(x...)->sumvalues(f2(x...)))
     return (f,args...)
 end
 
@@ -381,8 +381,8 @@ isequivalent{T<:Number,S<:Number}(x::AbstractArray{T},y::AbstractArray{S}; o...)
 
 # isequivalent extends to Tuple, Associative, and other Arrays, comparing elementwise
 isequivalent(x::Tuple, y::Tuple; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
-isequivalent(x::Associative, y::Associative; o...)=(length(x)==length(y) && all(k->isequivalent(x[k],y[k];o...), keys(x)))
 isequivalent(x::AbstractArray, y::AbstractArray; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
+isequivalent(x::Associative, y::Associative; o...)=all(k->isequivalent(get(x,k,nothing),get(y,k,nothing);o...), unique([keys(x)...,keys(y)...]))
 
 # isequivalent treats `nothing` as equivalent to zero or zero array.
 isequivalent(x::Number,z::Void; o...)=isequivalent(z,x;o...)
@@ -415,9 +415,19 @@ function unbroadcast(x, dx)
     end
 end
 
+# sumvalues sums values of dictionaries, otherwise acts like sum:
 
+sumvalues(x)=sum(x)
+sumvalues(x::Associative)=sum(values(x))
+@primitive sumvalues(x::Associative),ds fillvalues(ds,x)
+fillvalues(v,x)=Dict([k=>v for k in keys(x)])
+@primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
+fixdomain(::Fn{:sumvalues},x...)=(Dict(1=>1.,2=>2.),)
+fixdomain(::Fn{:fillvalues},x...)=(0.,Dict(1=>1.,2=>2.,3=>3.))
 
-
+# This needs more work:
+# @primitive values(x),dy Dict(map((a,b)->(a=>b), keys(x), dy))
+# fixdomain(::Fn{:values},x...)=(Dict(1=>1.,2=>2.),)
 
 # typealias AorN Union{AbstractArray,Number}
 
@@ -433,10 +443,10 @@ end
 # Pretty print for debugging:
 _dbg(x)=x # extend to define short printable representations
 _dbg(x::Tuple)=map(_dbg,x)
-_dbg(x::Node)=Symbol("N$(id2(x))_$(id2(x.value))")
-_dbg(x::Value)=Symbol("V$(id2(x))_$(_dbg(x.value))")
-_dbg(x::Tape)=Symbol("T$(join([id2(x),map(id2,x)...],'_'))")
-_dbg(x::AbstractArray)=Symbol("A$(join([id2(x),size(x)...],'_'))")
+_dbg(x::Node)="N$(id2(x))_$(id2(x.value))"
+_dbg(x::Value)="V$(id2(x))_$(_dbg(x.value))"
+_dbg(x::Tape)="T$(join([id2(x),map(id2,x)...],'_'))"
+_dbg(x::AbstractArray)="A$(join([id2(x),size(x)...],'_'))"
 id2(x)=Int(object_id(x)%1000)
 
 Base.show(io::IO, n::Value) = print(io, _dbg(n))
