@@ -1,45 +1,61 @@
-using AutoGrad
-using Base.Test
+using AutoGrad, Base.Test
 # Uncomment these if you want lots of messages:
 # import Base.Test: default_handler, Success, Failure, Error
 # default_handler(r::Success) = info("$(r.expr)")
-# default_handler(r::Failure) = warn("FAIL: $(r.expr)")
-# default_handler(r::Error)   = warn("$(r.err): $(r.expr)")
+# default_handler(r::Failure) = warn("$(r.expr) FAILED")
+# default_handler(r::Error)   = warn("$(r.expr): $(r.err)")
 
 # write your own tests here
 @test 1 == 1
 
 info("Test indexing...")
-a1 = rand(2)
+a1 = rand(3)                    # FAIL: some high-order (b1sum) tests with rand(2)
 t1 = (a1...)
-d1 = Dict(1=>a1[1],2=>a1[2])
+d1 = Dict([i=>a1[i] for i=1:length(a1)])
 
 s0(x)=x[1]^2+x[2]^2
 s1 = grad(s0)
 s1sum(x)=(y=s1(x);y[1]+y[2])
 s2 = grad(s1sum)
-
 @test check_grads(s0,a1)
 @test check_grads(s0,t1)
 @test check_grads(s0,d1)
-
 @test check_grads(s1sum,a1)
 @test check_grads(s1sum,t1)
 @test check_grads(s1sum,d1)
 
+using AutoGrad: sumvalues
 f0(x)=(a=0;for i=1:length(x);a+=x[i]^2;end;a)
 f1=grad(f0)
-f1sum(x)=sum(f1(x))
+f1sum(x)=sumvalues(f1(x))
 f2=grad(f1sum)
-@test check_grads(f0,rand(10))
-@test check_grads(f1sum,rand(10))
+@test check_grads(f0,a1)
+@test check_grads(f0,t1)
+@test check_grads(f0,d1)
+@test check_grads(f1sum,a1)
+@test check_grads(f1sum,t1)
+@test check_grads(f1sum,d1)
 
 r0(x)=(s=0; for i=2:length(x); s+=(1-x[i-1])^2 + 100*(x[i]-x[i-1]^2)^2; end; s)
 r1 = grad(r0)
-r1sum(x)=sum(r1(x))
+r1sum(x)=sumvalues(r1(x))
 r2 = grad(r1sum)
-@test check_grads(r0,rand(10))
-@test check_grads(r1sum,rand(10))
+@test check_grads(r0,a1)
+@test check_grads(r0,t1)
+@test check_grads(r0,d1)
+@test check_grads(r1sum,a1)
+@test check_grads(r1sum,t1)
+@test check_grads(r1sum,d1)
+
+info("Test rosenbrock with map...")
+b0(x) = sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
+b1 = grad(b0)
+b1sum(x)=sumvalues(b1(x))
+@test check_grads(b0,a1)
+@test check_grads(b0,t1)
+@test check_grads(b1sum,a1) # fail with size 2
+@test check_grads(b1sum,t1) # fail with size 2
+@time b1sum(rand(10000))
 
 info("Test higher order gradients...")
 g1 = grad(sin); @test g1(1)==cos(1)
@@ -53,21 +69,24 @@ g8 = grad(g7);  @test g8(1)==sin(1)
 g9 = grad(g8);  @test g9(1)==cos(1)
 
 info("Test neural net...")
-_fun1(w,x,y)=sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
-@test check_grads(_fun1, Any[rand(2,3),rand(2),rand(2,2),rand(2)], rand(3,10), rand(2,10))
+n0(w,x,y)=sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
+n1 = grad(n0)
+n1sum(w,x,y)=sum(map(sum,n1(w,x,y)))
+n1sumd(w,x,y)=sum(map(sum,values(n1(w,x,y))))
+wa = Any[rand(2,3),rand(2),rand(2,2),rand(2)]
+wt = (wa...)
+wd = Dict([i=>wa[i] for i=1:length(wa)])
+@test check_grads(n0, wa, rand(3,10), rand(2,10))
+@test check_grads(n0, wt, rand(3,10), rand(2,10))
+@test check_grads(n0, wd, rand(3,10), rand(2,10))
+@test check_grads(n1sum, wa, rand(3,10), rand(2,10))
+@test check_grads(n1sum, wt, rand(3,10), rand(2,10))
+# This needs more work:
+# @test check_grads(n1sumd, wd, rand(3,10), rand(2,10))  # FAIL
 
 info("Test primitives...")
-AutoGrad.runtests()
-
-info("Test rosenbrock with map...")
-rosenbrock(x) = sum(map((i, j) -> (1 - j)^2 + 100*(i - j^2)^2, x[2:end], x[1:end-1]))
-g = grad(rosenbrock)
-gsum(x)=sum(g(x))
-@test check_grads(rosenbrock,a1)
-@test check_grads(gsum,a1)
-@test check_grads(rosenbrock,t1)
-@test check_grads(gsum,t1)
-
+using AutoGrad: runtests
+runtests()
 
 
 
