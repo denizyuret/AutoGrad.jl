@@ -1,11 +1,13 @@
 @primitive  sum(x),dy        (dy.+zeros(x))
 @primitive  sum(x,i...),dy   (dy.+zeros(x))
 @primitive  sum(x::Tuple),dy  ntuple(i->dy,length(x))
-fixdomain(::Fn{:sum},x...)=(rand()<0.5 ? (rand(2,2),) : (rand(2,2),1))
+addtest(sum, rand(2))
+addtest(sum, (rand(2)...))
+addtest(sum, rand(2,2), 1)
+addtest(sum, rand(2,2), 2)
 
 # TODO: implement more general sum ops
 # TODO: other functions in reduce.jl:
-# eval
 # r_promote: Not exported
 # mapfoldl_impl: Not exported
 # mapfoldl
