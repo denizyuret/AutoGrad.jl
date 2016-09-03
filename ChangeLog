@@ -5,10 +5,28 @@
 	# fix problem with check_grads(log,0.12099921186616151,[1.7601369948066048,1.0407040634792377])
 	# fix problem with (:check_grads,lfact,:args,(1.667842864901635,),:exact,(0.3202972807833342,),:numeric,(0.7822992913247839,))
 	# Email announce new release with profiling results.
-
-	* TODO:
 	# check slowdown in simple functions
 	# f4ccc0d is faster than ae84389 ?
+
+	* f4ccc0d-vs-ae84389: unboxing was the culprit, fixed.
+
+	abb2cfe 2016-09-03
+	1.961046 seconds (1.45 M allocations: 604.340 MB, 1.71% gc time)
+	4.399855 seconds (2.76 M allocations: 2.182 GB, 2.34% gc time)
+
+	a71400c 2016-09-03
+	2.108507 seconds (1.45 M allocations: 600.952 MB, 1.66% gc time)
+	4.650728 seconds (2.76 M allocations: 2.177 GB, 2.21% gc time)
+
+	ae84389 2016-08-31
+	2.060078 seconds (1.45 M allocations: 600.952 MB, 1.58% gc time)
+	4.598383 seconds (2.94 M allocations: 2.183 GB, 2.09% gc time)
+
+	f4ccc0d 2016-08-31
+	2.041250 seconds (1.45 M allocations: 601.044 MB, 1.60% gc time)
+	4.605514 seconds (3.11 M allocations: 2.191 GB, 2.07% gc time)
+
+	* TODO:
 	# Implement backward operations in profile.jl.
 	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.
 	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
