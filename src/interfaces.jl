@@ -15,7 +15,8 @@ setindex!(x::Value,i...)=error("Overwriting operations currently not supported."
 
 @primitive  getindex(x,i...),dxi,xi  ungetindex(dxi,x,i...)
 getindex{T<:Grad}(::Type{T},o...)=nothing # Only the first arg has gradient
-fixdomain(::Fn{:getindex},i...)=(rand(2),1)
+addtest(getindex, rand(2), 1)
+addtest(getindex, rand(3), 2:3)
 
 # Gradient of getindex: If xi=getindex(x,i...) and we receive dxi,
 # ungetindex creates dx representing zeros similar to x, with only
@@ -31,7 +32,8 @@ ungetindex(dxi,x,i...)=OneHot(dxi,x,i)
 @primitive ungetindex(dxi,x,i...),ddx,dx  getindex(ddx,i...)
 ungetindex(::Type,::Value,dx...)=nothing # to avoid type ambiguity
 ungetindex(::Type,::Any,dx...)=nothing   # to indicate no gradients except first
-fixdomain(::Fn{:ungetindex},x...)=(rand(),rand(2),2)
+addtest(ungetindex, rand(), rand(2), 2)
+addtest(ungetindex, rand(2), rand(3), 2:3)
 
 # For efficiency we use the following sparse container
 
@@ -39,9 +41,10 @@ if !isdefined(:OneHot)
 immutable OneHot; value; container; index; end
 end
 
-Base.sum(b::OneHot)=b.value
-Base.getindex(b::OneHot,i...)=(if i==b.index; b.value; else; nothing; end)
+Base.sum(b::OneHot)=sum(b.value)
+Base.getindex(b::OneHot,i...)=getindex(full(b),i...)
 Base.zeros(b::OneHot)=zeros(b.container)
+Base.length(b::OneHot)=length(b.container)
 
 function Base.full(b::OneHot)
     if isa(b.container,Tuple)
@@ -146,5 +149,4 @@ for _f in interfaces2arg
 end
 
 @primitive copy(x),dy dy
-fixdomain(::Fn{:copy},x)=(rand(2),)
-
+addtest(copy, rand(2))
