@@ -164,7 +164,7 @@ function backward_pass(start_value, end_value, tape)
 
     if !isa(end_value, Value) || 0==(tapeidx=findeq(end_value.tapes, tape))
         @dbgcore("Output seems independent of input. Returning zero gradient.")
-        return (isa(start_value,Number) ? zero(start_value) : nothing)
+        if isa(start_value,Number); return zero(start_value); else; return nothing; end
     end
 
     if !isa(end_value.value, Number)
@@ -418,7 +418,7 @@ end
 sum_outgrads(a::Number, b::Number)=a+b
 sum_outgrads(a::Tuple, b::Tuple)=tuple([sum_outgrads(x,y) for (x,y) in zip(a,b)]...)
 sum_outgrads(a::Associative, b::Associative) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=v+get(z,k,0); end; z)
-sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T})= (isbits(T) ? (a+b) : [sum_outgrads(x,y) for (x,y) in zip(a,b)])
+sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T})=(if isbits(T); (a+b); else; [sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
 # sum_outgrads needs to be a primitive for higher order gradients:
 sum_outgrads_r = recorder(sum_outgrads)
 sum_outgrads(a::Value,b::Value)=sum_outgrads_r(a,b)

@@ -175,11 +175,11 @@ function rcall(r,f)
     if isa(r2,Expr) && r2.head == :parameters
         for i in 1:length(r2.args)
             k = r2.args[i]
-            !isa(k,Expr) ? error("Bad kwarg '$k'") :
-            k.head == :(...) ? continue :
-            k.head != :kw ? error("Bad kwarg '$k'") :
-            !isa(k.args[1],Symbol) ? error("Bad kwarg '$k'") :
-            k.args[2]=k.args[1]
+            if !isa(k,Expr); error("Bad kwarg '$k'")
+            elseif k.head == :(...); continue
+            elseif k.head != :kw; error("Bad kwarg '$k'")
+            elseif !isa(k.args[1],Symbol); error("Bad kwarg '$k'")
+            else; k.args[2]=k.args[1]; end
         end
     end
     return rx
@@ -243,7 +243,7 @@ end
 
 function gsig(f,dy,y,i)
     g = copy(f)
-    a = (g.args[2].head == :parameters ? 3 : 2)
+    if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::Type{Grad{$i}}))
     insert!(g.args, a+1, dy)
     insert!(g.args, a+2, y)

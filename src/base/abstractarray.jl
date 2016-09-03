@@ -45,9 +45,9 @@ addtest(reshape,rand(2,2),(4,1))
 # _unsafe_setindex!: Not exported
 # get (getindex with a default value)
 # This can be left as a composite function, it will get its gradient from getindex if necessary.
-get{T<:AbstractArray}(A::Value{T}, i::Integer, default) = checkbounds(Bool, length(A), i) ? A[i] : default
+get{T<:AbstractArray}(A::Value{T}, i::Integer, default) = (if checkbounds(Bool, length(A), i); A[i]; else; default; end)
 get{T<:AbstractArray}(A::Value{T}, I::Tuple{}, default) = similar(A, typeof(default), 0)
-get{T<:AbstractArray}(A::Value{T}, I::Dims, default)    = checkbounds(Bool, size(A), I...) ? A[I...] : default
+get{T<:AbstractArray}(A::Value{T}, I::Dims, default)    = (if checkbounds(Bool, size(A), I...); A[I...]; else; default; end)
 # get!: Overwriting function
 # promote_eltype: Not exported
 
