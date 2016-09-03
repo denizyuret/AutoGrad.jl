@@ -1,51 +1,32 @@
-gamma1arg = Dict{Symbol,Any}(
-:digamma => :(trigamma(x)),  # gamma,operators = polygamma(0,x)
-#:eta => :todo,      # gamma,operators
-#:gamma => :todo, # gamma,operators
-#:invdigamma => :todo, # gamma,operators
-#:lfact => :todo,  # gamma,operators
-:trigamma => :(polygamma(2,x)), # gamma,operators = polygamma(1,x)
-#:zeta => :todo,  # gamma,operators
-)
+gamma1arg = [
+(gamma, :(y.*digamma(x)), (-Inf,Inf)),
+(lfact, :(y.*digamma(x+1)), (-Inf,Inf)),
+(lgamma, :(digamma(x)), (-Inf,Inf)),
+(digamma, :(trigamma(x)), (-Inf,Inf)), # polygamma(0,x)
+(trigamma, :(polygamma(2,x)), (-Inf,Inf)), # polygamma(1,x)
+(invdigamma, :(1./trigamma(y)), (-Inf,Inf)),
+# zeta: TODO. Riemann 1-arg zeta
+# eta # TODO. related to zeta
+]
 
-for (f,g) in gamma1arg
-    @eval @primitive  $f(x),dy,y  (dy.*($g))
+for (f,g,r) in gamma1arg
+    @eval @primitive $f(x),dy,y  (dy.*($g))
+    if r==(-Inf,Inf)
+        addtest(f,randn()); addtest(f,randn(2))
+    else
+        error("Unknown range $r")
+    end
 end
 
-gamma2arg = Dict{Symbol,Any}(
-#:beta => :todo,                          # gamma,operators
-#:lbeta => :todo,                         # gamma,operators
-#:polygamma => (0,:(polygamma(x1+1,x2))), # first argument should be an integer; gamma,operators
-#:zeta => :todo,                 # domain >= 1?; gamma, operators
-)
+gamma2arg = [
+#:beta => :TODO,                          # gamma,operators
+#:lbeta => :TODO,                         # gamma,operators
+#:zeta => :TODO,                 # Hurwitz 2-arg zeta
+]
 
+# polygamma wants x1 to be a non-negative integer, x2 unrestricted
 @primitive polygamma(x1,x2),dy,y  nothing  unbroadcast(x2,dy.*polygamma(x1+1,x2))
-fixdomain(::Fn{:polygamma},x1,x2)=(rand(0:9),x2)
-
-# testargs{T1<:Number,T2}(::Fn{:polygamma}, ::Type{T1}, ::Type{T2})=(rand(0:5),testargs(Fn2(:polygamma),T2)...)
-# testargs{T1<:AbstractArray,T2}(::Fn{:polygamma}, ::Type{T1}, ::Type{T2})=(rand(0:5,2),testargs(Fn2(:polygamma),T2)...)
-
-
-# TODO:
-
-# gamma
-# lgamma_r: Not exported
-# lfact
-# clgamma_lanczos: Not exported
-# lgamma
-# digamma
-# trigamma
-# signflip: Not exported
-# cotderiv_q: Not exported
-# cotderiv: Not exported
-# inv_oftype: Not exported
-# zeta
-# polygamma
-# f64: Not exported
-# f32: Not exported
-# f16: Not exported
-# $(Expr(:$, :f)): Not a symbol
-# invdigamma
-# beta
-# lbeta
-# eta
+addtest(polygamma,rand(0:5),randn())
+addtest(polygamma,rand(0:5,2),randn())
+addtest(polygamma,rand(0:5),randn(2))
+addtest(polygamma,rand(0:5,2),randn(2))
