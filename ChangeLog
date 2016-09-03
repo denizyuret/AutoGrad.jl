@@ -2,17 +2,13 @@
 
 	* DONE:
 	# improve testing: generate multiple tests compatible with given types.
-	# check_grads(log,0.12099921186616151,[1.7601369948066048,1.0407040634792377])
-	## ERROR: MethodError: `isequivalent` has no method matching isequivalent(::Array{Float64,1}, ::Float64)
-	WARNING: (log,[0.5160307429168445,0.8866982662746152],0.2107575766339884,"MethodError(AutoGrad.isequivalent,([-7.1718066076862765,-39.4575224517068],-46.62932993419133))")
-	WARNING: (log,0.21907562263875177,[1.0447537027144937,1.2540327345327362],"MethodError(AutoGrad.isequivalent,([-0.08668744026451533,-0.4482055789074909],-0.5348930221946158))")
-	WARNING: (:check_grads,lfact,:args,(1.667842864901635,),:exact,(0.3202972807833342,),:numeric,(0.7822992913247839,))
+	# fix problem with check_grads(log,0.12099921186616151,[1.7601369948066048,1.0407040634792377])
+	# fix problem with (:check_grads,lfact,:args,(1.667842864901635,),:exact,(0.3202972807833342,),:numeric,(0.7822992913247839,))
+	# Email announce new release with profiling results.
 
 	* TODO:
 	# check slowdown in simple functions
 	# f4ccc0d is faster than ae84389 ?
-	# finish all function gradients.
-	# Email announce new release with profiling results.
 	# Implement backward operations in profile.jl.
 	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.
 	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
@@ -21,6 +17,7 @@
 	# finish abstractarray(hvcat), array, tuple and dict support.
 	# avoid double normalization in softmax.
 	# find the problem with runtests when length=2 and higher order	dict support, open issues.
+	# finish all function gradients.
 
 2016-09-01  Deniz Yuret  <dyuret@ku.edu.tr>
 
