@@ -101,7 +101,7 @@ r != 0 && return r
 
 function rfun(args...; kwargs...)
     @dbgcore((:call, f, args..., kwargs...))
-    argvals = map(getval,args)
+    argvals = unbox(args) 
     result = f(argvals...; kwargs...)
     for argnum = 1:length(args)
         arg = args[argnum]
@@ -135,6 +135,20 @@ end # let fdict
 
 "getval(x) unboxes x if it is a Value, otherwise returns x."
 getval(x) = (if isa(x, Value); x.value; else; x; end)  # we never create Value(Value).
+
+# this is much faster than map(getval,args)
+function unbox(args)
+    vals = Array(Any,length(args))
+    for i=1:length(args)
+        ai = args[i]
+        if isa(ai,Value)
+            vals[i] = ai.value
+        else
+            vals[i] = ai
+        end
+    end
+    return vals
+end
 
 # findfirst uses == which is inefficient for tapes, so we define findeq with ===
 function findeq(A,v)
