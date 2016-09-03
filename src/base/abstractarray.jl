@@ -6,8 +6,8 @@
 # ndims: interfaces.jl
 # length: interfaces.jl
 # endof: interfaces.jl
-# first: composite using start/next
-# last: composite using getindex/endof
+# first: compound using start/next
+# last: compound using getindex/endof
 # stride: interfaces.jl
 # strides: interfaces.jl
 # isassigned: interfaces.jl
@@ -19,7 +19,7 @@
 # similar: interfaces.jl
 # reshape
 @primitive reshape(x,i...),dy  reshape(dy,size(x))
-fixdomain(::Fn{:reshape},x...)=(rand(2,2),(4,1))
+addtest(reshape,rand(2,2),(4,1))
 # copy!: Overwriting operation
 # copy: interfaces.jl
 # copy_transpose!: Not exported

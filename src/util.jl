@@ -4,6 +4,11 @@ macro dbgutil(x); end
 
 ### @primitive and @zerograd macros:
 
+# I would like to make these type signatures as specific as possible.
+# The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
+# f{T<:Number,A<:AbstractArray{T}}(x::Value{A})
+# f{T<:Number,A<:AbstractArray}(x::Value{A{T}})
+
 """
 
 `@primitive fx g1 g2...` can be used to define a new primitive
@@ -99,7 +104,6 @@ macro primitive(f,g...)
             push!(b.args, esc(:($gx = $(g[i]))))
         end
     end
-    addtest(f)
     return b
 end
 
@@ -153,8 +157,13 @@ end
 function fname(f)
     n = f.args[1]
     isa(n,Expr) && n.head==:curly && error("parametric methods not currently supported")
-    isa(n,Symbol) || error("Function name $n not a symbol")
-    return n
+    if isa(n,Symbol)
+        return n
+    elseif isa(n,Function)
+        return n.env.name
+    else
+        error("$n not a symbol or a function")
+    end
 end
 
 # create call to r using typeless argument of f
@@ -249,91 +258,98 @@ if !isdefined(:runtests)
 let tests=[]
     global addtest,runtests,alltests
     alltests()=tests
-    addtest(t)=push!(tests,t)
+    addtest(t...)=push!(tests,t)
     function runtests(a=tests)
         for fx in a
-            tx = fixtest(fx)
+            tx = fixtest(fx...)
             try 
-                check_grads(tx...; fname=fx.args[1])
+                check_grads(tx...)
             catch e
-                warn((fx,tx[2:end]...,"$e"))
+                warn((fx...,"$e"))
             end
         end
     end
 end
 end
 
-function fixtest(fx::Expr)
-    # get the function
-    fx.head == :call || error("Expecting function declaration got '$fx'")
-    fname = fx.args[1]
-    isa(fname,Symbol) || error("$fname not a Symbol")
-    f = eval(fname)
-    # prepare arguments
-    x = Any[]
-    for i=2:length(fx.args)
-        ai = fx.args[i]
-        isa(ai,Symbol) ? push!(x,randn(2)) :
-        !isa(ai,Expr) ? error("Neither Symbol nor Expr: $ai") :
-        ai.head == :parameters ? nothing :
-        ai.head == :(...) ? nothing :
-        ai.head != :(::) ? error("Argtype not supported: '$ai'") :
-        ai.args[2] == :Number ? push!(x,randn()) :
-        ai.args[2] == :AbstractFloat ? push!(x,randn()) :
-        ai.args[2] == :AbstractArray ? push!(x,randn(2)) :
-        ai.args[2] == :AbstractVecOrMat ? push!(x,rand()<0.5 ? randn(2) : randn(2,2)) :
-        # ai.args[2] == :AorN ? push!(x,rand()<0.5 ? randn() : randn(2)) :
-        ai.args[2] == :Associative ? push!(x,Dict()) :
-        ai.args[2] == :Tuple ? push!(x,()) :
-        (warn("Don't know how to sample $(ai.args[2])"); push!(x,nothing))
-    end
-    # fix the arguments to be in the right domain for f
-    x = fixdomain(Val{fname},x...)
+function fixtest(f, x...)
     y = f(x...)
     # detect and prevent testing of zero / undefined grads
-    plist = Any[]
-    alist = Any[x...]           # define fnew(plist)=f(alist)
-    args = Any[]                   # call fnew(args...)
+    plist = Any[]               # define fnew(plist)
+    alist = Any[x...]           # to return f(alist)
+    fargs = Any[]               # call fnew(fargs...)
     gargs = (Value(y), Value(y), map(Value,x)...)
     for i=1:length(alist)
-        g = 0
+        g = nothing
         try
             g = f(Grad{i},gargs...)
         catch e
-            # warn("No grad $i for $f: $e")
             if isa(e,MethodError) && e.f === f && e.args[1] === Grad{i}
-                continue            # undefined grads
+                continue        # warn("No grad $i for $f: $e")
             else
                 error("Error during $f$((Grad{i},gargs...)): $e")
             end
         end
-        g == nothing && continue      # zero grads
-        push!(args, alist[i])
+        g == nothing && continue # zero grads
+        push!(fargs, alist[i])
         alist[i] = Symbol("x$i")
         push!(plist, alist[i])
     end
+    isempty(fargs) && error("$f has no differentiable arguments.")
     f1=f; f = eval(Expr(:->, Expr(:tuple, plist...), Expr(:call, f1, alist...)))
     # if f has non-scalar output, sum it
-    isa(f(args...),Number) || (f2=f; f=(x...)->sumvalues(f2(x...)))
-    return (f,args...)
+    isbits(y) || (f2=f; f=(x...)->sumvalues(f2(x...)))
+    return (f,fargs...)
+end
+
+function randin(range, dims...; eps=EPS)
+    if isa(range, UnitRange{Int64})
+        rand(range, dims...)
+    elseif range==(-Inf,Inf)
+        randn(dims...)
+    elseif range==(0,Inf)
+        eps-log(rand(dims...))
+    elseif range==(1,Inf)
+        eps+1-log(rand(dims...))
+    elseif range==(-1,Inf)
+        eps-1-log(rand(dims...))
+    elseif range==(-1,1)
+        (1-eps)*(2rand(dims...)-1)
+    elseif range==(0,1)
+        eps+(1-2eps)*rand(dims...)
+    elseif range==(0,2)
+        eps+2*(1-eps)*rand(dims...)
+    elseif range==(-Inf,-1,1,Inf)
+        x = sec(randn(dims...))
+        sign(x)*eps + x
+    else
+        error("Unknown range $range")
+    end
+end
+
+function addtest1(f,r)          # unary
+    addtest(f,randin(r))
+    addtest(f,randin(r,2))
+end
+
+function addtest2(f,r1,r2=r1)   # binary
+    addtest(f,randin(r1),randin(r2))
+    addtest(f,randin(r1),randin(r2,2))
+    addtest(f,randin(r1,2),randin(r2))
+    addtest(f,randin(r1,2),randin(r2,2))
+end
+
+function addtest3(f,r1,r2=r1)   # broadcasting
+    addtest2(f,r1,r2)
+    addtest(f,randin(r1,2),randin(r2,2,2))
+    addtest(f,randin(r1,2,2),randin(r2,2))
+    addtest(f,randin(r1,1,2),randin(r2,2,2))
+    addtest(f,randin(r1,2,2),randin(r2,1,2))
 end
 
 
-# Override this for testing restricted domain functions like acos:
-fixdomain(f,x...)=x
-
-if !isdefined(:Fn)
-typealias Fn{F} Type{Val{F}}    # used to create the first argument of fixdomain
-end                             # e.g. fixdomain(::Fn{:log},x)=abs(x)
-
-
-# I would like to make these type signatures as specific as possible.
-# The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
-# f{T<:Number,A<:AbstractArray{T}}(x::Value{A})
-# f{T<:Number,A<:AbstractArray}(x::Value{A{T}})
-
-
-EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
+# EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
+EPS, RTOL, ATOL = 1e-4, 1e-2, 1e-4
 
 # TODO: do sampling or random direction for large args
 """
@@ -422,14 +438,11 @@ sumvalues(x::Associative)=sum(values(x))
 @primitive sumvalues(x::Associative),ds fillvalues(ds,x)
 fillvalues(v,x)=Dict([k=>v for k in keys(x)])
 @primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
-fixdomain(::Fn{:sumvalues},x...)=(Dict(1=>1.,2=>2.),)
-fixdomain(::Fn{:fillvalues},x...)=(0.,Dict(1=>1.,2=>2.,3=>3.))
+addtest(sumvalues, Dict(1=>1.,2=>2.))
+addtest(fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
 
 # This needs more work:
 # @primitive values(x),dy Dict(map((a,b)->(a=>b), keys(x), dy))
-# fixdomain(::Fn{:values},x...)=(Dict(1=>1.,2=>2.),)
-
-# typealias AorN Union{AbstractArray,Number}
 
 # It gets tiresome to write `Type{Grad{1}}` after a while, here are
 # some convenient aliases:

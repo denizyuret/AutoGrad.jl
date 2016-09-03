@@ -1,38 +1,32 @@
-@zerograd sign(x)
-@primitive abs2(x),dy (dy.*2.*x)
+number1arg = [
+(abs, :(sign(x))),
+(abs2, :(2x)),
+]
 
-# number1arg = Dict{Symbol,Any}(
-# :abs2 => :(2.*x),               # number,operators
-# :sign => 0,                     # number,arraymath
-# )
+for (f,g) in number1arg
+    @eval @primitive $f(x),dy,y  (dy.*($g))
+    addtest1(f,(-Inf,Inf))
+end
 
-# defgrads(number1arg, Number)
-# defgrads(number1arg, AbstractArray)
-
-# start(x::Number) = false
-# next(x::Number, state) = (x, true)
-# done(x::Number, state) = state
-# next{T<:Number}(x::Value{T}, state) = (x, true)
+number1zero = [
+isinteger,
+sign,
+signbit,
+]
+for f in number1zero; @eval @zerograd $f(x); end
 
 # TODO:
-
-# eval
-# isinteger
-# size
-# eltype
-# ndims
-# length
-# endof
-# getindex
+# size: interfaces.jl
+# eltype: interfaces.jl
+# ndims: interfaces.jl
+# length: interfaces.jl
+# endof: interfaces.jl
+# getindex: interfaces.jl
 # unsafe_getindex: Not exported
-# first
-# last
+# first: compound using start/next
+# last: compound using getindex/endof
 # divrem
 # fldmod
-# signbit
-# sign
-# abs
-# abs2
 # copysign
 # conj
 # transpose
@@ -40,12 +34,12 @@
 # inv
 # angle
 # widemul
-# start
-# next
-# done
-# isempty
+# start: interfaces.jl
+# next: interfaces.jl
+# done: interfaces.jl
+# isempty: interfaces.jl
 # in
 # map
-# zero
-# one
+# zero: interfaces.jl
+# one: interfaces.jl
 # factorial

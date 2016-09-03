@@ -1,12 +1,17 @@
-matmul2arg = Dict{Symbol,Any}(
-:* => (:(A_mul_Bc(dy,x2)), :(Ac_mul_B(x1,dy))),
-:Ac_mul_B  => (:(A_mul_Bc(x2,dy)), :(x1*dy)),
-:A_mul_Bc  => (:(dy*x2), :(Ac_mul_B(dy,x1))),
-:Ac_mul_Bc => (:(Ac_mul_Bc(x2,dy)), :(Ac_mul_Bc(dy,x1))),
-:At_mul_B  => (:(A_mul_Bt(x2,dy)), :(x1*dy)),
-:A_mul_Bt  => (:(dy*x2), :(At_mul_B(dy,x1))),
-:At_mul_Bt => (:(At_mul_Bt(x2,dy)), :(At_mul_Bt(dy,x1))),
-)
+matmul2arg = [
+(*, :(A_mul_Bc(dy,x2)), :(Ac_mul_B(x1,dy))),
+(Ac_mul_B, :(A_mul_Bc(x2,dy)), :(x1*dy)),
+(A_mul_Bc, :(dy*x2), :(Ac_mul_B(dy,x1))),
+(Ac_mul_Bc,:(Ac_mul_Bc(x2,dy)), :(Ac_mul_Bc(dy,x1))),
+(At_mul_B, :(A_mul_Bt(x2,dy)), :(x1*dy)),
+(A_mul_Bt, :(dy*x2), :(At_mul_B(dy,x1))),
+(At_mul_Bt,:(At_mul_Bt(x2,dy)), :(At_mul_Bt(dy,x1))),
+]
+
+for (f,g1,g2) in matmul2arg
+    @eval @primitive $f(x1,x2),dy,y  $g1  $g2
+    addtest(f, rand(2,2), rand(2,2))
+end
 
 # Methods for multiplication:
 # *(x::Float64, y::Float64) at float.jl:212  (same as .*)
@@ -18,16 +23,6 @@ matmul2arg = Dict{Symbol,Any}(
 #
 # The first three are handled by base/float.
 # The final three implement matrix multiplication.
-# We need to handle these manually instead of calling defgrads because of the different gradient form.
-# defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat)
-# grad1=dy*x2' grad2=x1'*dy
-
-# defgrads(matmul2arg, AbstractVecOrMat, AbstractVecOrMat; dymul=false)
-
-for (f,d) in matmul2arg
-    @eval @primitive $f(x1,x2),dy,y $(d[1]) $(d[2])
-    fixdomain(::Fn{f},t1,t2)=(rand(2,2),rand(2,2))
-end
 
 
 # TODO:

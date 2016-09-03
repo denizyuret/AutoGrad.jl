@@ -1,81 +1,55 @@
-bessel1arg = Dict{Symbol,Any}(
-#:airy => :(airyprime(x)),   # airy(z)=airy(0,z); airy(k,x): The kth derivative of the Airy function Ai(x); bessel,operators
-#:airyai => :(airyprime(x)), # airyai(z)=airy(0,z); bessel,operators
-#FAIL :airyaiprime => :(airybi(x)), # airyaiprime(z)=airy(1,z); bessel,operators
-#:airybi => :(airybiprime(x)), # airybi(z) = airy(2,z); bessel,operators
-#FAIL :airybiprime => :(airy(4,x)), # airybiprime(z) = airy(3,z); bessel,operators
-#FAIL :airyprime => :(airybi(x)),  # airyprime(z)=airy(1,z); bessel,operators
-#:airyx => :todo, # airyx(z)=airyx(0,z); bessel,operators
-#:besselj0 => :todo,		# bessel,operators
-#:besselj1 => :todo,		# bessel,operators
-#:bessely0 => :todo,		# bessel,operators
-#:bessely1 => :todo,		# bessel,operators
-)
+# work in progress...
 
-#defgrads(bessel1arg, Number)
-#defgrads(bessel1arg, AbstractArray)
+bessel1arg = [
+(airyai, :(airyaiprime(x))),
+(airyaiprime, :(x.*airyai(x))),
+(airybi, :(airybiprime(x))),
+(airybiprime, :(x.*airybi(x))),
+(airyprime, :(x.*airyai(x))),
+(besselj0, :(-besselj1(x))),
+(besselj1, :((besselj0(x)-besselj(2,x))/2)),
+(bessely0, :(-bessely1(x))),
+(bessely1, :((bessely0(x)-bessely(2,x))/2)),
+]
 
-bessel2int = Dict{Symbol,Any}(
-#:airy => (0,:(airy(x1+1,x2))), # BUG: this works for x1=0,2 but does not work for x1=1. TODO: cannot handle single nondifferentiable arg but we need 2-arg airy to accept Nodes, so this is a temporary workaround for now. # (0,:(airy(x1+1,x2))), # first arg should be an integer; bessel,operators
-# :airyx => :todo,                 # first arg should be an integer; bessel,operators
-)
+for (f,g) in bessel1arg
+    @eval @primitive $f(x),dy,y  (dy.*($g))
+    addtest1(f,(-Inf,Inf))
+end
 
-# defgrads(bessel2int, Number, Number)
-# defgrads(bessel2int, AbstractArray, Number)
-# defgrads(bessel2int, Number, AbstractArray)
-# defgrads(bessel2int, AbstractArray, AbstractArray)
+@primitive besselj(nu,x)  error("No gradient for besselj")  error("No gradient for besselj")
+@primitive bessely(nu,x)  error("No gradient for besselj")  error("No gradient for besselj")
 
-# # k must be between 0 and 3 so we test with 0:2 since grad requires k+1
-# testargs(::Fn{:airy},k,x) =
-#     ((k<:AbstractArray ? rand(0:2,2) : rand(0:2)),
-#      (x<:AbstractArray ? randn(2) : randn()))
+# The following defined for (nu,x) where nu can be any integer or
+# positive real
 
-bessel2arg = Dict{Symbol,Any}(
-# :besselh => :todo,                       # bessel,operators
-# :besseli => :todo,                       # bessel,operators
-# :besselix => :todo,                      # bessel,operators
-# :besselj => :todo,                       # bessel,operators
-# :besseljx => :todo,                      # bessel,operators
-# :besselk => :todo,                       # bessel,operators
-# :besselkx => :todo,                      # bessel,operators
-# :bessely => :todo,                       # bessel,operators
-# :besselyx => :todo,                      # bessel,operators
-# :hankelh1 => :todo,                      # bessel,operators
-# :hankelh1x => :todo,                     # bessel,operators
-# :hankelh2 => :todo,                      # bessel,operators
-# :hankelh2x => :todo,                     # bessel,operators
-)
+# bessel2arg = [
+# (besseli, :((besseli(nu-1,x)+besseli(nu+1,x))/2)),
+# (besselix, :((besselix(nu-1,x)+besselix(nu+1,x))/2)),
+# (besselj, :((besselj(nu-1,x)-besselj(nu+1,x))/2)),
+# (besseljx, :((besseljx(nu-1,x)-besseljx(nu+1,x))/2)),
+# #besselk,
+# #besselkx,
+# #bessely,
+# #besselyx,
+# ]
 
-# TODO:
+# for (f,g) in bessel2arg
+#     @eval @primitive $f(nu,x),dy,y  nothing  unbroadcast(x, dy.*($g))
+#     addtest2(f,(0,Inf),(-Inf,Inf))
+# end
 
-# eval
-# $(Expr(:$, :bjynu)): Not a symbol
-# _airy: Not exported
-# _biry: Not exported
-# airy
-# airyprime
-# airyai
-# airyaiprime
-# airybi
-# airybiprime
-# airyx
-# _besselh: Not exported
-# _besseli: Not exported
-# _besselj: Not exported
-# _besselk: Not exported
-# _bessely: Not exported
-# besselh
-# besselhx
-# besseli
-# besselix
-# besselj
-# besseljx
-# besselk
-# besselkx
-# bessely
-# besselyx
-# hankelh1
-# hankelh2
-# hankelh1x
-# hankelh2x
-# $(Expr(:$, :bfn)): Not a symbol
+# bessel2arg2 = [
+# airy,
+# airyx,
+# # besselh  # has (nu,k,z) and (nu,z) argtypes where k=int
+# # besselhx # (nu,k,x), no vectorization
+# # hankelh1 # (nu,x), vectorized
+# # hankelh1x # (nu,x), vectorized
+# # hankelh2
+# # hankelh2x
+# ]
+# for f in bessel2arg2
+#     @eval @zerograd $f(x1,x2)
+# end
+

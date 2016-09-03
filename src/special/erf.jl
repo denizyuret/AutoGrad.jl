@@ -10,13 +10,5 @@ erf1arg = [
 
 for (f,g,r) in erf1arg
     @eval @primitive $f(x),dy,y  (dy.*($g))
-    if r==(-Inf,Inf)
-        addtest(f,randn()); addtest(f,randn(2))
-    elseif r==(-1,1)
-        addtest(f,-1+2rand()); addtest(f,-1+2rand(2))
-    elseif r==(0,2)
-        addtest(f,2rand()); addtest(f,2rand(2))
-    else
-        error("Unknown range $r")
-    end
+    addtest1(f,r)
 end

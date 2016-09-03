@@ -35,8 +35,10 @@
 # ccopy!: Not exported
 # transpose
 @primitive transpose(x),dy  transpose(dy)
+addtest(transpose,rand(2,2))
 # ctranspose
 @primitive ctranspose(x),dy ctranspose(dy)
+addtest(ctranspose,rand(2,2))
 # _cumsum_type: Not exported
 # cumsum
 # cumsum!

@@ -47,17 +47,5 @@ trig1arg = [
 
 for (f,g,r) in trig1arg
     @eval @primitive $f(x),dy,y  (dy.*($g))
-    if r==(-Inf,Inf)
-        addtest(f,randn()); addtest(f,randn(2))
-    elseif r==(1,Inf)
-        addtest(f,1-log(rand())); addtest(f,1-log(rand(2)))
-    elseif r==(-1,1)
-        addtest(f,-1+2rand()); addtest(f,-1+2rand(2))
-    elseif r==(0,1)
-        addtest(f,rand()); addtest(f,rand(2))
-    elseif r==(-Inf,-1,1,Inf)
-        addtest(f,sec(randn())); addtest(f,sec(randn(2)))
-    else
-        error("Unknown range $r")
-    end
+    addtest1(f,r)
 end
