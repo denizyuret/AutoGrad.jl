@@ -1,6 +1,6 @@
 number1arg = [
-(abs, :(sign(x))),
-(abs2, :(2x)),
+(:abs, :(sign(x))),
+(:abs2, :(2x)),
 ]
 
 for (f,g) in number1arg
@@ -9,9 +9,9 @@ for (f,g) in number1arg
 end
 
 number1zero = [
-isinteger,
-sign,
-signbit,
+:isinteger,
+:sign,
+:signbit,
 ]
 for f in number1zero; @eval @zerograd $f(x); end
 

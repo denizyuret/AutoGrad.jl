@@ -159,10 +159,8 @@ function fname(f)
     isa(n,Expr) && n.head==:curly && error("parametric methods not currently supported")
     if isa(n,Symbol)
         return n
-    elseif isa(n,Function)
-        return n.env.name
     else
-        error("$n not a symbol or a function")
+        error("$n not a symbol")
     end
 end
 
@@ -263,7 +261,7 @@ let tests=[]
         for fx in a
             tx = fixtest(fx...)
             try 
-                check_grads(tx...)
+                check_grads(tx...; fname=fx[1])
             catch e
                 warn((fx...,"$e"))
             end
@@ -273,6 +271,7 @@ end
 end
 
 function fixtest(f, x...)
+    f = eval(f)
     y = f(x...)
     # detect and prevent testing of zero / undefined grads
     plist = Any[]               # define fnew(plist)
@@ -436,7 +435,7 @@ end
 sumvalues(x)=sum(x)
 sumvalues(x::Associative)=sum(values(x))
 @primitive sumvalues(x::Associative),ds fillvalues(ds,x)
-fillvalues(v,x)=Dict([k=>v for k in keys(x)])
+fillvalues(v,x)=(y=similar(x);for k in keys(x); y[k]=v; end; y)
 @primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
 addtest(sumvalues, Dict(1=>1.,2=>2.))
 addtest(fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))

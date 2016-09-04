@@ -1,10 +1,10 @@
 gamma1arg = [
-(gamma, :(y.*digamma(x)), (-Inf,Inf)),
-(lfact, :(sign(y).*digamma(x+1)), (-Inf,Inf)),
-(lgamma, :(digamma(x)), (-Inf,Inf)),
-(digamma, :(trigamma(x)), (-Inf,Inf)), # polygamma(0,x)
-(trigamma, :(polygamma(2,x)), (-Inf,Inf)), # polygamma(1,x)
-(invdigamma, :(1./trigamma(y)), (-Inf,Inf)),
+(:gamma, :(y.*digamma(x)), (-Inf,Inf)),
+(:lfact, :(sign(y).*digamma(x+1)), (-Inf,Inf)),
+(:lgamma, :(digamma(x)), (-Inf,Inf)),
+(:digamma, :(trigamma(x)), (-Inf,Inf)), # polygamma(0,x)
+(:trigamma, :(polygamma(2,x)), (-Inf,Inf)), # polygamma(1,x)
+(:invdigamma, :(1./trigamma(y)), (-Inf,Inf)),
 # zeta: TODO. Riemann 1-arg zeta
 # eta # TODO. related to zeta
 ]

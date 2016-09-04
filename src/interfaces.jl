@@ -13,27 +13,45 @@ setindex!(x::Value,i...)=error("Overwriting operations currently not supported."
 
 # We handle the containers by overloading getindex:
 
-@primitive  getindex(x,i...),dxi,xi  ungetindex(dxi,x,i...)
+@primitive  getindex(x,i...),dxi,xi  ungetindex(dxi,x,i)
 getindex{T<:Grad}(::Type{T},o...)=nothing # Only the first arg has gradient
 addtest(getindex, rand(2), 1)
 addtest(getindex, rand(3), 2:3)
+addtest(getindex, rand(2,2), 1, 2)
+addtest(getindex, rand(3,3), 1:2, 3)
 
 # Gradient of getindex: If xi=getindex(x,i...) and we receive dxi,
 # ungetindex creates dx representing zeros similar to x, with only
 # dx[i] set to dxi.  We use the sparse container OneHot for
 # efficiency.
-
-ungetindex(dxi,x,i...)=OneHot(dxi,x,i)
-
-# For higher order derivatives, the operation of ungetindex might be
-# recorded and differentiated.  We have:
 # x -> getindex -> xi -> grad -> dxi -> ungetindex -> dx -> grad -> ddx -> getindex -> ddxi
 
-@primitive ungetindex(dxi,x,i...),ddx,dx  getindex(ddx,i...)
-ungetindex(::Type,::Value,dx...)=nothing # to avoid type ambiguity
-ungetindex(::Type,::Any,dx...)=nothing   # to indicate no gradients except first
-addtest(ungetindex, rand(), rand(2), 2)
-addtest(ungetindex, rand(2), rand(3), 2:3)
+ungetindex(dxi,x,i)=OneHot(dxi,x,i)
+
+# For higher order derivatives, the operation of ungetindex might be
+# recorded and differentiated, so it must be a primitive.  It is only
+# differentiable wrt its first arg.  The following methods cover
+# (a,a), (v,a), (g,a), (g1,a) argtypes.
+
+ungetindex_r = recorder(ungetindex)
+ungetindex(dxi::Value,x,i)=ungetindex_r(dxi,x,i)
+ungetindex(::Type{Grad{1}},ddx,dx,dxi,x,i)=getindex(ddx,i...)
+ungetindex(::Type,o...)=nothing
+
+# It should unbox its arguments, but it only needs to record if the
+# first argument is boxed.  We'll have to define this manually.  To
+# unbox the second arg and resolve ambiguity the following methods
+# cover (a,v), (v,v), (g,v), (g1,v).
+
+ungetindex(dxi::Value,x::Value,i)=ungetindex(dxi,getval(x),getval(i))
+ungetindex(dxi,x::Value,i)=ungetindex(dxi,getval(x),getval(i))
+ungetindex(::Type{Grad{1}},ddx::Value,dx,dxi,x,i)=getindex(ddx,getval(i)...)
+ungetindex(::Type,ddx::Value,o...)=nothing
+
+addtest(ungetindex, rand(), rand(2), (2,))
+addtest(ungetindex, rand(2), rand(3), (2:3,))
+addtest(ungetindex, rand(), rand(2,2), (1,2))
+addtest(ungetindex, rand(2), rand(3,3), (1:2,3))
 
 # For efficiency we use the following sparse container
 

@@ -1,24 +1,24 @@
 float1zero = [
-ceil,
-floor,
-isfinite,
-isinf,
-isnan,
-round,
-trunc,
+:ceil,
+:floor,
+:isfinite,
+:isinf,
+:isnan,
+:round,
+:trunc,
 ]
 for f in float1zero; @eval @zerograd $f(x); end
 
 float2zero = [
-div, # The quotient from Euclidean division. Computes x/y, truncated to an integer; operators
-#÷,  # Same as div.
+:div, # The quotient from Euclidean division. Computes x/y, truncated to an integer; operators
+#:÷,  # Same as div.
 ]
 for f in float2zero; @eval @zerograd $f(x1,x2); end
 
 float1arg = [
-(+, :dy),  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath abstractarraymath operators
-(-, :(-dy)),  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath
-(float, :dy),          # float
+(:+, :dy),  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath abstractarraymath operators
+(:-, :(-dy)),  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath
+(:float, :dy),          # float
 ]
 
 for (f,g) in float1arg
@@ -27,12 +27,12 @@ for (f,g) in float1arg
 end
 
 float2arg = [
-(+, :dy, :dy), # extra (N,) (A,); float,arraymath,abstractarraymath,operators
-(-, :dy, :(-dy)),                    # extra (N,) (A,); float,arraymath
-#(rem, :dy, :(-dy.*trunc(x1./x2))),   # Remainder from Euclidean division, return same sign as x, BUG: missing (A,A); BUG: WARNING: (:check_grads,(:sum,:rem),:args,(-0.13412338383912367,[-0.00025363687477246275,0.4389355563026644]),:exact,(2.0,[-528.0,0.0]),:numeric,(1.9999999999997797,[0.8920182562441314,0.0])); float,arraymath
-#(%, :dy, :(-dy.*trunc(x1./x2))),     # same as rem
-#(mod, :dy, :(-dy.*floor(x1./x2))),   # BUG: WARNING: (:check_grads,(:sum,:mod),:args,([-1.850960311615227,-1.282613199024709],[0.8035558268314972,-0.32067619631949534]),:exact,([1.0,1.0],[3.0,-3.0]),:numeric,([1.0000000000021103,1.0000000000021103],[2.9999999999996696,3203.2619631949538])); Modulus after division, return same sign as y; float,arraymath
-#((==), 0,                      # BUG: StackOverflowError(). supports any pair of values; float,operators,abstractarray
+(:+, :dy, :dy), # extra (N,) (A,); float,arraymath,abstractarraymath,operators
+(:-, :dy, :(-dy)),                    # extra (N,) (A,); float,arraymath
+#(:rem, :dy, :(-dy.*trunc(x1./x2))),   # Remainder from Euclidean division, return same sign as x, BUG: missing (A,A); BUG: WARNING: (:check_grads,(:sum,:rem),:args,(-0.13412338383912367,[-0.00025363687477246275,0.4389355563026644]),:exact,(2.0,[-528.0,0.0]),:numeric,(1.9999999999997797,[0.8920182562441314,0.0])); float,arraymath
+#(:%, :dy, :(-dy.*trunc(x1./x2))),     # same as rem
+#(:mod, :dy, :(-dy.*floor(x1./x2))),   # BUG: WARNING: (:check_grads,(:sum,:mod),:args,([-1.850960311615227,-1.282613199024709],[0.8035558268314972,-0.32067619631949534]),:exact,([1.0,1.0],[3.0,-3.0]),:numeric,([1.0000000000021103,1.0000000000021103],[2.9999999999996696,3203.2619631949538])); Modulus after division, return same sign as y; float,arraymath
+#(:(==), 0,                      # BUG: StackOverflowError(). supports any pair of values; float,operators,abstractarray
 ]
 
 for (f,g1, g2) in float2arg

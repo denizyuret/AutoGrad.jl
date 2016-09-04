@@ -1,11 +1,11 @@
 matmul2arg = [
-(*, :(A_mul_Bc(dy,x2)), :(Ac_mul_B(x1,dy))),
-(Ac_mul_B, :(A_mul_Bc(x2,dy)), :(x1*dy)),
-(A_mul_Bc, :(dy*x2), :(Ac_mul_B(dy,x1))),
-(Ac_mul_Bc,:(Ac_mul_Bc(x2,dy)), :(Ac_mul_Bc(dy,x1))),
-(At_mul_B, :(A_mul_Bt(x2,dy)), :(x1*dy)),
-(A_mul_Bt, :(dy*x2), :(At_mul_B(dy,x1))),
-(At_mul_Bt,:(At_mul_Bt(x2,dy)), :(At_mul_Bt(dy,x1))),
+(:*, :(A_mul_Bc(dy,x2)), :(Ac_mul_B(x1,dy))),
+(:Ac_mul_B, :(A_mul_Bc(x2,dy)), :(x1*dy)),
+(:A_mul_Bc, :(dy*x2), :(Ac_mul_B(dy,x1))),
+(:Ac_mul_Bc,:(Ac_mul_Bc(x2,dy)), :(Ac_mul_Bc(dy,x1))),
+(:At_mul_B, :(A_mul_Bt(x2,dy)), :(x1*dy)),
+(:A_mul_Bt, :(dy*x2), :(At_mul_B(dy,x1))),
+(:At_mul_Bt,:(At_mul_Bt(x2,dy)), :(At_mul_Bt(dy,x1))),
 ]
 
 for (f,g1,g2) in matmul2arg

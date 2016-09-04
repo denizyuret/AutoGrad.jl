@@ -11,7 +11,7 @@ using AutoGrad, Base.Test
 info("Test indexing...")
 a1 = rand(3)                    # FAIL: some high-order (b1sum) tests with rand(2)
 t1 = (a1...)
-d1 = Dict([i=>a1[i] for i=1:length(a1)])
+d1 = Dict(); for i=1:length(a1); d1[i]=a1[i]; end
 
 s0(x)=x[1]^2+x[2]^2
 s1 = grad(s0)
@@ -75,7 +75,7 @@ n1sum(w,x,y)=sum(map(sum,n1(w,x,y)))
 n1sumd(w,x,y)=sum(map(sum,values(n1(w,x,y))))
 wa = Any[rand(2,3),rand(2),rand(2,2),rand(2)]
 wt = (wa...)
-wd = Dict([i=>wa[i] for i=1:length(wa)])
+wd = Dict(); for i=1:length(wa); wd[i]=wa[i]; end
 @test check_grads(n0, wa, rand(3,10), rand(2,10))
 @test check_grads(n0, wt, rand(3,10), rand(2,10))
 @test check_grads(n0, wd, rand(3,10), rand(2,10))

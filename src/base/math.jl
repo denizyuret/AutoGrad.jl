@@ -6,19 +6,19 @@
 # inputs.  The last part gives the range for generating test cases.
 
 math1arg = [
-(cbrt, :(1./(3.*abs2(y))), (-Inf,Inf)),
-(deg2rad, :(pi/180), (-Inf,Inf)),
-(exp, :y, (-Inf,Inf)),
-(exp10, :(y.*log(10)), (-Inf,Inf)),
-(exp2, :(y.*log(2)), (-Inf,Inf)),
-(expm1, :(1+y), (-Inf,Inf)),
-(log, :(1./x), (0,Inf)),
-(log10, :(1./(log(10).*x)), (0,Inf)),
-(log1p, :(1./(1+x)), (-1,Inf)),
-(log2, :(1./(log(2).*x)), (0,Inf)),
-(rad2deg, :(180/pi), (-Inf,Inf)),
-(significand, :(0.5.^exponent(x)), (-Inf,Inf)),
-(sqrt, :(1./(2.*y)), (0,Inf)),
+(:cbrt, :(1./(3.*abs2(y))), (-Inf,Inf)),
+(:deg2rad, :(pi/180), (-Inf,Inf)),
+(:exp, :y, (-Inf,Inf)),
+(:exp10, :(y.*log(10)), (-Inf,Inf)),
+(:exp2, :(y.*log(2)), (-Inf,Inf)),
+(:expm1, :(1+y), (-Inf,Inf)),
+(:log, :(1./x), (0,Inf)),
+(:log10, :(1./(log(10).*x)), (0,Inf)),
+(:log1p, :(1./(1+x)), (-1,Inf)),
+(:log2, :(1./(log(2).*x)), (0,Inf)),
+(:rad2deg, :(180/pi), (-Inf,Inf)),
+(:significand, :(0.5.^exponent(x)), (-Inf,Inf)),
+(:sqrt, :(1./(2.*y)), (0,Inf)),
 ]
 
 for (f,g,r) in math1arg
@@ -40,10 +40,10 @@ end
 # gradient definitions.
 
 math2arg = [
-(atan2, :(x2./(abs2(x1)+abs2(x2))), :(-x1./(abs2(x1)+abs2(x2)))),
-(hypot, :(x1./y), :(x2./y)),
-(max, :(y.==x1), :(y.==x2)),
-(min, :(y.==x1), :(y.==x2)),
+(:atan2, :(x2./(abs2(x1)+abs2(x2))), :(-x1./(abs2(x1)+abs2(x2)))),
+(:hypot, :(x1./y), :(x2./y)),
+(:max, :(y.==x1), :(y.==x2)),
+(:min, :(y.==x1), :(y.==x2)),
 ]
 
 for (f,g1,g2) in math2arg
