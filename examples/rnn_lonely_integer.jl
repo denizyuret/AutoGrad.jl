@@ -1,26 +1,35 @@
 """
-This example learns to find the lonely integer in an array where all but one of the integers occur in pairs.
-Problem is taken from [hackerrank](https://www.hackerrank.com/challenges/lonely-integer).
-We feed elements into a recurrent neural network one by one, 
-and we get a prediction from the model after the final element.
+rnn_lonely_integer.jl: (c) Ozan Arkan Can, 2016
 
-To run the demo, simply `include("rnn_lonely_integer.jl")` and run `LonelyInteger.train()`.
-You can provide the initial weights as an optional argument to `train`, which should have
-the form [Whx,Whh,bh,Woh,bo] where first three elements are the parameters of the rnn 
-and the last two are the parameters of the softmax classifier.
+This example learns to find the lonely integer in an array where all
+but one of the integers occur in pairs.  The problem is taken from
+[hackerrank](https://www.hackerrank.com/challenges/lonely-integer).
+We feed elements into a recurrent neural network one by one, and we
+get a prediction from the model after the final element.
+
+To run the demo, simply `include("rnn_lonely_integer.jl")` and run
+`LonelyInteger.train()`.  You can provide the initial weights as an
+optional argument to `train`, which should have the form
+[Whx,Whh,bh,Woh,bo] where first three elements are the parameters of
+the rnn and the last two are the parameters of the softmax classifier.
 The function `LonelyInteger.weights(;h, vocab)` can be used to create
-random starting weights for a recurrent neural network with hidden size and vocab size.
-`train` also accepts the following keyword arguments: `lr` specifies
-the learning rate, `N` gives the number of instances that are used to train the model.
-`seqlength` specifies the length of the input sequences and `limit` defines the range of the elements (from 1 to limit).
-The running average cross entropy loss and accuracy for the seen data will be printed after every 10k instances 
-and optimized parameters will be returned.
+random starting weights for a recurrent neural network with hidden
+size and vocab size.  `train` also accepts the following keyword
+arguments: `lr` specifies the learning rate, `N` gives the number of
+instances that are used to train the model.  `seqlength` specifies the
+length of the input sequences and `limit` defines the range of the
+elements (from 1 to limit).  The running average cross entropy loss
+and accuracy for the seen data will be printed after every 10k
+instances and optimized parameters will be returned.
 
-Data instances are created using `gendata`. It generates one instance for a given sequence length and the limit parameter.
+Data instances are created using `gendata`. It generates one instance
+for a given sequence length and the limit parameter.
 
-`test_example` takes trained weights and optional sequence length and limit (must be same as the limit parameter used in the training) parameters.
-It shows a generated sequence and prediction of the model for that instance.
-You can test the performance of the model on shorter or longer sequences than sequences used in training.
+`test_example` takes trained weights and optional sequence length and
+limit (must be same as the limit parameter used in the training)
+parameters.  It shows a generated sequence and prediction of the model
+for that instance.  You can test the performance of the model on
+shorter or longer sequences than sequences used in training.
 
 You can see an example experiment log at the end of the file.
 """
@@ -30,142 +39,142 @@ module LonelyInteger
 using AutoGrad
 
 function rnn_sequence(w, X; hidden=256)
-	h = zeros(Float32, hidden, 1)
+    h = zeros(Float32, hidden, 1)
 
-	for x in X
-		preh = w[1] * x + w[2] * h .+ w[3]
-		h = tanh(preh)
-	end
+    for x in X
+	preh = w[1] * x + w[2] * h .+ w[3]
+	h = tanh(preh)
+    end
 
-	return h
+    return h
 end
 
 function gendata(;seqlength=5, limit=20)
-	rnums = randperm(limit)
-	seq = rnums[1:(seqlength-1)]
-	append!(seq, rnums[1:(seqlength-1)])
-	push!(seq, rnums[seqlength])
+    rnums = randperm(limit)
+    seq = rnums[1:(seqlength-1)]
+    append!(seq, rnums[1:(seqlength-1)])
+    push!(seq, rnums[seqlength])
 
-	function onehot(indx)
-		rep = zeros(Float32, limit, 1)
-		rep[indx, 1] = 1.0
-		return rep
-	end
+    function onehot(indx)
+	rep = zeros(Float32, limit, 1)
+	rep[indx, 1] = 1.0
+	return rep
+    end
 
-	onehotseq = map(onehot, seq)
-	y = onehotseq[end]
-	shuffle!(onehotseq)
-	return (onehotseq, y)
+    onehotseq = map(onehot, seq)
+    y = onehotseq[end]
+    shuffle!(onehotseq)
+    return (onehotseq, y)
 end
 
 function predict(w, h)
-	return w[1] * h .+ w[2]
+    return w[1] * h .+ w[2]
 end
 
 function loss(w, X, ygold)
-	hT = rnn_sequence(w[1:3], X)
-	ypred = predict(w[4:5], hT)
-	ynorm = ypred .- log(sum(exp(ypred),1))
-	-sum(ygold .* ynorm) / size(ygold,2)
+    hT = rnn_sequence(w[1:3], X)
+    ypred = predict(w[4:5], hT)
+    ynorm = ypred .- log(sum(exp(ypred),1))
+    -sum(ygold .* ynorm) / size(ygold,2)
 end
 
 function accuracy(w, X, ygold)
-	hT = rnn_sequence(w[1:3], X)
-	ypred = predict(w[4:5], hT)
-	acc = indmax(ypred) == indmax(ygold) ? 1 : 0
+    hT = rnn_sequence(w[1:3], X)
+    ypred = predict(w[4:5], hT)
+    acc = indmax(ypred) == indmax(ygold) ? 1 : 0
 end
 
 function train(; lr=.001, N=2000000, seqlength=7, limit=50, w=weights(;vocab=limit))
-	gradfun = grad(loss)
-	nextn = 10000
+    gradfun = grad(loss)
+    nextn = 1000
 
-	lss_avg = 0.0
-	acc_avg = 0.0
+    lss_avg = 0.0
+    acc_avg = 0.0
 
-	for n=1:N
-		seq, ygold = gendata(;seqlength=seqlength, limit=limit)
-		g = gradfun(w, seq, ygold)
-		
-		sloss = loss(w, seq, ygold)
-		acc = accuracy(w, seq, ygold)
+    for n=1:N
+	seq, ygold = gendata(;seqlength=seqlength, limit=limit)
+	g = gradfun(w, seq, ygold)
+	
+	sloss = loss(w, seq, ygold)
+	acc = accuracy(w, seq, ygold)
 
-		#update
-		for i=1:length(w); w[i] -= lr * g[i]; end
-		
-		lss_avg = (n==1 ? sloss : 0.99 * lss_avg + 0.01 * sloss)
-		acc_avg = (n==1 ? acc : 0.99 * acc_avg + 0.01 * acc)
-		
-		if acc_avg > 0.999
-			println((n, lss_avg, acc_avg))
-			break
-		end
-
-		(n == nextn) && (println((n,lss_avg, acc_avg)); nextn+=10000)
+	#update
+	for i=1:length(w); w[i] -= lr * g[i]; end
+	
+	lss_avg = (n==1 ? sloss : 0.99 * lss_avg + 0.01 * sloss)
+	acc_avg = (n==1 ? acc : 0.99 * acc_avg + 0.01 * acc)
+	
+	if acc_avg > 0.999
+	    println((n, lss_avg, acc_avg))
+	    break
 	end
 
-	return w
+	(n == nextn) && (println((n,lss_avg, acc_avg)); nextn+=1000)
+    end
+
+    return w
 end
 
 function timing(; lr=.001, N=10, seqlength=15, limit=100, w=weights(;vocab=limit))
-	gradfun = grad(loss)
+    gradfun = grad(loss)
 
-	function onestep()
-		seq, ygold = gendata(;seqlength=seqlength, limit=limit);
-		g = gradfun(w, seq, ygold);
-		
-		#update
-		for i=1:length(w); w[i] -= lr * g[i]; end
-	end
+    function onestep()
+	seq, ygold = gendata(;seqlength=seqlength, limit=limit);
+	g = gradfun(w, seq, ygold);
+	
+	#update
+	for i=1:length(w); w[i] -= lr * g[i]; end
+    end
 
-	for n=1:N
-		gc_enable(false)
-		@time onestep()
-		gc_enable(true)
-	end
+    for n=1:N
+	gc_enable(false)
+	@time onestep()
+	gc_enable(true)
+    end
 end
 
 
 function gendata(;seqlength=5, limit=20)
-	rnums = randperm(limit)
-	dup = round(Int32, (seqlength - 1) / 2)
-	seq = rnums[1:dup]
-	append!(seq, rnums[1:dup])
-	push!(seq, rnums[dup+1])
+    rnums = randperm(limit)
+    dup = round(Int32, (seqlength - 1) / 2)
+    seq = rnums[1:dup]
+    append!(seq, rnums[1:dup])
+    push!(seq, rnums[dup+1])
 
-	function onehot(indx)
-		rep = zeros(Float32, limit, 1)
-		rep[indx, 1] = 1.0
-		return rep
-	end
+    function onehot(indx)
+	rep = zeros(Float32, limit, 1)
+	rep[indx, 1] = 1.0
+	return rep
+    end
 
-	onehotseq = map(onehot, seq)
-	y = onehotseq[end]
-	shuffle!(onehotseq)
-	return (onehotseq, y)
+    onehotseq = map(onehot, seq)
+    y = onehotseq[end]
+    shuffle!(onehotseq)
+    return (onehotseq, y)
 end
 
 function weights(; hidden=256, vocab=50)
-	w = Any[]
-	push!(w, 0.1*randn(hidden,vocab))#W_hx
-	push!(w, 0.1*randn(hidden, hidden))#W_hh
-	push!(w, zeros(hidden))#b
-	push!(w, 0.1*randn(vocab, hidden))#W_oh
-	push!(w, zeros(vocab))#b
-	return w
+    w = Any[]
+    push!(w, 0.1*randn(hidden,vocab))#W_hx
+    push!(w, 0.1*randn(hidden, hidden))#W_hh
+    push!(w, zeros(hidden))#b
+    push!(w, 0.1*randn(vocab, hidden))#W_oh
+    push!(w, zeros(vocab))#b
+    return w
 end
 
 function test_example(w; seqlength=5, limit=20)
-	seq, ygold = gendata(;seqlength=seqlength, limit=limit)
-	println("Sequence: $(map(indmax, seq))")
-	
-	hT = rnn_sequence(w[1:3], seq)
-        ypred = predict(w[4:5], hT)
-	
-	println("Gold: $(indmax(ygold)), Prediction: $(indmax(ypred))")
-	println("")
+    seq, ygold = gendata(;seqlength=seqlength, limit=limit)
+    println("Sequence: $(map(indmax, seq))")
+    
+    hT = rnn_sequence(w[1:3], seq)
+    ypred = predict(w[4:5], hT)
+    
+    println("Gold: $(indmax(ygold)), Prediction: $(indmax(ypred))")
+    println("")
 end
 
-end
+end # module
 
 #=
 RNNEXAMPLE.train(;N=2000000, lr=0.001, seqlength=7, limit=50)

@@ -1,4 +1,6 @@
 """
+charlm.jl: AutoGrad version (c) Emre Yolcu, 2016
+
 This example implements an LSTM network for training character-level language
 models. It takes as input a text file and trains the network to predict the
 next character in a sequence. It can then be used to generate a sample that
@@ -39,12 +41,10 @@ of characters to be generated.
 module CharLM
 
 using AutoGrad
-using AutoGrad: recorder, Node, Grad
-using Base.LinAlg
-using Requests
+using Base.LinAlg: axpy!
 
 sigm(x) = 1 ./ (1 + exp(-x))
-@primitive sigm(x::Array)::y (dy -> dy .* y .* (1 - y))
+@primitive sigm(x::Array),dy,y  (dy .* y .* (1 - y))
 
 function xavier(fan_out, fan_in)
     scale = sqrt(6 / (fan_in + fan_out))
@@ -65,10 +65,11 @@ function weights(; input_size=0, output_size=0, embedding_size=0,
 end
 
 function lstm(w, input, hidden, cell)
-    ingate  = sigm(w[:W_ingate]  * vcat(input, hidden) .+ w[:b_ingate])
-    forget  = sigm(w[:W_forget]  * vcat(input, hidden) .+ w[:b_forget])
-    outgate = sigm(w[:W_outgate] * vcat(input, hidden) .+ w[:b_outgate])
-    change  = tanh(w[:W_change]  * vcat(input, hidden) .+ w[:b_change])
+    x       = vcat(input, hidden) # avoid four separate vcat operations
+    ingate  = sigm(w[:W_ingate]  * x .+ w[:b_ingate]) # in fact we can probably combine these four operations into one
+    forget  = sigm(w[:W_forget]  * x .+ w[:b_forget]) # then use indexing, or (better) subarrays to get individual gates
+    outgate = sigm(w[:W_outgate] * x .+ w[:b_outgate])
+    change  = tanh(w[:W_change]  * x .+ w[:b_change]) 
     cell    = cell .* forget + ingate .* change
     hidden  = outgate .* tanh(cell)
     return hidden, cell
@@ -137,7 +138,7 @@ function train(w=nothing; datasrc=nothing, char_limit=0, epochs=1, lr_init=1.0,
         lr = lr_init * lr_decay^max(0, epoch - decay_after)
         T = length(data) - 1
         for t = 1:T
-            push!(inputs, copy(data[t]))
+            push!(inputs, copy(data[t])) # why copy here? there is no overwriting in AutoGrad.
             push!(targets, copy(data[t + 1]))
             if (t % sequence_length == 0) || t == T
                 loss_count[1] += loss(w, inputs, targets; pdrop=pdrop)
@@ -151,10 +152,12 @@ function train(w=nothing; datasrc=nothing, char_limit=0, epochs=1, lr_init=1.0,
                 empty!(inputs)
                 empty!(targets)
             end
+            if t % 1000 == 0
+                elapsed_time = time() - start_time
+                @printf(STDERR, "Epoch: %d, t: %d/%d, Loss: %.6f, LR: %.6f, Time: %.6f\n",
+                        epoch, t, T, loss_count[1] / loss_count[2], lr, elapsed_time)
+            end
         end
-        elapsed_time = time() - start_time
-        @printf(STDERR, "Epoch: %d, Loss: %.6f, LR: %.6f, Time: %.6f\n",
-                epoch, loss_count[1] / loss_count[2], lr, elapsed_time)
     end
 
     return w, index_to_char
@@ -162,13 +165,13 @@ end
 
 function loaddata(datasrc, batch_size, char_limit=0)
     if datasrc == nothing
-        url = "http://www.gutenberg.org/cache/epub/100/pg100.txt"
-        stream = get_streaming(url)
-    elseif isfile(datasrc)
-        stream = open(datasrc)
-    else
-        stream = get_streaming(datasrc)
+        datasrc = Pkg.dir("AutoGrad/data/pg100.txt")
     end
+    if !isfile(datasrc)
+        url = "http://www.gutenberg.org/cache/epub/100/pg100.txt"
+        download(url,datasrc)
+    end
+    stream = open(datasrc)
     chars = Char[]
     char_to_index = Dict{Char, Int32}()
     while !eof(stream)
