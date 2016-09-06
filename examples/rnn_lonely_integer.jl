@@ -4,11 +4,11 @@ Problem is taken from [hackerrank](https://www.hackerrank.com/challenges/lonely-
 We feed elements into a recurrent neural network one by one, 
 and we get a prediction from the model after the final element.
 
-To run the demo, simply `include("rnn_lonely_integer.jl")` and run `RNNEXAMPLE.train()`.
+To run the demo, simply `include("rnn_lonely_integer.jl")` and run `LonelyInteger.train()`.
 You can provide the initial weights as an optional argument to `train`, which should have
 the form [Whx,Whh,bh,Woh,bo] where first three elements are the parameters of the rnn 
 and the last two are the parameters of the softmax classifier.
-The function `RNNEXAMPLE.weights(;h, vocab)` can be used to create
+The function `LonelyInteger.weights(;h, vocab)` can be used to create
 random starting weights for a recurrent neural network with hidden size and vocab size.
 `train` also accepts the following keyword arguments: `lr` specifies
 the learning rate, `N` gives the number of instances that are used to train the model.
@@ -25,7 +25,7 @@ You can test the performance of the model on shorter or longer sequences than se
 You can see an example experiment log at the end of the file.
 """
 
-module RNNEXAMPLE
+module LonelyInteger
 
 using AutoGrad
 
@@ -105,6 +105,25 @@ function train(; lr=.001, N=2000000, seqlength=7, limit=50, w=weights(;vocab=lim
 
 	return w
 end
+
+function timing(; lr=.001, N=10, seqlength=15, limit=100, w=weights(;vocab=limit))
+	gradfun = grad(loss)
+
+	function onestep()
+		seq, ygold = gendata(;seqlength=seqlength, limit=limit);
+		g = gradfun(w, seq, ygold);
+		
+		#update
+		for i=1:length(w); w[i] -= lr * g[i]; end
+	end
+
+	for n=1:N
+		gc_enable(false)
+		@time onestep()
+		gc_enable(true)
+	end
+end
+
 
 function gendata(;seqlength=5, limit=20)
 	rnums = randperm(limit)
