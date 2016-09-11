@@ -1,10 +1,26 @@
-@primitive  sum(x),dy        (dy.+zeros(x))
-@primitive  sum(x,i...),dy   (dy.+zeros(x))
+reduce1arg = [
+(:sum,     :(ones(x))),
+(:sumabs,  :(sign(x))),
+(:sumabs2, :(2x)),
+(:prod,    :(y./x)),
+(:maximum, :(y.==x)),
+(:minimum, :(y.==x)),
+(:maxabs,  :(y.==abs(x))),
+(:minabs,  :(y.==abs(x))),
+]
+
+for (f,g) in reduce1arg
+    @eval @primitive $f(x,i...),dy,y   (dy.*($g))
+    addtest(f, rand(2))
+    addtest(f, rand(2,2), 1)
+    addtest(f, rand(2,2), 2)
+    # @eval @primitive $f(x::Tuple),dy,y (x=[x...];tuple((dy.*($g))...))
+    # addtest(f, (rand(2)...))
+end    
+
+# TODO: more general tuple reduction
 @primitive  sum(x::Tuple),dy  ntuple(i->dy,length(x))
-addtest(sum, rand(2))
 addtest(sum, (rand(2)...))
-addtest(sum, rand(2,2), 1)
-addtest(sum, rand(2,2), 2)
 
 # TODO: implement more general sum ops
 # TODO: other functions in reduce.jl:
