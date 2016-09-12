@@ -62,6 +62,7 @@ end
 Base.sum(b::OneHot)=sum(b.value)
 Base.getindex(b::OneHot,i...)=getindex(full(b),i...)
 Base.zeros(b::OneHot)=zeros(b.container)
+Base.ones(b::OneHot)=ones(b.container)
 Base.length(b::OneHot)=length(b.container)
 
 function Base.full(b::OneHot)
