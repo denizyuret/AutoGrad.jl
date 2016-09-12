@@ -302,16 +302,16 @@ function fixtest(f, x...)
 end
 
 function randin(range, dims...; eps=EPS)
-    if isa(range, UnitRange{Int64})
+    @compat if isa(range, UnitRange{Int64})
         rand(range, dims...)
     elseif range==(-Inf,Inf)
         randn(dims...)
     elseif range==(0,Inf)
-        eps-log(rand(dims...))
+        eps-log.(rand(dims...))
     elseif range==(1,Inf)
-        eps+1-log(rand(dims...))
+        eps+1-log.(rand(dims...))
     elseif range==(-1,Inf)
-        eps-1-log(rand(dims...))
+        eps-1-log.(rand(dims...))
     elseif range==(-1,1)
         (1-eps)*(2rand(dims...)-1)
     elseif range==(0,1)
@@ -319,8 +319,8 @@ function randin(range, dims...; eps=EPS)
     elseif range==(0,2)
         eps+2*(1-eps)*rand(dims...)
     elseif range==(-Inf,-1,1,Inf)
-        x = sec(randn(dims...))
-        sign(x)*eps + x
+        x = sec.(randn(dims...))
+        sign.(x).*eps.+x
     else
         error("Unknown range $range")
     end

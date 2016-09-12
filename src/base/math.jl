@@ -6,18 +6,18 @@
 # inputs.  The last part gives the range for generating test cases.
 
 math1arg = [
-(:cbrt, :(1./(3.*abs2(y))), (-Inf,Inf)),
+(:cbrt, :(@compat 1./(3.*abs2.(y))), (-Inf,Inf)),
 (:deg2rad, :(pi/180), (-Inf,Inf)),
 (:exp, :y, (-Inf,Inf)),
 (:exp10, :(y.*log(10)), (-Inf,Inf)),
 (:exp2, :(y.*log(2)), (-Inf,Inf)),
-(:expm1, :(1+y), (-Inf,Inf)),
+(:expm1, :(1.+y), (-Inf,Inf)),
 (:log, :(1./x), (0,Inf)),
 (:log10, :(1./(log(10).*x)), (0,Inf)),
-(:log1p, :(1./(1+x)), (-1,Inf)),
+(:log1p, :(1./(1.+x)), (-1,Inf)),
 (:log2, :(1./(log(2).*x)), (0,Inf)),
 (:rad2deg, :(180/pi), (-Inf,Inf)),
-(:significand, :(0.5.^exponent(x)), (-Inf,Inf)),
+(:significand, :(@compat 0.5.^exponent.(x)), (-Inf,Inf)),
 (:sqrt, :(1./(2.*y)), (0,Inf)),
 ]
 
@@ -40,7 +40,7 @@ end
 # gradient definitions.
 
 math2arg = [
-(:atan2, :(x2./(abs2(x1)+abs2(x2))), :(-x1./(abs2(x1)+abs2(x2)))),
+(:atan2, :(@compat x2./(abs2.(x1)+abs2.(x2))), :(@compat -x1./(abs2.(x1)+abs2.(x2)))),
 (:hypot, :(x1./y), :(x2./y)),
 (:max, :(y.==x1), :(y.==x2)),
 (:min, :(y.==x1), :(y.==x2)),
@@ -53,7 +53,7 @@ end
 
 # The 2-arg log supports positive args for reals.
 log(x1::Irrational{:e},x2::Value)=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
-@primitive log(x1,x2)  unbroadcast(x1,-log(x2)./(x1.*abs2(log(x1))))  unbroadcast(x2,1./(x2.*log(x1)))
+@primitive log(x1,x2)  unbroadcast(x1, @compat -log.(x2)./(x1.*abs2.(log.(x1))))  unbroadcast(x2, @compat 1./(x2.*log.(x1)))
 addtest2(log,(0,Inf))
 
 # ^ only supports (N>=0,N), arrays not supported in math.jl, only M^N in linalg/dense.jl (TODO)
@@ -86,10 +86,10 @@ addtest(mod2pi, 100randn())
 # ieee754_rem_pio2: Not exported
 # minmax: returns tuple
 # modf: returns tuple
-# Moved to erf.jl:
+### Moved to erf.jl:
 # erf: see erf.jl
 # erfc: see erf.jl
-# The following moved to trig.jl:
+### The following moved to trig.jl:
 # (acos, :(-1./sqrt(1-abs2(x))), (-1,1)),
 # (acosh, :(1./sqrt(abs2(x)-1)), (1,Inf)),
 # (asin, :(1./sqrt(1-abs2(x))), (-1,1)),
@@ -102,5 +102,5 @@ addtest(mod2pi, 100randn())
 # (sinh, :(cosh(x)), (-Inf,Inf)),
 # (tan, :(1+abs2(y)), (-Inf,Inf)),
 # (tanh, :(1-abs2(y)), (-Inf,Inf)),
-# Moved to gamma.jl:
+### Moved to gamma.jl:
 # (lgamma, :(digamma(x)), (-Inf,Inf)),

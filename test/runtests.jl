@@ -1,4 +1,4 @@
-using AutoGrad, Base.Test
+using AutoGrad, Base.Test, Compat
 # Uncomment these if you want lots of messages:
 # import Base.Test: default_handler, Success, Failure, Error
 # default_handler(r::Success) = info("$(r.expr)")
@@ -57,19 +57,12 @@ b1sum(x)=sumvalues(b1(x))
 @test check_grads(b1sum,t1) # fail with size 2
 @time b1sum(rand(10000))
 
-info("Test higher order gradients...")
-g1 = grad(sin); @test g1(1)==cos(1)
-g2 = grad(g1);  @test g2(1)==-sin(1)
-g3 = grad(g2);  @test g3(1)==-cos(1)
-g4 = grad(g3);  @test g4(1)==sin(1)
-g5 = grad(g4);  @test g5(1)==cos(1)
-g6 = grad(g5);  @test g6(1)==-sin(1)
-g7 = grad(g6);  @test g7(1)==-cos(1)
-g8 = grad(g7);  @test g8(1)==sin(1)
-g9 = grad(g8);  @test g9(1)==cos(1)
+info("Test primitives...")
+using AutoGrad: runtests
+runtests()
 
 info("Test neural net...")
-n0(w,x,y)=sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
+n0(w,x,y)=(sum(((w[3]*max.(0,w[1]*x.+w[2]).+w[4]).-y).^2))
 n1 = grad(n0)
 n1sum(w,x,y)=sum(map(sum,n1(w,x,y)))
 n1sumd(w,x,y)=sum(map(sum,values(n1(w,x,y))))
@@ -84,9 +77,16 @@ wd = Dict(); for i=1:length(wa); wd[i]=wa[i]; end
 # This needs more work:
 # @test check_grads(n1sumd, wd, rand(3,10), rand(2,10))  # FAIL
 
-info("Test primitives...")
-using AutoGrad: runtests
-runtests()
+info("Test higher order gradients...")
+g1 = grad(sin); @test g1(1)==cos(1)
+g2 = grad(g1);  @test g2(1)==-sin(1)
+g3 = grad(g2);  @test g3(1)==-cos(1)
+g4 = grad(g3);  @test g4(1)==sin(1)
+g5 = grad(g4);  @test g5(1)==cos(1)
+g6 = grad(g5);  @test g6(1)==-sin(1)
+g7 = grad(g6);  @test g7(1)==-cos(1)
+g8 = grad(g7);  @test g8(1)==sin(1)
+g9 = grad(g8);  @test g9(1)==cos(1)
 
 
 

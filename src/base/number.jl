@@ -1,10 +1,10 @@
 number1arg = [
-(:abs, :(sign(x))),
+(:abs, :(sign.(x))),
 (:abs2, :(2x)),
 ]
 
 for (f,g) in number1arg
-    @eval @primitive $f(x),dy,y  (dy.*($g))
+    @eval @primitive $f(x),dy,y  (dy.*(@compat $g))
     addtest1(f,(-Inf,Inf))
 end
 

@@ -1,16 +1,16 @@
 reduce1arg = [
 (:sum,     :(ones(x))),
-(:sumabs,  :(sign(x))),
+(:sumabs,  :(sign.(x))),
 (:sumabs2, :(2x)),
 (:prod,    :(y./x)),
 (:maximum, :(y.==x)),
 (:minimum, :(y.==x)),
-(:maxabs,  :(y.==abs(x))),
-(:minabs,  :(y.==abs(x))),
+(:maxabs,  :(y.==(abs.(x)))),
+(:minabs,  :(y.==(abs.(x)))),
 ]
 
 for (f,g) in reduce1arg
-    @eval @primitive $f(x,i...),dy,y   (dy.*($g))
+    @eval @primitive $f(x,i...),dy,y   (dy.*(@compat $g))
     addtest(f, rand(2))
     addtest(f, rand(2,2), 1)
     addtest(f, rand(2,2), 2)
