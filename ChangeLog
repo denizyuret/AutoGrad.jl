@@ -1,3 +1,17 @@
+2016-09-13  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	# Test and fix Julia v0.6 compatibility: gradients with broadcast.
+	# Implement backward operations in profile.jl.
+	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.
+	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
+	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
+	# subarrays: can be used to make gradients for concat faster: as long as we don't have overwriting.
+	# finish abstractarray(hvcat), array, tuple and dict support.
+	# avoid double normalization in softmax.
+	# find the problem with runtests when length=2 and higher order	dict support, open issues.
+	# finish all function gradients.
+
 2016-09-03  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
@@ -25,17 +39,6 @@
 	f4ccc0d 2016-08-31
 	2.041250 seconds (1.45 M allocations: 601.044 MB, 1.60% gc time)
 	4.605514 seconds (3.11 M allocations: 2.191 GB, 2.07% gc time)
-
-	* TODO:
-	# Implement backward operations in profile.jl.
-	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.
-	# rnn example? other examples from autograd, knet? can we do a large mt or lm model?
-	# implement convenience_wrappers (jacobian etc)? utilities (quick_grad_check for mnist)?
-	# subarrays: can be used to make gradients for concat faster: as long as we don't have overwriting.
-	# finish abstractarray(hvcat), array, tuple and dict support.
-	# avoid double normalization in softmax.
-	# find the problem with runtests when length=2 and higher order	dict support, open issues.
-	# finish all function gradients.
 
 2016-09-01  Deniz Yuret  <dyuret@ku.edu.tr>
 

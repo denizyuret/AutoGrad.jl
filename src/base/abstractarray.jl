@@ -111,9 +111,9 @@ vcat(a,b::Value,c...)=cat(1,a,b,c...)
 vcat(a::Value,b...)=cat(1,a,b...)
 
 # hcat: hcat(X...) = cat(2, X...)
-hcat(a::Value,b::Value,c...)=cat(1,a,b,c...)
-hcat(a,b::Value,c...)=cat(1,a,b,c...)
-hcat(a::Value,b...)=cat(1,a,b...)
+hcat(a::Value,b::Value,c...)=cat(2,a,b,c...)
+hcat(a,b::Value,c...)=cat(2,a,b,c...)
+hcat(a::Value,b...)=cat(2,a,b...)
 
 # typed_vcat: Not exported
 # typed_hcat: Not exported
