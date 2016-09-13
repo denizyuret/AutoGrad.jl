@@ -1,6 +1,7 @@
 2016-09-13  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
+	# log and unbroadcast fail test with the new toscalar.
 	# Test and fix Julia v0.6 compatibility: gradients with broadcast.
 	# Implement backward operations in profile.jl.
 	# Also rnn profile may be different from mnist, may be better to compare on rnn: charlm or copyseq. need to get primitives right.

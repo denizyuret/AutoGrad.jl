@@ -297,7 +297,7 @@ function fixtest(f, x...)
     isempty(fargs) && error("$f has no differentiable arguments.")
     f1=f; f = eval(Expr(:->, Expr(:tuple, plist...), Expr(:call, f1, alist...)))
     # if f has non-scalar output, sum it
-    isbits(y) || (f2=f; f=(x...)->sumvalues(f2(x...)))
+    isbits(y) || (f2=f; f=(x...)->toscalar(f2(x...)))
     return (f,fargs...)
 end
 
@@ -428,6 +428,18 @@ function unbroadcast(x, dx)
         length(d)==1 && (d=d[1])
         return sum(dx, d)
     end
+end
+
+function toscalar(xv; rng=MersenneTwister())
+    x = getval(xv)
+    isa(x,Number) && return xv
+    isa(x,OneHot) && (x = full(x))
+    idx = isa(x,Tuple) ? (1:length(x)) : eachindex(x)
+    s = 0
+    for i in idx
+        s += xv[i] * rand(rng)
+    end
+    return s
 end
 
 # sumvalues sums values of dictionaries, otherwise acts like sum:
