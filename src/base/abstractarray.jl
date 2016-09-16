@@ -102,6 +102,8 @@ function uncat(dy,n,catdims,x...)
     return dx
 end
 
+# TODO: add some test cases for cat.
+
 # Same deal with vcat and hcat, catch if one of the first two args is
 # a Value.  TODO: these only work for vectors and matrices, do general arrays.
 
@@ -112,6 +114,7 @@ vcat(a,b::Value,c...)=vcat_r(a,b,c...)
 vcat(a::Value,b...)=vcat_r(a,b...)
 vcat{N}(::Type{Grad{N}},dy::Value,y,x...)=dy[xrange(x,1,N),:] # ambiguity fix
 vcat{N}(::Type{Grad{N}},dy,y,x...)=dy[xrange(x,1,N),:]
+addtest(vcat, rand(1,2), rand(2,2))
 
 # hcat: hcat(X...) = cat(2, X...)
 hcat_r = recorder(hcat)
@@ -120,6 +123,7 @@ hcat(a,b::Value,c...)=hcat_r(a,b,c...)
 hcat(a::Value,b...)=hcat_r(a,b...)
 hcat{N}(::Type{Grad{N}},dy::Value,y,x...)=dy[:,xrange(x,2,N)] # ambiguity fix
 hcat{N}(::Type{Grad{N}},dy,y,x...)=dy[:,xrange(x,2,N)]
+addtest(hcat, rand(2,2), rand(2,1))
 
 function xrange(x, d, n)
     s = 0
