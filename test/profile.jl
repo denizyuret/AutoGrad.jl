@@ -74,11 +74,10 @@ function data()
     batch(xtrn,ytrn,100)
 end
 
-function gzload(file; dir=Pkg.dir("AutoGrad/data/"), url="http://yann.lecun.com/exdb/mnist/")
-    path = dir*file
-    isfile(path) || download(url*file, path)
+function gzread(file; path=joinpath(AutoGrad.datapath,file), url="http://yann.lecun.com/exdb/mnist/$file")
+    isfile(path) || download(url, path)
     f = gzopen(path)
-    a = readbytes(f)
+    a = @compat read(f)
     close(f)
     return(a)
 end

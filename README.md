@@ -11,14 +11,16 @@ TODO: https://github.com/JuliaCI/Coverage.jl
 
 AutoGrad.jl is an automatic differentiation package for Julia.  It is
 based on the popular Python
-[autograd](https://github.com/HIPS/autograd) package. It can
-differentiate regular Julia code that includes loops, conditionals,
-helper functions, closures etc. by keeping track of the primitive
-operations and using this execution trace to compute gradients.  It
-uses reverse mode differentiation (a.k.a. backpropagation) so it can
-efficiently handle functions with array inputs and scalar outputs.  It
-can compute gradients of gradients to handle higher order derivatives.
-Please see the comments in
+[autograd](https://github.com/HIPS/autograd) package and forms the
+foundation of the [Knet](https://github.com/denizyuret/Knet.jl) Julia
+deep learning framework.  AutoGrad can differentiate regular Julia
+code that includes loops, conditionals, helper functions, closures
+etc. by keeping track of the primitive operations and using this
+execution trace to compute gradients.  It uses reverse mode
+differentiation (a.k.a. backpropagation) so it can efficiently handle
+functions with array inputs and scalar outputs.  It can compute
+gradients of gradients to handle higher order derivatives.  Please see
+the comments in
 [core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
 for a description of how the code works in detail.
 

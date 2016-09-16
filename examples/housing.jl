@@ -44,7 +44,7 @@ end
 function loaddata()
     global xtrn, ytrn, xtst, ytst
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data"
-    file=Pkg.dir("AutoGrad/data/housing.data")
+    file=joinpath(AutoGrad.datapath, "housing.data")
     if !isfile(file)
         info("Downloading $url to $file")
         download(url, file)
