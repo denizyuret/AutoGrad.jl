@@ -259,8 +259,8 @@ let tests=[]
     addtest(t...)=push!(tests,t)
     function runtests(a=tests)
         for fx in a
-            tx = fixtest(fx...)
             try 
+                tx = fixtest(fx...)
                 check_grads(tx...; fname=fx[1])
             catch e
                 warn((fx...,"$e"))
