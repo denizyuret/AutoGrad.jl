@@ -145,3 +145,13 @@ principles.  [JuliaDiff](http://www.juliadiff.org/) has alternative
 differentiation tools for Julia.  I would like to thank my students
 Ozan Arkan Can and Emre Yolcu for helpful contributions.
 
+The suggested citation for AutoGrad is:
+
+```
+@misc{autograd,
+  author={Yuret, Deniz},
+  title={Autograd: an automatic differentiation package for Julia},
+  year={2016},
+  howpublished={\url{https://github.com/denizyuret/AutoGrad.jl}}
+}
+```
