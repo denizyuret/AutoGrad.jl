@@ -84,6 +84,7 @@ end
 zeroslike{T<:Number}(a::AbstractArray{T})=zeros(a)
 zeroslike(a::AbstractArray)=fill!(Array(Any,size(a)),nothing)
 zeroslike(a::Associative)=similar(a)
+zeroslike(o::OneHot)=zeros(o)
 
 _dbg(x::OneHot)="OH$(id2(x))_$(_dbg(x.container))_$((x.index...))_$(x.value)"
 Base.show(io::IO, n::OneHot)= print(io, _dbg(n))
