@@ -103,17 +103,29 @@ function uncat(dy,n,catdims,x...)
 end
 
 # Same deal with vcat and hcat, catch if one of the first two args is
-# a Value.  We can leave these as composite using cat.
+# a Value.  TODO: these only work for vectors and matrices, do general arrays.
 
 # vcat: vcat(X...) = cat(1, X...)
-vcat(a::Value,b::Value,c...)=cat(1,a,b,c...)
-vcat(a,b::Value,c...)=cat(1,a,b,c...)
-vcat(a::Value,b...)=cat(1,a,b...)
+vcat_r = recorder(vcat)
+vcat(a::Value,b::Value,c...)=vcat_r(a,b,c...)
+vcat(a,b::Value,c...)=vcat_r(a,b,c...)
+vcat(a::Value,b...)=vcat_r(a,b...)
+vcat{N}(::Type{Grad{N}},dy::Value,y,x...)=dy[xrange(x,1,N),:] # ambiguity fix
+vcat{N}(::Type{Grad{N}},dy,y,x...)=dy[xrange(x,1,N),:]
 
 # hcat: hcat(X...) = cat(2, X...)
-hcat(a::Value,b::Value,c...)=cat(2,a,b,c...)
-hcat(a,b::Value,c...)=cat(2,a,b,c...)
-hcat(a::Value,b...)=cat(2,a,b...)
+hcat_r = recorder(hcat)
+hcat(a::Value,b::Value,c...)=hcat_r(a,b,c...)
+hcat(a,b::Value,c...)=hcat_r(a,b,c...)
+hcat(a::Value,b...)=hcat_r(a,b...)
+hcat{N}(::Type{Grad{N}},dy::Value,y,x...)=dy[:,xrange(x,2,N)] # ambiguity fix
+hcat{N}(::Type{Grad{N}},dy,y,x...)=dy[:,xrange(x,2,N)]
+
+function xrange(x, d, n)
+    s = 0
+    for i=1:n-1; s += size(x[i],d); end
+    return (s+1):(s+size(x[n],d))
+end
 
 # typed_vcat: Not exported
 # typed_hcat: Not exported
