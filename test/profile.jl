@@ -1,22 +1,23 @@
-# fun		cpu	af	kn	kn+gc1	kn+gc2	kn+gc3	abb2cfe		e53b6d4
-# 1 mul		0.94	0.56	0.56	0.56	0.56	0.56	0.95		0.56
-# 2 bias	1.05	0.56	0.59	0.59	0.59	0.59	1.05		0.59
-# 3 max		1.34	0.56	0.63	0.62	0.62	0.62	1.34		0.62
-# 4 mul		1.44	0.74	0.75	0.75	0.75	0.75	1.43		0.75
-# 5 bias	1.48	0.75	0.79	0.78	0.78	0.78	1.48		0.78
-# 6 sub		1.49	0.81	0.82	0.81	0.81	0.82	1.49		0.82
-# 7 sq		1.62	0.93	0.85	0.84	0.84	0.85	1.62		0.85
-# 8 sum		1.62	1.22	1.19	1.07	1.08	1.07	1.63		1.06,1.07
-# 9 forw	2.47	2.60	2.25	1.67	1.46	1.68	1.96,2.00	1.18,1.20
-# 10 grad	5.52	6.53	5.86	3.52	3.62	3.30	4.40,4.52	2.10,2.32
-#                                                               (cpu)   	(gpu)
+#  git	c1ed2e+	abb2cfe	e53b6d4
+#  with	awsgpu	cpu	gpu	cpu	af	kn	kn+gc1	kn+gc2	kn+gc3	
+#1 mul	0.67	0.95	0.56    0.94	0.56	0.56	0.56	0.56	0.56	
+#2 bias	0.71	1.05	0.59    1.05	0.56	0.59	0.59	0.59	0.59	
+#3 max	0.75	1.34	0.62    1.34	0.56	0.63	0.62	0.62	0.62	
+#4 mul	0.81	1.43	0.75    1.44	0.74	0.75	0.75	0.75	0.75	
+#5 bias	0.85	1.48	0.78    1.48	0.75	0.79	0.78	0.78	0.78	
+#6 sub	0.89	1.49	0.82    1.49	0.81	0.82	0.81	0.81	0.82	
+#7 sq	0.92	1.62	0.85    1.62	0.93	0.85	0.84	0.84	0.85	
+#8 sum	1.21	1.63	1.06±01 1.62	1.22	1.19	1.07	1.08	1.07	
+#9 forw	1.51	1.96±04	1.18±02 2.47	2.60	2.25	1.67	1.46	1.68	
+#A grad	2.89	4.40±12	2.10±22	5.52	6.53	5.86	3.52	3.62	3.30	
+#
 # (*) timeall(weights(), weights(64), data(), 10)
 # (*) af results with gc_enable=false and sync()
 # (*) kn uses `similar`, +gc1 runs tmpfree every epoch, +gc2 runs tmpfree every iteration (minibatch), +gc3 uses KnetArray.
 # AF: The forw records arrays preventing their reuse?
 # AF: They are merging consecutive ops in one kernel, which breaks down with forw?
 
-using AutoGrad, GZip
+using AutoGrad, GZip, Compat
 using AutoGrad: forward_pass
 
 fun = []
@@ -74,7 +75,7 @@ function data()
     batch(xtrn,ytrn,100)
 end
 
-function gzread(file; path=joinpath(AutoGrad.datapath,file), url="http://yann.lecun.com/exdb/mnist/$file")
+function gzload(file; path=joinpath(AutoGrad.datapath,file), url="http://yann.lecun.com/exdb/mnist/$file")
     isfile(path) || download(url, path)
     f = gzopen(path)
     a = @compat read(f)
