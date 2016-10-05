@@ -27,15 +27,19 @@ macro dbgcore(x); end
 
 
 """
+
 grad(fun, argnum=1) -> gradfun    
 
 * fun: X->Y    
 * gradfun: X->dX   
 
-Returns a function which computes the gradient of `fun` with respect to
-positional argument number `argnum`. The returned function takes the same
-arguments as `fun`, but returns the gradient instead. The function `fun`
-should be scalar-valued. The gradient has the same type as the argument.
+Returns a function which computes the gradient of `fun` with respect
+to positional argument number `argnum`. The function `fun` should be
+scalar-valued. The returned function `gradfun` takes the same
+arguments as `fun`, but returns the gradient instead. The gradient has
+the same type and size as the target argument which can be a Number,
+Array, Tuple, or Dict.
+
 """
 function grad(fun::Function, argnum::Int=1)
     @dbgcore((:grad,fun,argnum))
