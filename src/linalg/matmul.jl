@@ -9,7 +9,7 @@ matmul2arg = [
 ]
 
 for (f,g1,g2) in matmul2arg
-    @eval @primitive $f(x1,x2),dy,y  $g1  $g2
+    @eval @primitive $f(x1,x2),dy,y  reshape($g1,size(x1))  reshape($g2,size(x2))  # added reshape to handle vectors
     addtest(f, rand(2,2), rand(2,2))
 end
 

@@ -426,7 +426,7 @@ function unbroadcast(x, dx)
             push!(d,i)
         end
         length(d)==1 && (d=d[1])
-        return sum(dx, d)
+        return reshape(sum(dx, d), size(x))
     end
 end
 
