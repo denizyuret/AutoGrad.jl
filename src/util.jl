@@ -421,7 +421,7 @@ function unbroadcast(x, dx)
     else
         d = []
         for i=1:ndims(dx)
-            size(x,i) == size(dx,i) && continue
+            size(x,i) == size(dx,i) > 1 && continue
             size(x,i) != 1 && throw(DimensionMismatch())
             push!(d,i)
         end
