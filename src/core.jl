@@ -42,7 +42,7 @@ Array, Tuple, or Dict.
 
 """
 function grad(fun::Function, argnum::Int=1)
-    @dbgcore((:grad,fun,argnum))
+    #@dbgcore((:grad,fun,argnum))
     function gradfun(args...; kwargs...)
         backward_pass(forward_pass(fun, args, kwargs, argnum)...)
     end
@@ -104,7 +104,7 @@ r = get(fdict,f,0)
 r != 0 && return r
 
 function rfun(args...; kwargs...)
-    @dbgcore((:call, f, args..., kwargs...))
+    #@dbgcore((:call, f, args..., kwargs...))
     argvals = unbox(args) 
     result = f(argvals...; kwargs...)
     for argnum = 1:length(args)
@@ -128,7 +128,7 @@ function rfun(args...; kwargs...)
             rnode.parents[argnum] = parent
         end
     end
-    @dbgcore((:retn, f, result, args..., kwargs...))
+    @dbgcore((:rfun, f, :rval, result, :args, args..., kwargs...))
     return result
 end # function rfun
 return (fdict[f] = rfun)
@@ -207,11 +207,11 @@ function backward_pass(start_value, end_value, tape)
             isassigned(node.parents,i) || continue
             parent = node.parents[i]
             v = node.value
-            @dbgcore((:back,v.func,Grad{i},node.outgrad,v.value,v.args...,v.kwargs...))
+            #@dbgcore((:sum0,v.func,Grad{i},node.outgrad,v.value,v.args...,v.kwargs...))
             og = v.func(Grad{i},node.outgrad,v.value,v.args...;v.kwargs...)
-            @dbgcore((:sum1,parent.outgrad,og))
+            #@dbgcore((:sum1,parent.outgrad,og))
             parent.outgrad = sum_outgrads(parent.outgrad, og)
-            @dbgcore((:sum2,parent.outgrad))
+            @dbgcore((:back,parent.outgrad,:dx,og,:func,v.func,:arg,i,:dy,node.outgrad,:y,v.value,:x,v.args...,v.kwargs...))
         end
     end
 
