@@ -277,16 +277,17 @@ function fixtest(f, x...)
     plist = Any[]               # define fnew(plist)
     alist = Any[x...]           # to return f(alist)
     fargs = Any[]               # call fnew(fargs...)
-    gargs = (Box(y), Box(y), map(Box,x)...)
     for i=1:length(alist)
+        gargs = Any[Grad{i},y,y,x...]
+        gargs[i+3] = Box(gargs[i+3])
         g = nothing
         try
-            g = f(Grad{i},gargs...)
+            g = f(gargs...)
         catch e
             if isa(e,MethodError) && e.f === f && e.args[1] === Grad{i}
                 continue        # warn("No grad $i for $f: $e")
             else
-                error("Error during $f$((Grad{i},gargs...)): $e")
+                error("Error during $f$((gargs...)): $e")
             end
         end
         g == nothing && continue # zero grads
