@@ -52,12 +52,12 @@ for (f,g1,g2) in math2arg
 end
 
 # The 2-arg log supports positive args for reals.
-log(x1::Irrational{:e},x2::Box)=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
+log(x1::Irrational{:e},x2::Rec)=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
 @primitive log(x1,x2),dy  unbroadcast(x1,-dy.*log(x2)./(x1.*abs2(log(x1))))  unbroadcast(x2,dy./(x2.*log(x1)))
 addtest2(log,(0,Inf))
 
 # ^ only supports (N>=0,N), arrays not supported in math.jl, only M^N in linalg/dense.jl (TODO)
-(^){T<:Number}(x1::Box{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
+(^){T<:Number}(x1::Rec{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
 @primitive (^)(x1::Number,x2::Number),dy,y  (dy*x2*x1^(x2-1))  (dy*y*log(x1))
 addtest(^, randin((0,Inf)), randin((-Inf,Inf)))
 

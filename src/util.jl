@@ -6,8 +6,8 @@ macro dbgutil(x); end
 
 # I would like to make these type signatures as specific as possible.
 # The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
-# f{T<:Number,A<:AbstractArray{T}}(x::Box{A})
-# f{T<:Number,A<:AbstractArray}(x::Box{A{T}})
+# f{T<:Number,A<:AbstractArray{T}}(x::Rec{A})
+# f{T<:Number,A<:AbstractArray}(x::Rec{A{T}})
 
 """
 
@@ -31,19 +31,19 @@ ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
 The @primitive macro turns the first example into:
 
     local sin_r = recorder(sin)
-    sin{T<:Number}(x::Box{T}) = sin_r(x)
+    sin{T<:Number}(x::Rec{T}) = sin_r(x)
 
-This will cause any call to `sin` with a Box{T<:Number} argument
+This will cause any call to `sin` with a Rec{T<:Number} argument
 to be recorded.  With multiple arguments things are a bit more
 complicated.  Here is what happens with the second example:
 
     local hypot_r = recorder(hypot)
-    hypot{T<:Array,S<:Array}(x1::Box{T},x2::Box{S})=hypot_r(x1,x2)
-    hypot{T<:Array,S<:Array}(x1::Box{T},x2::S)=hypot_r(x1,x2)
-    hypot{T<:Array,S<:Array}(x1::T,x2::Box{S})=hypot_r(x1,x2)
+    hypot{T<:Array,S<:Array}(x1::Rec{T},x2::Rec{S})=hypot_r(x1,x2)
+    hypot{T<:Array,S<:Array}(x1::Rec{T},x2::S)=hypot_r(x1,x2)
+    hypot{T<:Array,S<:Array}(x1::T,x2::Rec{S})=hypot_r(x1,x2)
 
 We want the recorder version to be called if any one of the arguments
-is a boxed Box.  There is no easy way to specify this in Julia, so
+is a boxed Rec.  There is no easy way to specify this in Julia, so
 the macro generates all 2^N-1 boxed/unboxed argument combinations.
 
 The method declaration can optionally be followed by gradient
@@ -62,13 +62,13 @@ the following signature:
 
 For the first example here is the generated gradient method:
 
-`sin{T<:Number}(::Type{Grad{1}}, dy, y, x::Box{T})=(dy*cos(x))`
+`sin{T<:Number}(::Type{Grad{1}}, dy, y, x::Rec{T})=(dy*cos(x))`
 
 For the second example a different gradient method is generated for
 each argument:
 
-`hypot{T<:Array,S<:Array}(::Type{Grad{1}},dy,y,x1::Box{T},x2::Box{S})=(dy.*x1./y)`
-`hypot{T<:Array,S<:Array}(::Type{Grad{2}},dy,y,x1::Box{T},x2::Box{S})=(dy.*x2./y)`
+`hypot{T<:Array,S<:Array}(::Type{Grad{1}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x1./y)`
+`hypot{T<:Array,S<:Array}(::Type{Grad{2}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x2./y)`
 
 In fact @primitive generates four more definitions for the other
 boxed/unboxed argument combinations.
@@ -108,11 +108,11 @@ macro primitive(f,g...)
 end
 
 """
-`@zerograd f(args...; kwargs...)` allows f to handle its Box inputs
+`@zerograd f(args...; kwargs...)` allows f to handle its Rec inputs
 by unboxing them like @primitive, but unlike @primitive it does not
-record its actions or return a Box result.  Some functions, like
+record its actions or return a Rec result.  Some functions, like
 sign(), have zero gradient.  Others, like length() have discrete or
-constant outputs.  These need to handle Box inputs, but do not need
+constant outputs.  These need to handle Rec inputs, but do not need
 to record anything and can return regular values.  Their output can be
 treated like a constant in the program.  Use the @zerograd macro for
 those.  Note that kwargs are NOT unboxed.
@@ -139,7 +139,7 @@ function zcall(f)
             error("Unrecognized argtype '$zi'")
         elseif zi.head==:(::)
             (v,t) = zi.args
-            if t==:Box || (isa(t,Expr) && t.head==:curly && t.args[1]==:Box)
+            if t==:Rec || (isa(t,Expr) && t.head==:curly && t.args[1]==:Rec)
                 z.args[i] = :($v.value)
             else
                 z.args[i] = v
@@ -230,7 +230,7 @@ function fsigs(f)
             in(ai.head, (:parameters, :(...))) && continue
             ai.head == :(::) || error("Bad arg '$ai'")
             if nodes & (1<<iargs) == 0
-                ai.args[2] = Expr(:curly,:Box,ai.args[2])
+                ai.args[2] = Expr(:curly,:Rec,ai.args[2])
             end
             iargs += 1
         end
@@ -279,7 +279,7 @@ function fixtest(f, x...)
     fargs = Any[]               # call fnew(fargs...)
     for i=1:length(alist)
         gargs = Any[Grad{i},y,y,x...]
-        gargs[i+3] = Box(gargs[i+3])
+        gargs[i+3] = Rec(gargs[i+3])
         g = nothing
         try
             g = f(gargs...)
@@ -468,13 +468,13 @@ end
 # Pretty print for debugging:
 _dbg(x)=x # extend to define short printable representations
 _dbg(x::Tuple)=map(_dbg,x)
-_dbg(x::Node)="N$(id2(x))_$(id2(x.box))"
-_dbg(x::Box)="V$(id2(x))_$(_dbg(x.value))"
+_dbg(x::Node)="N$(id2(x))_$(id2(x.rec))"
+_dbg(x::Rec)="V$(id2(x))_$(_dbg(x.value))"
 _dbg(x::Tape)="T$(join([id2(x),map(id2,x)...],'_'))"
 _dbg(x::AbstractArray)="A$(join([id2(x),size(x)...],'_'))"
 id2(x)=Int(object_id(x)%1000)
 
-Base.show(io::IO, n::Box) = print(io, _dbg(n))
+Base.show(io::IO, n::Rec) = print(io, _dbg(n))
 Base.show(io::IO, n::Node) = print(io, _dbg(n))
 Base.show(io::IO, n::Tape) = print(io, _dbg(n))
 

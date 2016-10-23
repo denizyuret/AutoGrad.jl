@@ -45,9 +45,9 @@ addtest(reshape,rand(2,2),(4,1))
 # _unsafe_setindex!: Not exported
 # get (getindex with a default value)
 # This can be left as a composite function, it will get its gradient from getindex if necessary.
-get{T<:AbstractArray}(A::Box{T}, i::Integer, default) = (if checkbounds(Bool, length(A), i); A[i]; else; default; end)
-get{T<:AbstractArray}(A::Box{T}, I::Tuple{}, default) = similar(A, typeof(default), 0)
-get{T<:AbstractArray}(A::Box{T}, I::Dims, default)    = (if checkbounds(Bool, size(A), I...); A[I...]; else; default; end)
+get{T<:AbstractArray}(A::Rec{T}, i::Integer, default) = (if checkbounds(Bool, length(A), i); A[i]; else; default; end)
+get{T<:AbstractArray}(A::Rec{T}, I::Tuple{}, default) = similar(A, typeof(default), 0)
+get{T<:AbstractArray}(A::Rec{T}, I::Dims, default)    = (if checkbounds(Bool, size(A), I...); A[I...]; else; default; end)
 # get!: Overwriting function
 # promote_eltype: Not exported
 
@@ -67,16 +67,17 @@ get{T<:AbstractArray}(A::Box{T}, I::Dims, default)    = (if checkbounds(Bool, si
 # matching zero blocks away from the diagonal.
 
 # After dims, cat can take 0 or more arguments of any type.  We only
-# catch the cases where one of the first two args is a Box.  We
+# catch the cases where one of the first two args is a Rec.  We
 # leave the type of the first arg unspecified, which can be an Int,
 # Tuple{Int}, or Vector{Int} and is never boxed.  We assume
 # cat(Grad{1},...) will never be called.
 
+typealias CatDims Union{Int,Tuple{Int},Vector{Int}} # julia4 gives ambiguity warnings if first arg type not specified
 cat_r = recorder(cat)
-cat(dims,a::Box,b::Box,c...)=cat_r(dims,a,b,c...)
-cat(dims,a,b::Box,c...)=cat_r(dims,a,b,c...)
-cat(dims,a::Box,b...)=cat_r(dims,a,b...)
-cat(::Type{Grad{1}},y1...)=nothing
+cat(d::CatDims,a::Rec,b::Rec,c...)=cat_r(d,a,b,c...)
+cat(d::CatDims,a,b::Rec,c...)     =cat_r(d,a,b,c...)
+cat(d::CatDims,a::Rec,b...)       =cat_r(d,a,b...)
+cat(::Type{Grad{1}},y1,y,dims,x...)=nothing
 cat{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
 
 # For the gradient, we need to extract the n'th block from dy which
@@ -151,8 +152,17 @@ addtest(:cat, 2, [1. 2.], 3.)
 addtest(:cat, 2, [1.,2.], [3.,4.])
 addtest(:cat, 2, [1. 2.], [3. 4.])
 
-# vcat: defined in terms of cat(1,...)
-# hcat: defined in terms of cat(2,...)
+# vcat,hcat: should be defined in terms of cat. However base has some
+# generic methods that prevent the cat call when the arguments are
+# boxed.  This should fix it, at least when one of the first two args
+# is boxed.
+vcat(a::Rec,b::Rec,c...)=cat(1,a,b,c...)
+vcat(a,b::Rec,c...)=cat(1,a,b,c...)
+vcat(a::Rec,b...)=cat(1,a,b...)
+hcat(a::Rec,b::Rec,c...)=cat(2,a,b,c...)
+hcat(a,b::Rec,c...)=cat(2,a,b,c...)
+hcat(a::Rec,b...)=cat(2,a,b...)
+
 # typed_vcat: Not exported
 # typed_hcat: Not exported
 # cat_t: Not exported
@@ -176,4 +186,4 @@ addtest(:cat, 2, [1. 2.], [3. 4.])
 # map_to_n!: Not exported
 # push!: Overwriting function
 # unshift!: Overwriting function
-# hash: Works for Box.
+# hash: Works for Rec.
