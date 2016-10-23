@@ -1,5 +1,5 @@
 # Here we will define iteration (start,done,next) and indexing
-# (getindex,setindex!,endof) interfaces for generic Value types.
+# (getindex,setindex!,endof) interfaces for generic Box types.
 
 # Julia handles access to AbstractArray, Associative, and Tuple
 # subtypes using getindex:
@@ -7,9 +7,9 @@
 # getindex(obj, key...) => value
 # setindex!(obj, val, key...) => obj
 
-# We do not allow overwriting, so setindex! for Values not allowed:
+# We do not allow overwriting, so setindex! for Boxs not allowed:
 
-setindex!(x::Value,i...)=error("Overwriting operations currently not supported.")
+setindex!(x::Box,i...)=error("Overwriting operations currently not supported.")
 
 # We handle the containers by overloading getindex:
 
@@ -34,7 +34,7 @@ ungetindex(dxi,x,i)=OneHot(dxi,x,i)
 # (a,a), (v,a), (g,a), (g1,a) argtypes.
 
 ungetindex_r = recorder(ungetindex)
-ungetindex(dxi::Value,x,i)=ungetindex_r(dxi,x,i)
+ungetindex(dxi::Box,x,i)=ungetindex_r(dxi,x,i)
 ungetindex(::Type{Grad{1}},ddx,dx,dxi,x,i)=getindex(ddx,i...)
 ungetindex(::Type,o...)=nothing
 
@@ -43,10 +43,10 @@ ungetindex(::Type,o...)=nothing
 # unbox the second arg and resolve ambiguity the following methods
 # cover (a,v), (v,v), (g,v), (g1,v).
 
-ungetindex(dxi::Value,x::Value,i)=ungetindex(dxi,getval(x),getval(i))
-ungetindex(dxi,x::Value,i)=ungetindex(dxi,getval(x),getval(i))
-ungetindex(::Type{Grad{1}},ddx::Value,dx,dxi,x,i)=getindex(ddx,getval(i)...)
-ungetindex(::Type,ddx::Value,o...)=nothing
+ungetindex(dxi::Box,x::Box,i)=ungetindex(dxi,getval(x),getval(i))
+ungetindex(dxi,x::Box,i)=ungetindex(dxi,getval(x),getval(i))
+ungetindex(::Type{Grad{1}},ddx::Box,dx,dxi,x,i)=getindex(ddx,getval(i)...)
+ungetindex(::Type,ddx::Box,o...)=nothing
 
 addtest(ungetindex, rand(), rand(2), (2,))
 addtest(ungetindex, rand(2), rand(3), (2:3,))
@@ -91,8 +91,8 @@ Base.show(io::IO, n::OneHot)= print(io, _dbg(n))
 
 # sum_outgrads needs to handle OneHot values:
 sum_outgrads(a::OneHot,b::OneHot)=(if a.index==b.index; OneHot(a.container,sum_outgrads(a.value,b.value),a.index); else; sum_outgrads(full(a),b); end)
-sum_outgrads(a::Value,b::OneHot)=error((:sum,a,b))
-sum_outgrads(a::OneHot,b::Value)=error((:sum,a,b))
+sum_outgrads(a::Box,b::OneHot)=error((:sum,a,b))
+sum_outgrads(a::OneHot,b::Box)=error((:sum,a,b))
 sum_outgrads(a::Void,b::OneHot)=full(b)
 sum_outgrads(a::OneHot,b::Void)=error((:sum,a,b))
 sum_outgrads(a::OneHot,b)=error((:sum,a,Any))
@@ -108,18 +108,18 @@ sum_outgrads(a::Associative,b::OneHot)=setindex!(a,sum_outgrads(get(a,b.index...
 # next(a,state) => (element, nextState)
 
 # start and done return state and bool, not differentiable.
-start(a::Value)=start(a.value)
-done(a::Value,i)=done(a.value,i)
+start(a::Box)=start(a.value)
+done(a::Box,i)=done(a.value,i)
 
 # next returns a tuple with an element and needs to be defined for each iterable.
-# Specific types need to define their own next methods for Values:
+# Specific types need to define their own next methods for Boxs:
 
-next(a::Value,i)=throw(MethodError(next,(a,i)))
-next{T<:Array}(a::Value{T},i) = (a[i],i+1)
-next{T<:Tuple}(a::Value{T},i) = (a[i],i+1)
-next{T<:Number}(a::Value{T},i) = (a,true)
+next(a::Box,i)=throw(MethodError(next,(a,i)))
+next{T<:Array}(a::Box{T},i) = (a[i],i+1)
+next{T<:Tuple}(a::Box{T},i) = (a[i],i+1)
+next{T<:Number}(a::Box{T},i) = (a,true)
 # This needs more work:
-# next{T<:Base.ValueIterator}(a::Value{T},i) = (d=a.value.dict; (d.vals[i], skip_deleted(d,i+1)))
+# next{T<:Base.BoxIterator}(a::Box{T},i) = (d=a.value.dict; (d.vals[i], skip_deleted(d,i+1)))
 
 # Finally here are some common functions that do not return floats
 # (e.g. length) or return constant outputs (e.g. zero).
@@ -161,8 +161,8 @@ interfaces2arg = [
 :isless,
 ]                  
 
-==(a::WeakRef,b::Value)=(a==b.value) # prevents clash with base.jl:68
-==(a::Value,b::WeakRef)=(a.value==b) # prevents clash with base.jl:69
+==(a::WeakRef,b::Box)=(a==b.value) # prevents clash with base.jl:68
+==(a::Box,b::WeakRef)=(a.value==b) # prevents clash with base.jl:69
 
 for _f in interfaces2arg
     @eval @zerograd $_f(a,b)

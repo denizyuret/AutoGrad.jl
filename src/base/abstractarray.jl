@@ -45,18 +45,18 @@ addtest(reshape,rand(2,2),(4,1))
 # _unsafe_setindex!: Not exported
 # get (getindex with a default value)
 # This can be left as a composite function, it will get its gradient from getindex if necessary.
-get{T<:AbstractArray}(A::Value{T}, i::Integer, default) = (if checkbounds(Bool, length(A), i); A[i]; else; default; end)
-get{T<:AbstractArray}(A::Value{T}, I::Tuple{}, default) = similar(A, typeof(default), 0)
-get{T<:AbstractArray}(A::Value{T}, I::Dims, default)    = (if checkbounds(Bool, size(A), I...); A[I...]; else; default; end)
+get{T<:AbstractArray}(A::Box{T}, i::Integer, default) = (if checkbounds(Bool, length(A), i); A[i]; else; default; end)
+get{T<:AbstractArray}(A::Box{T}, I::Tuple{}, default) = similar(A, typeof(default), 0)
+get{T<:AbstractArray}(A::Box{T}, I::Dims, default)    = (if checkbounds(Bool, size(A), I...); A[I...]; else; default; end)
 # get!: Overwriting function
 # promote_eltype: Not exported
 
 # cat(dims,A...): Concatenate the input arrays along the specified
-# dimensions in the iterable dims. For dimensions not in dims, all
+# dimensions in the iterable dims. For each dimension not in dims, all
 # input arrays should have the same size, which will also be the size
-# of the output array along that dimension. For dimensions in dims,
-# the size of the output array is the sum of the sizes of the input
-# arrays along that dimension. If dims is a single number, the
+# of the output array along that dimension. For each dimension in
+# dims, the size of the output array is the sum of the sizes of the
+# input arrays along that dimension. If dims is a single number, the
 # different arrays are tightly stacked along that dimension. If dims
 # is an iterable containing several dimensions, this allows one to
 # construct block diagonal matrices and their higher-dimensional
@@ -66,71 +66,93 @@ get{T<:AbstractArray}(A::Value{T}, I::Dims, default)    = (if checkbounds(Bool, 
 # matrix with matrices[1], matrices[2], ... as diagonal blocks and
 # matching zero blocks away from the diagonal.
 
-# After catdims, cat can take 0 or more arguments of any type.  We
-# only catch the cases where one of the first two args is a Value.
+# After dims, cat can take 0 or more arguments of any type.  We only
+# catch the cases where one of the first two args is a Box.  We
+# leave the type of the first arg unspecified, which can be an Int,
+# Tuple{Int}, or Vector{Int} and is never boxed.  We assume
+# cat(Grad{1},...) will never be called.
 
-typealias CatDims Union{Int,Tuple,Array}
 cat_r = recorder(cat)
-cat(i::CatDims,a::Value,b::Value,c...)=cat_r(i,a,b,c...)
-cat(i::CatDims,a,b::Value,c...)=cat_r(i,a,b,c...)
-cat(i::CatDims,a::Value,b...)=cat_r(i,a,b...)
-cat{N}(::Type{Grad{N}},dy,y,i,x...)=uncat(dy,N-1,i,x...)   # N-1 because first arg is catdims
+cat(dims,a::Box,b::Box,c...)=cat_r(dims,a,b,c...)
+cat(dims,a,b::Box,c...)=cat_r(dims,a,b,c...)
+cat(dims,a::Box,b...)=cat_r(dims,a,b...)
+cat(::Type{Grad{1}},y1...)=nothing
+cat{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
 
-# We need to extract the n'th block from dy which has the same shape
-# as y=cat(catdims,x...).
-# TODO: make uncat a primitive and define its gradient for higher order gradients.
-function uncat(dy,n,catdims,x...)
+# For the gradient, we need to extract the n'th block from dy which
+# has the same shape as y=cat(dims,x...).  Note that the inputs x[i]
+# may have fewer dimensions than dy, or even be scalars.  In those
+# cases Julia assumes the missing dimensions are 1.  We need to
+# reshape dx to the same size as x.
+
+function uncat(y1,n,dims,x...)
     idx = []
-    for d=1:ndims(dy)
-        if in(d,catdims)
+    @inbounds for d=1:ndims(y1)
+        if in(d,dims)
             pos = 0
-            for j=1:n-1
+            @inbounds for j=1:n-1
                 pos += size(x[j],d)
             end
             push!(idx,(pos+1):(pos+size(x[n],d)))
         else
-            push!(idx,1:size(dy,d))
+            push!(idx,1:size(y1,d))
         end
     end
-    dx = dy[idx...]
-    if isa(getval(x[n]),AbstractArray)
-        dx = reshape(dx, size(x[n]))
+    x1 = y1[idx...]
+    if isa(getval(x[n]),Number)
+        length(x1)==1 || error("uncat mismatch")
+        x1 = x1[1]
     else
-        length(dx)==1 || error("uncat mismatch")
-        dx = dx[1]
+        x1 = reshape(x1, size(x[n]))
     end
-    return dx
+    return x1
 end
 
-# TODO: add some test cases for cat.
-
-# Same deal with vcat and hcat, catch if one of the first two args is
-# a Value.  TODO: these only work for vectors and matrices, do general arrays.
-
-# vcat: vcat(X...) = cat(1, X...)
-vcat_r = recorder(vcat)
-vcat(a::Value,b::Value,c...)=vcat_r(a,b,c...)
-vcat(a,b::Value,c...)=vcat_r(a,b,c...)
-vcat(a::Value,b...)=vcat_r(a,b...)
-vcat{N}(::Type{Grad{N}},dy::Value,y,x...)=dy[xrange(x,1,N),:] # ambiguity fix
-vcat{N}(::Type{Grad{N}},dy,y,x...)=dy[xrange(x,1,N),:]
-addtest(vcat, rand(1,2), rand(2,2))
-
-# hcat: hcat(X...) = cat(2, X...)
-hcat_r = recorder(hcat)
-hcat(a::Value,b::Value,c...)=hcat_r(a,b,c...)
-hcat(a,b::Value,c...)=hcat_r(a,b,c...)
-hcat(a::Value,b...)=hcat_r(a,b...)
-hcat{N}(::Type{Grad{N}},dy::Value,y,x...)=dy[:,xrange(x,2,N)] # ambiguity fix
-hcat{N}(::Type{Grad{N}},dy,y,x...)=dy[:,xrange(x,2,N)]
-addtest(hcat, rand(2,2), rand(2,1))
-
-function xrange(x, d, n)
-    s = 0
-    for i=1:n-1; s += size(x[i],d); end
-    return (s+1):(s+size(x[n],d))
+function uncat1(x2,y1,n,dims,x...)
+    idx = []
+    @inbounds for d=1:ndims(y1)
+        if in(d,dims)
+            pos = 0
+            @inbounds for j=1:n-1
+                pos += size(x[j],d)
+            end
+            push!(idx,(pos+1):(pos+size(x[n],d)))
+        else
+            push!(idx,1:size(y1,d))
+        end
+    end
+    y2 = zeros(y1)
+    y2[idx...] = x2
+    return y2
 end
 
+@primitive  uncat(y1,n...),x2  uncat1(x2,y1,n...)
+@primitive  uncat1(x2,y1,n...),y3  uncat(y3,n...)
+
+# Here is a graphic that may explain the variable name choice where xi
+# stands for the i'th order gradient:
+#
+# x  → cat    → y
+#               ↓
+# x1 ← uncat  ← y1
+# ↓
+# x2 → uncat1 → y2
+#               ↓
+# x3 ← uncat  ← y3
+
+addtest(:cat, 1, 1., 2.)
+addtest(:cat, 1, 1., [2.,3.])
+addtest(:cat, 1, [1.,2.], 3.)
+addtest(:cat, 1, [1.,2.], [3.,4.])
+addtest(:cat, 1, [1. 2.], [3. 4.])
+addtest(:cat, 2, 1., 2.)
+addtest(:cat, 2, 1., [2. 3.])
+addtest(:cat, 2, [1. 2.], 3.)
+addtest(:cat, 2, [1.,2.], [3.,4.])
+addtest(:cat, 2, [1. 2.], [3. 4.])
+
+# vcat: defined in terms of cat(1,...)
+# hcat: defined in terms of cat(2,...)
 # typed_vcat: Not exported
 # typed_hcat: Not exported
 # cat_t: Not exported
@@ -154,4 +176,4 @@ end
 # map_to_n!: Not exported
 # push!: Overwriting function
 # unshift!: Overwriting function
-# hash: Works for Value.
+# hash: Works for Box.
