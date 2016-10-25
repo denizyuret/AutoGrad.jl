@@ -60,7 +60,6 @@ end
 
 function forward_pass(fun, args, kwargs, argnum)
     @dbgcore((:forw, argnum, fun, args..., kwargs...))
-    @dbgcore(global tape = nothing)
     tape = Tape()
     arg_wrt = args[argnum]
     if isa(arg_wrt,Rec)
