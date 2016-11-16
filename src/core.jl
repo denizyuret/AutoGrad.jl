@@ -49,6 +49,16 @@ function grad(fun::Function, argnum::Int=1)
     return gradfun
 end
 
+"""
+Another version of `grad(f)` which additionally returns `loss`
+"""
+function gradloss(fun::Function, argnum::Int=1)
+    #@dbgcore((:grad,fun,argnum))
+    function gradfun(args...; kwargs...)
+        return backward_pass(forward_pass(fun, args, kwargs, argnum)...), fun(args...; kwargs...)
+    end
+    return gradfun
+end
 
 # 2. g calls forward_pass which boxes argnum'th arg x in a Rec type and calls f(Rec(x))
 # 2.1 f must be defined generically to accept Rec arguments.
