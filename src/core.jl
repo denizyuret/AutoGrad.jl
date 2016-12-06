@@ -55,7 +55,12 @@ Another version of `grad(f)` which additionally returns `loss`
 function gradloss(fun::Function, argnum::Int=1)
     #@dbgcore((:grad,fun,argnum))
     function gradfun(args...; kwargs...)
-        return backward_pass(forward_pass(fun, args, kwargs, argnum)...), fun(args...; kwargs...)
+        fwd = forward_pass(fun, args, kwargs, argnum)
+        val = fwd[2]
+        if isa(val,Rec)
+            val = val.value
+        end
+        return backward_pass(fwd...), val
     end
     return gradfun
 end
