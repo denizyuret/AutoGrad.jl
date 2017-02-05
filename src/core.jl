@@ -207,7 +207,7 @@ function backward_pass(start_box, end_box, tape)
 # 4.3 backward_pass resets all node gradients except for the scalar
 # output Rec whose gradient is set to 1.0.
 
-    end_box.nodes[tapeidx].outgrad = 1.0
+    end_box.nodes[tapeidx].outgrad = one(end_box.value)
 
 # We need to complete!(tape) to prevent recording during backward_pass.
 
