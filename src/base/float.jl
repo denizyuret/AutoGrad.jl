@@ -59,11 +59,16 @@ addtest(*,randn(2),randn())
 # /(A::AbstractArray{T,N}, B::Number) at abstractarraymath.jl:57
 # The Array-Array case is handled by linalg/generic.
 # There is no Number-Array support.
+# \(x,A) is the same as /(A,x)
 
 @primitive (/)(x1,x2::Number),dy,y  (dy/x2)  unbroadcast(x2,-dy.*x1./abs2(x2))
 x = randn(); a = randn(2)
 addtest(/,randn(),randn())
 addtest(/,randn(2),randn())
+
+@primitive (\)(x2::Number,x1),dy,y  unbroadcast(x2,-dy.*x1./abs2(x2))  (dy/x2)
+addtest(\,randn(),randn())
+addtest(\,randn(),randn(2))
 
 # These are defined in terms of isless which is handled in interfaces.jl
 # float2arg1 = Dict{Symbol,Any}(

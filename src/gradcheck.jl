@@ -195,12 +195,14 @@ function gc_index(w, d, i, f, w0, x...; o...)
     if isa(w[i], Number)
         gc_array(w, d, f, w0, x...; icheck=i, o...)
     elseif isbits(eltype(w[i]))
-        gc_array(w[i], d[i], f, w0, x...; o...)
+        di = (d==nothing ? d : d[i])
+        gc_array(w[i], di, f, w0, x...; o...)
     else
+        di = (d==nothing ? d : d[i])
         k = gc_indices(w[i])
         pass = true
         for j in k
-            pass &= gc_index(w[i], d[i], j, f, w0, x...; o...)
+            pass &= gc_index(w[i], di, j, f, w0, x...; o...)
         end
         return pass
     end

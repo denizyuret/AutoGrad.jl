@@ -38,9 +38,10 @@ function dxndx(x1,x2,dy)
 end
 
 broadcast2cmp = [
+:.==,
+:.!=,
 :.<,
 :.<=,
-:.==,
 :.>,
 :.>=,
 ]                 
