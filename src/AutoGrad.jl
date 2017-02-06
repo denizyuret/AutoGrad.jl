@@ -2,11 +2,12 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module AutoGrad
 importall Base  # defining getindex, sin, etc.
-export grad, gradloss, check_grads
+export grad, gradloss, check_grads, gradcheck
 export @primitive, @zerograd, recorder, Rec, Grad  # the last three are required for the macros to work
 datapath = joinpath(dirname(@__FILE__),"..","data")
 
 include("core.jl")
+include("gradcheck.jl")
 include("util.jl")
 include("interfaces.jl")
 include("base/reduce.jl")
