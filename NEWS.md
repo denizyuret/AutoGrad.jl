@@ -1,3 +1,14 @@
+AutoGrad v0.0.5 Release Notes
+=============================
+
+* gradloss is added as an alternative to grad.  gradloss(f) generates
+  a function that returns a (gradient, result) tuple.
+
+* gradcheck is added as an alternative gradient checking mechanism.
+
+* Added gradients for vecnorm, (.!=), (\).
+
+
 AutoGrad v0.0.4 Release Notes
 =============================
 
