@@ -11,16 +11,25 @@ macro dbgutil(x); end
 
 """
 
-`@primitive fx g1 g2...` can be used to define a new primitive
-and (optionally) its gradients.
+    @primitive fx g1 g2...
 
+Define a new primitive operation for AutoGrad and (optionally) specify
+its gradients.  Non-differentiable functions such as `sign`, and
+non-numeric functions such as `size` should be defined using the
+@zerograd macro instead.
+
+# Examples
+
+    @primitive sin(x::Number)
+    @primitive hypot(x1::Array,x2::Array),dy,y
+
+    @primitive sin(x::Number),dy  (dy*cos(x))
+    @primitive hypot(x1::Array,x2::Array),dy,y  (dy.*x1./y)  (dy.*x2./y)
+
+The first example shows that `fx` is a typed method declaration.
 Julia supports multiple dispatch, i.e. a single function can have
-multiple methods with different arg types.  AutoGrad supports
-multiple dispatch for primitives and gradients.  Thus fx is a
-typed method declaration such as:
-
-* @primitive sin(x::Number)
-* @primitive hypot(x1::Array,x2::Array),dy,y
+multiple methods with different arg types.  AutoGrad takes advantage
+of this and supports multiple dispatch for primitives and gradients.
 
 The second example specifies variable names for the output gradient
 `dy` and the output `y` after the method declaration which can be used
@@ -28,14 +37,24 @@ in gradient expressions.  Untyped, ellipsis and keyword arguments are
 ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
 `f{T<:Number}(x::T)` cannot be used.
 
+The method declaration can optionally be followed by gradient
+expressions.  The third and fourth examples show how gradients can be
+specified.  Note that the parameters, the return variable and the
+output gradient of the original function can be used in the gradient
+expressions.
+
+# Under the hood
+
 The @primitive macro turns the first example into:
 
     local sin_r = recorder(sin)
     sin{T<:Number}(x::Rec{T}) = sin_r(x)
 
-This will cause any call to `sin` with a Rec{T<:Number} argument
-to be recorded.  With multiple arguments things are a bit more
-complicated.  Here is what happens with the second example:
+This will cause calls to `sin` with a boxed argument
+(`Rec{T<:Number}`) to be recorded.  The recorded operations are used
+by `grad` to construct a dynamic computational graph.  With multiple
+arguments things are a bit more complicated.  Here is what happens
+with the second example:
 
     local hypot_r = recorder(hypot)
     hypot{T<:Array,S<:Array}(x1::Rec{T},x2::Rec{S})=hypot_r(x1,x2)
@@ -43,38 +62,26 @@ complicated.  Here is what happens with the second example:
     hypot{T<:Array,S<:Array}(x1::T,x2::Rec{S})=hypot_r(x1,x2)
 
 We want the recorder version to be called if any one of the arguments
-is a boxed Rec.  There is no easy way to specify this in Julia, so
+is a boxed `Rec`.  There is no easy way to specify this in Julia, so
 the macro generates all 2^N-1 boxed/unboxed argument combinations.
-
-The method declaration can optionally be followed by gradient
-expressions.  Here are the same examples with gradients:
-
-* @primitive sin(x::Number),dy (dy*cos(x))
-* @primitive hypot(x1::Array,x2::Array),dy,y  `(dy.*x1./y)`  `(dy.*x2./y)`
-
-Note that the parameters, the return variable and the output gradient
-of the original function can be used in the gradient expressions.
 
 In AutoGrad, gradients are defined using gradient methods that have
 the following signature:
 
     f(Grad{i},dy,y,x...) => dx[i]
 
-For the first example here is the generated gradient method:
+For the third example here is the generated gradient method:
 
-`sin{T<:Number}(::Type{Grad{1}}, dy, y, x::Rec{T})=(dy*cos(x))`
+    sin{T<:Number}(::Type{Grad{1}}, dy, y, x::Rec{T})=(dy*cos(x))
 
-For the second example a different gradient method is generated for
-each argument:
+For the last example a different gradient method is generated for each
+argument:
 
-`hypot{T<:Array,S<:Array}(::Type{Grad{1}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x1./y)`
-`hypot{T<:Array,S<:Array}(::Type{Grad{2}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x2./y)`
+    hypot{T<:Array,S<:Array}(::Type{Grad{1}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x1./y)
+    hypot{T<:Array,S<:Array}(::Type{Grad{2}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x2./y)
 
 In fact @primitive generates four more definitions for the other
 boxed/unboxed argument combinations.
-
-Non-differentiable functions such as `sign`, and non-numeric functions
-such as `size` should be defined using the @zerograd macro instead.
 
 """
 macro primitive(f,g...)
@@ -108,14 +115,24 @@ macro primitive(f,g...)
 end
 
 """
-`@zerograd f(args...; kwargs...)` allows f to handle its Rec inputs
-by unboxing them like @primitive, but unlike @primitive it does not
-record its actions or return a Rec result.  Some functions, like
-sign(), have zero gradient.  Others, like length() have discrete or
-constant outputs.  These need to handle Rec inputs, but do not need
-to record anything and can return regular values.  Their output can be
-treated like a constant in the program.  Use the @zerograd macro for
-those.  Note that kwargs are NOT unboxed.
+
+    @zerograd f(args...; kwargs...)
+
+Define `f` as an AutoGrad primitive operation with zero gradient.
+    
+# Example:
+
+    @zerograd floor(x::Float32)
+
+`@zerograd` allows `f` to handle boxed `Rec` inputs by unboxing them
+like a `@primitive`, but unlike `@primitive` it does not record its
+actions or return a boxed `Rec` result.  Some functions, like
+`sign()`, have zero gradient.  Others, like `length()` have discrete
+or constant outputs.  These need to handle `Rec` inputs, but do not
+need to record anything and can return regular values.  Their output
+can be treated like a constant in the program.  Use the `@zerograd`
+macro for those.  Note that `kwargs` are NOT unboxed.
+
 """
 macro zerograd(f)
     b = Expr(:block)

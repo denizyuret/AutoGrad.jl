@@ -28,17 +28,15 @@ macro dbgcore(x); end
 
 """
 
-grad(fun, argnum=1) -> gradfun    
+    grad(fun, argnum=1)
 
-* fun: X->Y    
-* gradfun: X->dX   
-
-Returns a function which computes the gradient of `fun` with respect
-to positional argument number `argnum`. The function `fun` should be
-scalar-valued. The returned function `gradfun` takes the same
-arguments as `fun`, but returns the gradient instead. The gradient has
-the same type and size as the target argument which can be a Number,
-Array, Tuple, or Dict.
+Take a function `fun(X...)->Y` and return another function
+`gfun(X...)->dXi` which computes its gradient with respect to
+positional argument number `argnum`. The function `fun` should be
+scalar-valued. The returned function `gfun` takes the same arguments
+as `fun`, but returns the gradient instead. The gradient has the same
+type and size as the target argument which can be a Number, Array,
+Tuple, or Dict.
 
 """
 function grad(fun::Function, argnum::Int=1)
@@ -50,7 +48,12 @@ function grad(fun::Function, argnum::Int=1)
 end
 
 """
-Another version of `grad(f)` which additionally returns `loss`
+
+    gradloss(fun, argnum=1)
+
+Another version of `grad` where the generated function returns a
+(gradient,value) pair.
+
 """
 function gradloss(fun::Function, argnum::Int=1)
     #@dbgcore((:grad,fun,argnum))
@@ -152,7 +155,13 @@ end # let fdict
 
 # recorder deps: Rec, Node, iscomplete, findeq
 
-"getval(x) unboxes x if it is a Rec, otherwise returns x."
+"""
+
+    getval(x)
+
+Unbox `x` if it is a boxed value (`Rec`), otherwise return `x`.
+
+"""
 getval(x) = (if isa(x, Rec); x.value; else; x; end)  # we never create Rec(Rec).
 
 # this is much faster than map(getval,args)
