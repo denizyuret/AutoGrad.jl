@@ -130,8 +130,13 @@ function gc_scalar(f)
         srand(r,1)
         y = f(x...; o...)
         v = AutoGrad.getval(y)
-        a = oftype(v, rand(r, size(v)))
-        sum(y .* a)
+        try
+            a = oftype(v, rand(r, size(v)))
+            return sum(y .* a)
+        catch
+            Base.warn_once("Cannot convert `$f` to a scalar function.")
+            return 0
+        end
     end
     return g
 end
