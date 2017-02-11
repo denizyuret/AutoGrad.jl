@@ -22,8 +22,6 @@ import Base: linearindexing
 # reshape
 @primitive reshape(x,i...),dy  reshape(dy,size(x))
 addtest(reshape,rand(2,2),(4,1))
-@primitive vec(x),dy reshape(dy,size(x))
-addtest(vec,rand(2,2))
 # copy!: Overwriting operation
 # copy: interfaces.jl
 # copy_transpose!: Not exported
