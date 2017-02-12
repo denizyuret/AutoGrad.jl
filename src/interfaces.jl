@@ -86,7 +86,7 @@ zeroslike(a::AbstractArray)=fill!(Array(Any,size(a)),nothing)
 zeroslike(a::Associative)=similar(a)
 zeroslike(o::OneHot)=zeros(o)
 
-_dbg(x::OneHot)="OH$(id2(x))_$(_dbg(x.container))_$((x.index...))_$(x.value)"
+_dbg(x::OneHot)="OH$(id2(x))_$(_dbg(x.container))_$((x.index...))_$(_dbg(x.value))"
 Base.show(io::IO, n::OneHot)= print(io, _dbg(n))
 
 # sum_outgrads needs to handle OneHot values:

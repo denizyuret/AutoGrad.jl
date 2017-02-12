@@ -332,6 +332,7 @@ _dbg(x::Node)="N$(id2(x))_$(id2(x.rec))"
 _dbg(x::Rec)="V$(id2(x))_$(_dbg(x.value))"
 _dbg(x::Tape)="T$(join([id2(x),map(id2,x)...],'_'))"
 _dbg(x::AbstractArray)="A$(join([id2(x),size(x)...],'_'))"
+_dbg(x::Dict)="D$(id2(x))"
 id2(x)=Int(object_id(x)%1000)
 
 Base.show(io::IO, n::Rec) = print(io, _dbg(n))
