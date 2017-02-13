@@ -4,9 +4,15 @@ AutoGrad v0.0.5 Release Notes
 * gradloss is added as an alternative to grad.  gradloss(f) generates
   a function that returns a (gradient, result) tuple.
 
-* gradcheck is added as an alternative gradient checking mechanism.
+* gradcheck is added as an alternative gradient checking mechanism. It
+  performs sampling to handle large arrays, and automatically
+  constructs a scalar function to handle array functions.
 
-* Added gradients for vecnorm, (.!=), (\).
+* Added gradients for vecnorm, (.!=), (\), linearindexing, vec,
+  permutedims, ipermutedims.
+
+* `sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T})` was not
+  type preserving, now fixed.
 
 
 AutoGrad v0.0.4 Release Notes
