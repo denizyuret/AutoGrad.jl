@@ -326,14 +326,18 @@ typealias Dn{N} Type{Grad{N}}
 end
 
 # Pretty print for debugging:
-_dbg(x)=x # extend to define short printable representations
+_dbg(x)=summary(x) # extend to define short printable representations
 _dbg(x::Tuple)=map(_dbg,x)
-_dbg(x::Node)="N$(id2(x))_$(id2(x.rec))"
-_dbg(x::Rec)="V$(id2(x))_$(_dbg(x.value))"
-_dbg(x::Tape)="T$(join([id2(x),map(id2,x)...],'_'))"
-_dbg(x::AbstractArray)="A$(join([id2(x),size(x)...],'_'))"
-_dbg(x::Dict)="D$(id2(x))"
-id2(x)=Int(object_id(x)%1000)
+_dbg(x::Node)=_dbg(x.rec.value)*"N"
+_dbg(x::Rec)=_dbg(x.value)*"R"
+_dbg(x::Tape)="N"*ssize(x)
+_dbg(x::AbstractArray)=_dbg(x[1])*ssize(x)
+_dbg(x::Array{Any})="A"*ssize(x)
+_dbg(x::Dict)="H"*id2(x)
+_dbg(x::Float32)="S"*id2(x)
+_dbg(x::Float64)="D"*id2(x)
+id2(x)="$(object_id(x)%1000)"
+ssize(x)="$(size(x))"
 
 Base.show(io::IO, n::Rec) = print(io, _dbg(n))
 Base.show(io::IO, n::Node) = print(io, _dbg(n))

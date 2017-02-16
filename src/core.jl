@@ -146,7 +146,7 @@ function rfun(args...; kwargs...)
             rnode.parents[argnum] = parent
         end
     end
-    @dbgcore((:call, f, :ret, result, :args, args..., kwargs...))
+    @dbgcore((:call, f, :y, result, :x, args..., :k, kwargs...))
     return result
 end # function rfun
 return (fdict[f] = rfun)
@@ -198,7 +198,7 @@ end
 # the gradient wrt the start_box.
 
 function backward_pass(start_box, end_box, tape)
-    @dbgcore((:back,:start,start_box,:end,end_box,:tape,tape,tape...))
+    @dbgcore((:back,:start,start_box,:end,end_box)) # ,:tape,tape,tape...))
 
 # 4.2 If end_box is not a Rec on the given tape, we return zero
 # df/fx if x is a bits type, `nothing` otherwise.  end_box may not
@@ -225,17 +225,17 @@ function backward_pass(start_box, end_box, tape)
 # 4.4 the tape is read in reverse and for each node with a non-zero
 # outgrad its ingrads are computed using the gradient methods.
 
-    for node in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
-        node.outgrad == nothing && continue
-        for i=1:length(node.parents)
-            isassigned(node.parents,i) || continue
-            parent = node.parents[i]
-            b = node.rec
-            #@dbgcore((:sum0,b.func,Grad{i},node.outgrad,b.value,b.args...,b.kwargs...))
-            og = b.func(Grad{i},node.outgrad,b.value,b.args...;b.kwargs...)
-            #@dbgcore((:sum1,parent.outgrad,og))
-            parent.outgrad = sum_outgrads(parent.outgrad, og)
-            @dbgcore((:back,b.func,Symbol("dx$i"),og,:sum,parent.outgrad,:dy,node.outgrad,:y,b.value,:x,b.args...,b.kwargs...))
+    for n in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
+        n.outgrad == nothing && continue
+        r = n.rec
+        @dbgcore((:back,r.func,:dy,n.outgrad,:y,r.value,:x,r.args...,:k,r.kwargs...))
+        for i=1:length(n.parents)
+            isassigned(n.parents,i) || continue
+            p = n.parents[i]
+            og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...)
+            @dbgcore((Symbol("back$i"),og,p.outgrad))
+            p.outgrad = sum_outgrads(p.outgrad, og)
+            @dbgcore((Symbol("back$i"),og,p.outgrad))
         end
     end
 

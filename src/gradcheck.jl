@@ -285,7 +285,7 @@ end
 
 # isequivalent uses isapprox for Number and AbstractArray{T<:Number}
 isequivalent(x::Number,y::Number; o...)=isapprox(x,y;o...)
-isequivalent{T<:Number,S<:Number}(x::AbstractArray{T},y::AbstractArray{S}; o...)=isapprox(x,y;o...)
+isequivalent{T<:Number,S<:Number}(x::AbstractArray{T},y::AbstractArray{S}; o...)=(size(x)==size(y) && isapprox(x,y;o...))
 
 # isequivalent extends to Tuple, Associative, and other Arrays, comparing elementwise
 isequivalent(x::Tuple, y::Tuple; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
