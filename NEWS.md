@@ -1,3 +1,10 @@
+AutoGrad v0.0.6 Release Notes
+=============================
+
+* Added scalar support to Ac_mul_B etc. which were causing trouble
+  with expressions like Array'*Scalar.
+
+
 AutoGrad v0.0.5 Release Notes
 =============================
 
