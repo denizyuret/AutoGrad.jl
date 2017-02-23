@@ -50,7 +50,7 @@ for f in broadcast2cmp
     @eval begin
         # To avoid conflict at broadcast.jl:414
         $f(x1::AbstractArray,x2::Rec)=$f(x1,x2.value)
-        $f(x1::Rec,x2::AbstractArray)=$f(x1,x2.value)
+        $f(x1::Rec,x2::AbstractArray)=$f(x1.value,x2)
         @zerograd $f(x1,x2)
     end
 end
