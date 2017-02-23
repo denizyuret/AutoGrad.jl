@@ -1,9 +1,11 @@
-2017-02-16  Deniz Yuret  <dyuret@ku.edu.tr>
+2017-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Add convert as a primitive, need to handle Node(::Rec) constructor. Too dangerous, could not find a safe way.
 
 	* TODO:
-	# Add convert as a primitive, need to handle Node(::Rec) constructor.
-	# Test and fix Julia v0.6 compatibility: gradients with broadcast.
 	# Generate reference document using Documenter.jl converting core.jl comments into docstrings.
+	# Test and fix Julia v0.6 compatibility: gradients with broadcast.
 	# test higher order gradients of cat, getindex and other utilities.
 	# log and unbroadcast fail test with the new toscalar.
 	# Implement backward operations in profile.jl.
