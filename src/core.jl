@@ -4,6 +4,45 @@ macro dbgcore(x); end
 
 """
 
+`AutoGrad` implements the [`grad`](@ref) higher-order function that
+automates gradient calculations for arbitrary Julia code:
+
+    g = grad(f)
+    f(x,...) => y
+    g(x,...) => ∇f
+
+`grad` takes a scalar-valued function `f` as input and generates a
+gradient function `g` as output.  `g` has the same inputs as `f` but
+it returns the gradient of `f` with respect to one of its arguments.
+The target argument `x` can be a `Number`, `Array`, `Tuple` or `Dict`.
+The computed gradient `∇f` will have the same type and structure as
+`x`.
+
+`g` performs its gradient calculation using a [`forward_pass`](@ref)
+and a [`backward_pass`](@ref).  During the [`forward_pass`](@ref) `f`
+is applied to the given arguments and the primitive operations
+executed (like `+`) are recorded.  The [`backward_pass`](@ref),
+applies the chain rule to the recorded operations to calculate the
+gradient.
+
+The recorded operations are represented by the [`Rec`](@ref) type that
+keeps pointers to their inputs and outputs (which therefore should not
+be overwritten).  The recording is triggered by boxing the initial
+argument `x` in a [`Rec`](@ref) instance.  Almost all primitive
+operations in the Julia library are overloaded so that if one of their
+inputs is boxed they record their inputs and outputs and return a
+boxed output.
+
+"""
+AutoGrad
+
+# And some background info:
+# 5. How recording is done.
+# 6. How new primitives and their gradients are defined.
+# 7. How higher order gradients work.
+
+"""
+
     grad(f, argnum=1)
 
 Take a function `f(X...)->Y` and return another function
@@ -13,6 +52,12 @@ scalar-valued. The returned function `g` takes the same arguments as
 `f`, but returns the gradient instead. The gradient has the same type
 and size as the target argument which can be a `Number`, `Array`,
 `Tuple`, or `Dict`.
+
+Notes:
+* `g` is called with the same inputs as `f`.
+* `g` supports both regular and keyword args.
+* Only one of the regular args is the gradient target, specified by the `argnum` argument of `grad` (defaults to 1).
+* To compute gradients of multiple parameters, they can be grouped in a single arg using `Array`, `Dict`, or `Tuple`.
 
 """
 function grad(fun::Function, argnum::Int=1)
@@ -45,27 +90,6 @@ function gradloss(fun::Function, argnum::Int=1)
 end
 
 
-# And some background info:
-# 5. How recording is done.
-# 6. How new primitives and their gradients are defined.
-# 7. How higher order gradients work.
-
-"""
-
-Here are the rough steps performed by `g(x)` where `g=grad(f)`:
-1. `g` is called with the same inputs as `f`.
-2. `g` calls [`forward_pass`](@ref) which calls `f` with a boxed (specially marked) `x`.
-3. If a primitive operator inside `f` gets a boxed input, it records its input/output and returns a boxed output.
-4. `g` calls [`backward_pass`](@ref) which goes through the recorded operations and computes the gradient `df/dx`.
-
-Notes:
-* `g` is called with the same inputs as `f`.
-* `g` supports both regular and keyword args.
-* Only one of the regular args is the gradient target, specified by the `argnum` argument of `grad` (defaults to 1).
-* To compute gradients of multiple parameters, they can be grouped in a single arg using `Array`, `Dict`, or `Tuple`.
-
-"""
-grad_intro = 0
 
 """
 
