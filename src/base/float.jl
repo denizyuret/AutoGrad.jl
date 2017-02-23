@@ -45,36 +45,8 @@ end
 # *(A::Number, B::AbstractArray{T,N}) at abstractarraymath.jl:54  (calls .*)
 # *(A::AbstractArray{T,N}, B::Number) at abstractarraymath.jl:55  (calls .*)
 # The Array-Array case is handled by linalg/matmul.
-
-# To distinguish these from the Array-Array case, we type the scalars:
-# Note that Ac_mul_B etc. can also be called with scalars.
-@primitive (*)(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive (*)(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2)  dy*x1
-@primitive (*)(x1,x2::Number),dy,y  dy*x2  unbroadcast(x2,dy.*x1)
-@primitive Ac_mul_B(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive Ac_mul_B(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2)  dy*x1
-@primitive Ac_mul_B(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
-@primitive A_mul_Bc(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive A_mul_Bc(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
-@primitive A_mul_Bc(x1,x2::Number),dy,y  dy*x2  unbroadcast(x2,dy.*x1)
-@primitive Ac_mul_Bc(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive Ac_mul_Bc(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
-@primitive Ac_mul_Bc(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
-@primitive At_mul_B(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive At_mul_B(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2)  dy*x1
-@primitive At_mul_B(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
-@primitive A_mul_Bt(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive A_mul_Bt(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
-@primitive A_mul_Bt(x1,x2::Number),dy,y  dy*x2  unbroadcast(x2,dy.*x1)
-@primitive At_mul_Bt(x1::Number,x2::Number),dy,y  dy*x2  dy*x1
-@primitive At_mul_Bt(x1::Number,x2),dy,y  unbroadcast(x1,dy.*x2')  reshape(dy'*x1,size(x2))
-@primitive At_mul_Bt(x1,x2::Number),dy,y  reshape(dy'*x2,size(x1))  unbroadcast(x2,dy.*x1')
-
-for f in (:*, :Ac_mul_B, :A_mul_Bc, :Ac_mul_Bc, :At_mul_B, :A_mul_Bt, :At_mul_Bt)
-    addtest(f,randn(),randn())
-    addtest(f,randn(),randn(2))
-    addtest(f,randn(2),randn())
-end
+# a*b' etc. get handled by A_mul_Bc even if a or b are scalar.
+# So we'll handle all multiplication in matmul.jl.
 
 # Methods for division:
 # /(x::Float64, y::Float64) at float.jl:214
