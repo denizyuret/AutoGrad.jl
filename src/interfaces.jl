@@ -151,6 +151,10 @@ interfacesNarg = [
 :stride,
 ]
 
+# to prevent ambiguity with abstractarray.jl:470
+@zerograd similar(x)
+@zerograd similar(x, dims::Base.DimOrInd...) 
+
 for _f in interfacesNarg
     @eval @zerograd $_f(x,i...)
 end
