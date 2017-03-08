@@ -1,10 +1,15 @@
-2017-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
+2017-03-08  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# Add convert as a primitive, need to handle Node(::Rec) constructor. Too dangerous, could not find a safe way.
+	# Rename OneHot -> UngetIndex.
+	# Fix buggy gradient of getindex for repeated indices.
 
 	* TODO:
+	# Check the todo items in interfaces.jl.
+	# Get the tests out of src.
+	# Look into the pull request and speed benchmark issue.
 	# Generate reference document using Documenter.jl converting core.jl comments into docstrings.
+	# Pick test ranges to avoid floating failures (e.g. acoth args close to 1)
 	# Test and fix Julia v0.6 compatibility: gradients with broadcast.
 	# test higher order gradients of cat, getindex and other utilities.
 	# log and unbroadcast fail test with the new toscalar.
@@ -17,6 +22,11 @@
 	# avoid double normalization in softmax.
 	# find the problem with runtests when length=2 and higher order	dict support, open issues.
 	# finish all function gradients.
+
+2017-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Add convert as a primitive, need to handle Node(::Rec) constructor. Too dangerous, could not find a safe way.
 
 2016-09-03  Deniz Yuret  <dyuret@ku.edu.tr>
 

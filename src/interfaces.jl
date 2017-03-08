@@ -9,96 +9,113 @@
 
 # We do not allow overwriting, so setindex! for Recs not allowed:
 
-setindex!(x::Rec,i...)=error("Overwriting operations currently not supported.")
+setindex!(x::Rec,v,i...)=error("Overwriting operations currently not supported.")
 
 # We handle the containers by overloading getindex:
 
-@primitive  getindex(x,i...),dxi,xi  ungetindex(dxi,x,i)
+@primitive  getindex(x,i...),dxi,xi  ungetindex(x,dxi,i)
 getindex{T<:Grad}(::Type{T},o...)=nothing # Only the first arg has gradient
-addtest(getindex, rand(2), 1)
-addtest(getindex, rand(3), 2:3)
+
+# http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
+addtest(getindex, rand(2), 1)   # Integer
+addtest(getindex, rand(2,2), CartesianIndex(1,2)) # CartesianIndex
+addtest(getindex, rand(3), [1,3]) # Vector{Int}
+addtest(getindex, rand(4), [1 3; 2 4]) # Array{Int}
+addtest(getindex, rand(2), []) # EmptyArray
+addtest(getindex, rand(3), 2:3) # Range
+addtest(getindex, rand(3), 1:2:3) # StridedRange
+addtest(getindex, rand(2,2), [CartesianIndex(1,2),CartesianIndex(2,1)]) # Array{CartesianIndex}
+addtest(getindex, rand(2,2), :, 1) # Colon
+addtest(getindex, rand(3), [true, false, true]) # Array{Bool}
 addtest(getindex, rand(2,2), 1, 2)
 addtest(getindex, rand(3,3), 1:2, 3)
+addtest(getindex, rand(3), [2,2]) # repeated index
+
+# For efficiency we use the following sparse container
+# This object represents what you would get with 
+# setindex!(similar(container), value, index...)
+# If there are repeated indices, the corresponding values should be summed.
+
+immutable UngetIndex; container; value; index; end
 
 # Gradient of getindex: If xi=getindex(x,i...) and we receive dxi,
 # ungetindex creates dx representing zeros similar to x, with only
-# dx[i] set to dxi.  We use the sparse container OneHot for
+# dx[i...] set to dxi.  We use the sparse container UngetIndex for
 # efficiency.
 # x -> getindex -> xi -> grad -> dxi -> ungetindex -> dx -> grad -> ddx -> getindex -> ddxi
 
-ungetindex(dxi,x,i)=OneHot(dxi,x,i)
+ungetindex(x,dxi,i)=UngetIndex(x,dxi,i)
 
 # For higher order derivatives, the operation of ungetindex might be
 # recorded and differentiated, so it must be a primitive.  It is only
-# differentiable wrt its first arg.  The following methods cover
-# (a,a), (v,a), (g,a), (g1,a) argtypes.
+# differentiable wrt its value arg.  The following methods cover
+# (a,a), (a,r), (g,a), (g2,a) argtypes.
 
 ungetindex_r = recorder(ungetindex)
-ungetindex(dxi::Rec,x,i)=ungetindex_r(dxi,x,i)
-ungetindex(::Type{Grad{1}},ddx,dx,dxi,x,i)=getindex(ddx,i...)
+ungetindex(x,dxi::Rec,i)=ungetindex_r(x,dxi,i)
+ungetindex(::Type{Grad{2}},ddx,dx,x,dxi,i)=getindex(ddx,getval(i)...)
 ungetindex(::Type,o...)=nothing
 
 # It should unbox its arguments, but it only needs to record if the
-# first argument is boxed.  We'll have to define this manually.  To
-# unbox the second arg and resolve ambiguity the following methods
-# cover (a,v), (v,v), (g,v), (g1,v).
+# value argument is boxed.  We'll have to define this manually.  To
+# unbox the container arg and resolve ambiguity the following methods
+# cover (r,r), (r,a), (g,r), (g2,r).
 
-ungetindex(dxi::Rec,x::Rec,i)=ungetindex(dxi,getval(x),getval(i))
-ungetindex(dxi,x::Rec,i)=ungetindex(dxi,getval(x),getval(i))
-ungetindex(::Type{Grad{1}},ddx::Rec,dx,dxi,x,i)=getindex(ddx,getval(i)...)
+ungetindex(x::Rec,dxi::Rec,i)=ungetindex(getval(x),dxi,getval(i))
+ungetindex(x::Rec,dxi,i)=ungetindex(getval(x),dxi,getval(i))
+ungetindex(::Type{Grad{2}},ddx::Rec,dx,x,dxi,i)=getindex(ddx,getval(i)...)
 ungetindex(::Type,ddx::Rec,o...)=nothing
 
-addtest(ungetindex, rand(), rand(2), (2,))
-addtest(ungetindex, rand(2), rand(3), (2:3,))
-addtest(ungetindex, rand(), rand(2,2), (1,2))
-addtest(ungetindex, rand(2), rand(3,3), (1:2,3))
+addtest(ungetindex, rand(2),   rand(),  (2,))
+addtest(ungetindex, rand(3),   rand(2), (2:3,))
+addtest(ungetindex, rand(2,2), rand(),  (1,2))
+addtest(ungetindex, rand(3,3), rand(2), (1:2,3))
 
-# For efficiency we use the following sparse container
+Base.sum(b::UngetIndex)=sum(b.value)
+Base.getindex(b::UngetIndex,i...)=getindex(full(b),i...) # TODO: solve without full(b)?
+Base.zeros(b::UngetIndex)=zeros(b.container)             # TODO: solve without b.container?
+Base.ones(b::UngetIndex)=ones(b.container)
+Base.length(b::UngetIndex)=length(b.container)
 
-if !isdefined(:OneHot)
-immutable OneHot; value; container; index; end
-end
-
-Base.sum(b::OneHot)=sum(b.value)
-Base.getindex(b::OneHot,i...)=getindex(full(b),i...)
-Base.zeros(b::OneHot)=zeros(b.container)
-Base.ones(b::OneHot)=ones(b.container)
-Base.length(b::OneHot)=length(b.container)
-
-function Base.full(b::OneHot)
-    if isa(b.container,Tuple)
-        c=zeroslike(collect(b.container))
-        if isa(b.value,Tuple)
-            setindex!(c,[b.value...],b.index...)
-        else
-            setindex!(c,b.value,b.index...)
+function Base.full(b::UngetIndex)
+    value = b.value
+    index = b.index[1]
+    # If index is an array of Int's or CartesianIndex{N}'s, values for repeated indices need to be summed
+    if length(b.index)==1 && isa(index,Array) && !isa(index,Array{Bool}) && length(index) > 1 && !allunique(index)
+        vdict = Dict{eltype(index),eltype(value)}()
+        for i in 1:length(index)
+            setindex!(vdict, value[i]+get(vdict,index[i],zero(value[i])), index[i])
         end
-        return tuple(c...)
-    else
-        c=zeroslike(b.container)
-        setindex!(c,b.value,b.index...)
-        return c
+        value = collect(value)
+        for i in 1:length(index)
+            value[i] = vdict[index[i]]
+        end
     end
+    if isa(value,Tuple); value = collect(value); end
+    if isa(b.container,Tuple); c = zeroslike(collect(b.container)); else; c = zeroslike(b.container); end
+    setindex!(c, value, b.index...)
+    if isa(b.container,Tuple); c = tuple(c...); end
+    return c
 end
 
 zeroslike{T<:Number}(a::AbstractArray{T})=zeros(a)
 zeroslike(a::AbstractArray)=fill!(Array(Any,size(a)),nothing)
 zeroslike(a::Associative)=similar(a)
-zeroslike(o::OneHot)=zeros(o)
+zeroslike(o::UngetIndex)=zeros(o) # TODO: can this be nothing or empty UngetIndex?
 
-_dbg(x::OneHot)="OH$(id2(x))_$(_dbg(x.container))_$((x.index...))_$(_dbg(x.value))"
-Base.show(io::IO, n::OneHot)= print(io, _dbg(n))
+_dbg(x::UngetIndex)="U$(id2(x))_$(_dbg(x.container))_$(_dbg(x.value))_$((x.index...))"
+Base.show(io::IO, n::UngetIndex)= print(io, _dbg(n))
 
-# sum_outgrads needs to handle OneHot values:
-sum_outgrads(a::OneHot,b::OneHot)=(if a.index==b.index; OneHot(a.container,sum_outgrads(a.value,b.value),a.index); else; sum_outgrads(full(a),b); end)
-sum_outgrads(a::Rec,b::OneHot)=error((:sum,a,b))
-sum_outgrads(a::OneHot,b::Rec)=error((:sum,a,b))
-sum_outgrads(a::Void,b::OneHot)=full(b)
-sum_outgrads(a::OneHot,b::Void)=error((:sum,a,b))
-sum_outgrads(a::OneHot,b)=error((:sum,a,Any))
-sum_outgrads(a::Tuple,b::OneHot)=(b=full(b);ntuple(length(a)) do i; sum_outgrads(a[i],b[i]); end)
-sum_outgrads(a::AbstractArray,b::OneHot)=setindex!(a,sum_outgrads(getindex(a,b.index...),b.value),b.index...)
-sum_outgrads(a::Associative,b::OneHot)=setindex!(a,sum_outgrads(get(a,b.index...,nothing),b.value),b.index...)
+# sum_outgrads needs to handle UngetIndex values:
+sum_outgrads(a::UngetIndex,b::UngetIndex)=(if a.index==b.index; UngetIndex(a.container,sum_outgrads(a.value,b.value),a.index); else; sum_outgrads(full(a),b); end)
+sum_outgrads(a::Rec,b::UngetIndex)=error((:sum,a,b))
+sum_outgrads(a::UngetIndex,b::Rec)=error((:sum,a,b))
+sum_outgrads(a::Void,b::UngetIndex)=full(b) # TODO: do we need full here?
+sum_outgrads(a::UngetIndex,b::Void)=error((:sum,a,b))
+sum_outgrads(a::UngetIndex,b)=error((:sum,a,Any))
+sum_outgrads(a::Tuple,b::UngetIndex)=(b=full(b);ntuple(length(a)) do i; sum_outgrads(a[i],b[i]); end) # TODO: do we need full here?
+sum_outgrads(a::AbstractArray,b::UngetIndex)=setindex!(a,sum_outgrads(getindex(a,b.index...),b.value),b.index...) # TODO: fix repeated index bug
+sum_outgrads(a::Associative,b::UngetIndex)=setindex!(a,sum_outgrads(get(a,b.index...,nothing),b.value),b.index...)
 
 # Iteration is used in `for x in a` loops and for `(x,y)=a` multiple
 # assignments.

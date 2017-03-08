@@ -294,7 +294,7 @@ end
 function toscalar(xv; rng=MersenneTwister())
     x = getval(xv)
     isa(x,Number) && return xv
-    isa(x,OneHot) && (x = full(x))
+    isa(x,UngetIndex) && (x = full(x))
     idx = isa(x,Tuple) ? (1:length(x)) : eachindex(x)
     s = 0
     for i in idx
@@ -337,7 +337,7 @@ _dbg(x::Dict)="H"*id2(x)
 _dbg(x::Float32)="S"*id2(x)
 _dbg(x::Float64)="D"*id2(x)
 id2(x)="$(object_id(x)%1000)"
-ssize(x)="$(size(x))"
+ssize(x)="$(collect(size(x)))"
 
 Base.show(io::IO, n::Rec) = print(io, _dbg(n))
 Base.show(io::IO, n::Node) = print(io, _dbg(n))
