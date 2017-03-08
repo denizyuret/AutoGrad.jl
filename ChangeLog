@@ -5,6 +5,9 @@
 	# Fix buggy gradient of getindex for repeated indices.
 
 	* TODO:
+	# repmat does not work.
+	# oftype(Rec(a), b) should ignore Rec.
+	# similar(Rec(a), 2, 3) does not work.
 	# Check the todo items in interfaces.jl.
 	# Get the tests out of src.
 	# Look into the pull request and speed benchmark issue.
