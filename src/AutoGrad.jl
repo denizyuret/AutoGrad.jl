@@ -1,6 +1,8 @@
 VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module AutoGrad
+using Compat
+
 importall Base  # defining getindex, sin, etc.
 export grad, gradloss, check_grads, gradcheck
 export @primitive, @zerograd, recorder, Rec, Grad  # the last three are required for the macros to work

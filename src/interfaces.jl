@@ -18,13 +18,13 @@ getindex{T<:Grad}(::Type{T},o...)=nothing # Only the first arg has gradient
 
 # http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
 addtest(getindex, rand(2), 1)   # Integer
-addtest(getindex, rand(2,2), CartesianIndex(1,2)) # CartesianIndex
+addtest(getindex, rand(2,2), CartesianIndex((1,2))) # CartesianIndex
 addtest(getindex, rand(3), [1,3]) # Vector{Int}
 addtest(getindex, rand(4), [1 3; 2 4]) # Array{Int}
 addtest(getindex, rand(2), []) # EmptyArray
 addtest(getindex, rand(3), 2:3) # Range
 addtest(getindex, rand(3), 1:2:3) # StridedRange
-addtest(getindex, rand(2,2), [CartesianIndex(1,2),CartesianIndex(2,1)]) # Array{CartesianIndex}
+addtest(getindex, rand(2,2), [CartesianIndex((1,2)),CartesianIndex((2,1))]) # Array{CartesianIndex}
 addtest(getindex, rand(2,2), :, 1) # Colon
 addtest(getindex, rand(3), [true, false, true]) # Array{Bool}
 addtest(getindex, rand(2,2), 1, 2)
@@ -168,9 +168,12 @@ interfacesNarg = [
 :stride,
 ]
 
-# to prevent ambiguity with abstractarray.jl:470
 @zerograd similar(x)
+
+if VERSION >= v"0.5.0"
+# to prevent ambiguity with abstractarray.jl:470
 @zerograd similar(x, dims::Base.DimOrInd...) 
+end
 
 for _f in interfacesNarg
     @eval @zerograd $_f(x,i...)
