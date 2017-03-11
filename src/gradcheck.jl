@@ -153,7 +153,7 @@ let tests=[]
         for fx in a
             try 
                 tx = fixtest(fx...)
-                check_grads(tx...; fname=fx[1])
+                check_grads(tx...; fname=fx[1]) || throw(:fail)
             catch e
                 warn((fx...,"$e"))
             end
@@ -255,7 +255,7 @@ function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL, fname=fun)
     numeric = nd(fun, args...; eps=eps)
     #@dbgutil((:check_grads,fname,:exact,exact,:numeric,numeric))
     same = isequivalent(exact, numeric; rtol=rtol, atol=atol)
-    same || warn((:check_grads,fname,:args,args,:exact,exact,:numeric,numeric))
+    #same || warn((:check_grads,fname,:args,args,:exact,exact,:numeric,numeric))
     return same
 end
 
