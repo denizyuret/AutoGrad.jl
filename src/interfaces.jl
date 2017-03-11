@@ -17,24 +17,36 @@ setindex!(x::Rec,v,i...)=error("Overwriting operations currently not supported."
 getindex{T<:Grad}(::Type{T},o...)=nothing # Only the first arg has gradient
 
 # http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
+if VERSION < v"0.5.0"
+    Base.IteratorsMD.CartesianIndex(i::Int...)=CartesianIndex(i)
+end
 addtest(getindex, rand(2), 1)   # Integer
-addtest(getindex, rand(2,2), CartesianIndex((1,2))) # CartesianIndex
+addtest(getindex, rand(2,2), CartesianIndex(1,2)) # CartesianIndex
 addtest(getindex, rand(3), [1,3]) # Vector{Int}
 addtest(getindex, rand(4), [1 3; 2 4]) # Array{Int}
 addtest(getindex, rand(2), []) # EmptyArray
 addtest(getindex, rand(3), 2:3) # Range
 addtest(getindex, rand(3), 1:2:3) # StridedRange
-addtest(getindex, rand(2,2), [CartesianIndex((1,2)),CartesianIndex((2,1))]) # Array{CartesianIndex}
+addtest(getindex, rand(2,2), [CartesianIndex(1,2),CartesianIndex(2,1)]) # Array{CartesianIndex}
 addtest(getindex, rand(2,2), :, 1) # Colon
 addtest(getindex, rand(3), [true, false, true]) # Array{Bool}
 addtest(getindex, rand(2,2), 1, 2)
 addtest(getindex, rand(3,3), 1:2, 3)
 addtest(getindex, rand(3), [2,2]) # repeated index
+addtest(getindex, rand(3,3), [2,2], :)
+addtest(getindex, rand(3,3), :, [2,2])
 
 # For efficiency we use the following sparse container
 # This object represents what you would get with 
 # setindex!(similar(container), value, index...)
 # If there are repeated indices, the corresponding values should be summed.
+
+# TODO: we could have values/indices instead of value/index and use UngetIndex as a more efficient accumulator.
+# TODO: use full much more rarely and keep things as UngetIndex.
+# TODO: fix full to use addindex!
+# TODO: fix sum_outgrads as well to do the right thing.
+# TODO: implement KnetArray version of addindex!
+# TODO: figure out julia4 problem with Array{CartesianIndex}
 
 immutable UngetIndex; container; value; index; end
 
@@ -80,26 +92,25 @@ Base.length(b::UngetIndex)=length(b.container)
 function Base.full(b::UngetIndex)
     value = b.value
     index = b.index[1]
+    if isa(value,Tuple); value = collect(value); end
     # If index is an array of Int's or CartesianIndex{N}'s, values for repeated indices need to be summed
     if length(b.index)==1 && isa(index,Array) && !isa(index,Array{Bool}) && length(index) > 1 && !allunique(index)
         vdict = Dict{eltype(index),eltype(value)}()
         for i in 1:length(index)
             setindex!(vdict, value[i]+get(vdict,index[i],zero(value[i])), index[i])
         end
-        value = collect(value)
         for i in 1:length(index)
             value[i] = vdict[index[i]]
         end
     end
-    if isa(value,Tuple); value = collect(value); end
     if isa(b.container,Tuple); c = zeroslike(collect(b.container)); else; c = zeroslike(b.container); end
     setindex!(c, value, b.index...)
     if isa(b.container,Tuple); c = tuple(c...); end
     return c
 end
 
-zeroslike{T<:Number}(a::AbstractArray{T})=zeros(a)
-zeroslike(a::AbstractArray)=fill!(Array(Any,size(a)),nothing)
+zeroslike{T<:Number}(a::AbstractArray{T})=zeros(a)  # TODO: can this be nothing or an empty UngetIndex?
+zeroslike(a::AbstractArray)=fill!(Array(Any,size(a)),nothing) # TODO: can this be nothing or an empty UngetIndex?
 zeroslike(a::Associative)=similar(a)
 zeroslike(o::UngetIndex)=zeros(o) # TODO: can this be nothing or empty UngetIndex?
 
@@ -116,6 +127,9 @@ sum_outgrads(a::UngetIndex,b)=error((:sum,a,Any))
 sum_outgrads(a::Tuple,b::UngetIndex)=(b=full(b);ntuple(length(a)) do i; sum_outgrads(a[i],b[i]); end) # TODO: do we need full here?
 sum_outgrads(a::AbstractArray,b::UngetIndex)=setindex!(a,sum_outgrads(getindex(a,b.index...),b.value),b.index...) # TODO: fix repeated index bug
 sum_outgrads(a::Associative,b::UngetIndex)=setindex!(a,sum_outgrads(get(a,b.index...,nothing),b.value),b.index...)
+
+
+### ITERATION
 
 # Iteration is used in `for x in a` loops and for `(x,y)=a` multiple
 # assignments.

@@ -2,9 +2,17 @@
 
 	* DONE:
 	# Rename OneHot -> UngetIndex.
-	# Fix buggy gradient of getindex for repeated indices.
 
 	* TODO:
+	# ungetindex problems:
+	## Fix buggy gradient of getindex for repeated indices.
+	## we could have indices instead of index and use UngetIndex as a more efficient accumulator.
+	## use full much more rarely and keep things as UngetIndex.
+	## fix full to use addindex!
+	## fix sum_outgrads as well to do the right thing.
+	## implement KnetArray version of addindex!
+	## figure out julia4 problem with Array{CartesianIndex}
+
 	# repmat does not work.
 	# oftype(Rec(a), b) should ignore Rec.
 	# similar(Rec(a), 2, 3) does not work.
