@@ -16,26 +16,6 @@ setindex!(x::Rec,v,i...)=error("Overwriting operations currently not supported."
 @primitive  getindex(x,i...),dxi,xi  ungetindex(x,dxi,i)
 getindex{T<:Grad}(::Type{T},o...)=nothing # Only the first arg has gradient
 
-# http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
-if VERSION < v"0.5.0"
-    Base.IteratorsMD.CartesianIndex(i::Int...)=CartesianIndex(i)
-end
-addtest(getindex, rand(2), 1)   # Integer
-addtest(getindex, rand(2,2), CartesianIndex(1,2)) # CartesianIndex
-addtest(getindex, rand(3), [1,3]) # Vector{Int}
-addtest(getindex, rand(4), [1 3; 2 4]) # Array{Int}
-addtest(getindex, rand(2), []) # EmptyArray
-addtest(getindex, rand(3), 2:3) # Range
-addtest(getindex, rand(3), 1:2:3) # StridedRange
-addtest(getindex, rand(2,2), [CartesianIndex(1,2),CartesianIndex(2,1)]) # Array{CartesianIndex}
-addtest(getindex, rand(2,2), :, 1) # Colon
-addtest(getindex, rand(3), [true, false, true]) # Array{Bool}
-addtest(getindex, rand(2,2), 1, 2)
-addtest(getindex, rand(3,3), 1:2, 3)
-addtest(getindex, rand(3), [2,2]) # repeated index
-addtest(getindex, rand(3,3), [2,2], :)
-addtest(getindex, rand(3,3), :, [2,2])
-
 # For efficiency we use the following sparse container
 # This object represents what you would get with 
 # setindex!(similar(container), value, index...)
@@ -43,8 +23,6 @@ addtest(getindex, rand(3,3), :, [2,2])
 
 # TODO: we could have values/indices instead of value/index and use UngetIndex as a more efficient accumulator.
 # TODO: use full much more rarely and keep things as UngetIndex.
-# TODO: fix full to use addindex!
-# TODO: fix sum_outgrads as well to do the right thing.
 # TODO: implement KnetArray version of addindex!
 # TODO: figure out julia4 problem with Array{CartesianIndex}
 
@@ -60,74 +38,150 @@ ungetindex(x,dxi,i)=UngetIndex(x,dxi,i)
 
 # For higher order derivatives, the operation of ungetindex might be
 # recorded and differentiated, so it must be a primitive.  It is only
-# differentiable wrt its value arg.  The following methods cover
-# (a,a), (a,r), (g,a), (g2,a) argtypes.
+# differentiable wrt its value arg.  It should unbox its arguments,
+# but it only needs to record if the value argument is boxed.  We'll
+# have to define this manually.  To unbox the container arg and
+# resolve ambiguity the ungetindex methods cover all combinations of
+# first two args: 
+# (a,a), (a,r), (r,r), (r,a), (g2,a), (g2,r), (g,a), (g,r)
 
-ungetindex_r = recorder(ungetindex)
-ungetindex(x,dxi::Rec,i)=ungetindex_r(x,dxi,i)
-ungetindex(::Type{Grad{2}},ddx,dx,x,dxi,i)=getindex(ddx,getval(i)...)
-ungetindex(::Type,o...)=nothing
-
-# It should unbox its arguments, but it only needs to record if the
-# value argument is boxed.  We'll have to define this manually.  To
-# unbox the container arg and resolve ambiguity the following methods
-# cover (r,r), (r,a), (g,r), (g2,r).
-
+let ungetindex_r = recorder(ungetindex); global ungetindex
+    ungetindex(x,dxi::Rec,i)=ungetindex_r(x,dxi,i)
+end
 ungetindex(x::Rec,dxi::Rec,i)=ungetindex(getval(x),dxi,getval(i))
 ungetindex(x::Rec,dxi,i)=ungetindex(getval(x),dxi,getval(i))
+ungetindex(::Type{Grad{2}},ddx,dx,x,dxi,i)=getindex(ddx,getval(i)...)
 ungetindex(::Type{Grad{2}},ddx::Rec,dx,x,dxi,i)=getindex(ddx,getval(i)...)
-ungetindex(::Type,ddx::Rec,o...)=nothing
+ungetindex{T<:Grad}(::Type{T},o...)=nothing
+ungetindex{T<:Grad}(::Type{T},ddx::Rec,o...)=nothing
 
 addtest(ungetindex, rand(2),   rand(),  (2,))
 addtest(ungetindex, rand(3),   rand(2), (2:3,))
 addtest(ungetindex, rand(2,2), rand(),  (1,2))
 addtest(ungetindex, rand(3,3), rand(2), (1:2,3))
 
-Base.sum(b::UngetIndex)=sum(b.value)
-Base.getindex(b::UngetIndex,i...)=getindex(full(b),i...) # TODO: solve without full(b)?
-Base.zeros(b::UngetIndex)=zeros(b.container)             # TODO: solve without b.container?
-Base.ones(b::UngetIndex)=ones(b.container)
-Base.length(b::UngetIndex)=length(b.container)
+# sum_outgrads(accumulator,newval) needs to handle UngetIndex values:
 
-function Base.full(b::UngetIndex)
-    value = b.value
-    index = b.index[1]
-    if isa(value,Tuple); value = collect(value); end
-    # If index is an array of Int's or CartesianIndex{N}'s, values for repeated indices need to be summed
-    if length(b.index)==1 && isa(index,Array) && !isa(index,Array{Bool}) && length(index) > 1 && !allunique(index)
-        vdict = Dict{eltype(index),eltype(value)}()
-        for i in 1:length(index)
-            setindex!(vdict, value[i]+get(vdict,index[i],zero(value[i])), index[i])
-        end
-        for i in 1:length(index)
-            value[i] = vdict[index[i]]
-        end
-    end
-    if isa(b.container,Tuple); c = zeroslike(collect(b.container)); else; c = zeroslike(b.container); end
-    setindex!(c, value, b.index...)
-    if isa(b.container,Tuple); c = tuple(c...); end
-    return c
+# The accumulator/outgrad values start as nothing.  They can
+# potentially be returned to the user by gradfun, so the current
+# design is to not use UngetIndex for outgrad lest it gets exposed to
+# the user. May rethink this from an efficiency perspective.
+
+function sum_outgrads(a::Void,b::UngetIndex)
+    full(b) # TODO: do we need full here? consider keeping UngetIndex as an accumulator.
 end
+
+function sum_outgrads(a::Tuple,b::UngetIndex)
+    ca = collect(Any,a)
+    if length(b.index[1]) > 1
+        cb = collect(Any,b.value)
+    else
+        cb = b.value
+    end
+    tuple(sum_outgrads_array(ca, cb, b.index...)...)
+end
+
+# Dict has no multiple/repeated index problem, so simple setindex should work.
+# If we change UngetIndex to have multiple indices, we need to be careful here.
+function sum_outgrads(a::Associative,b::UngetIndex)
+    setindex!(a,sum_outgrads(get(a,b.index...,nothing),b.value),b.index...)
+end
+
+function sum_outgrads(a::AbstractArray,b::UngetIndex)
+    # println((size(a),size(b.container),size(b.value),b.index))
+    sum_outgrads_array(a, b.value, b.index...)
+end
+
+# We need the following two functions to deal with repeated indices.
+
+# Based on base/multidimensional.jl:420 _unsafe_batchsetindex!
+using Base.Cartesian
+using Base: index_lengths, setindex_shape_check, decolon
+
+@generated function sum_outgrads_array(A::AbstractArray, X, I::Union{Real,AbstractArray,Colon}...)
+    N = length(I)
+    quote
+        @nexprs $N d->(I_d = I[d])
+        # We need to handle bool arrays
+        @nexprs $N d->(if isa(I_d,AbstractArray{Bool}); I_d=find(I_d); end)
+        # Using nothing for zero array fails this check
+        # idxlens = @ncall $N index_lengths A I
+        # @ncall $N setindex_shape_check X (d->idxlens[d])
+        J = @ncall $N decolon A I
+        @nexprs $N d->(J_d = J[d])
+        Xs = start(X)
+        @inbounds @nloops $N j d->J_d begin
+            v, Xs = next(X, Xs)
+            u = @ncall $N getindex A j
+            w = sum_outgrads(u,v)
+            @ncall $N setindex! A w j
+        end
+        A
+    end
+end
+
+function sum_outgrads_array(A::AbstractArray, X, I::AbstractArray)
+    Xs = start(X)
+    @inbounds for i in I
+        v, Xs = next(X, Xs)
+        u = getindex(A, i)
+        w = sum_outgrads(u,v)
+        setindex!(A,w,i)
+    end
+    A
+end
+
+# The following methods can assume there are no repeated indices:
+
+sum_outgrads_array(A::AbstractArray, X, I::CartesianIndex)=sum_outgrads_single(A,X,I)
+sum_outgrads_array(A::AbstractArray, X, I::Real)=sum_outgrads_single(A,X,I)
+sum_outgrads_array(A::AbstractArray, X, I::Colon)=sum_outgrads_single(A,X,I)
+sum_outgrads_array(A::AbstractArray, X, I::AbstractArray{Bool})=sum_outgrads_single(A,X,I)
+sum_outgrads_array(A::AbstractArray, X, I::Range)=sum_outgrads_single(A,X,I)
+function sum_outgrads_single(A::AbstractArray, X, I)
+    v = sum_outgrads(getindex(A,I), X)
+    setindex!(A, v, I)
+end
+
+# This gets used in higher order gradients.
+function sum_outgrads(a::UngetIndex,b::UngetIndex)
+    if a.index==b.index
+        UngetIndex(a.container,sum_outgrads(a.value,b.value),a.index) 
+    else                        # TODO: we could always return UngetIndex if it supported multiple indices.
+        sum_outgrads(full(a),b) # TODO: this can be erased if we use full above
+    end
+end
+
+# This comes up if people use getindex on a number:
+function sum_outgrads{T<:Number}(a::T, b::UngetIndex)
+    if !(b.index == (1,) && isa(b.value,T))
+        throw(ArgumentError("sum_outgrads($a,$b)"))
+    end
+    a + b.value
+end
+
+# These should be never needed as long as we do not use UngetIndex as an accumulator on the LHS.
+# sum_outgrads(a::Rec,b::UngetIndex)=error((:sum,a,b))
+# sum_outgrads(a::UngetIndex,b::Rec)=error((:sum,a,b))
+# sum_outgrads(a::UngetIndex,b::Void)=error((:sum,a,b))
+# sum_outgrads(a::UngetIndex,b)=error((:sum,a,Any))
+
+sum(b::UngetIndex)=sum(b.value)
+getindex(b::UngetIndex,i...)=getindex(full(b),i...) # TODO: solve without full(b)?
+zeros(b::UngetIndex)=zeros(b.container)             # TODO: solve without b.container?
+ones(b::UngetIndex)=ones(b.container)
+length(b::UngetIndex)=length(b.container)
+full(b::UngetIndex)=sum_outgrads(zeroslike(b.container), b)
 
 zeroslike{T<:Number}(a::AbstractArray{T})=zeros(a)  # TODO: can this be nothing or an empty UngetIndex?
 zeroslike(a::AbstractArray)=fill!(Array(Any,size(a)),nothing) # TODO: can this be nothing or an empty UngetIndex?
 zeroslike(a::Associative)=similar(a)
+zeroslike(a::Tuple)=ntuple(i->nothing, length(a))
 zeroslike(o::UngetIndex)=zeros(o) # TODO: can this be nothing or empty UngetIndex?
+zeroslike{T<:Number}(a::T)=T(0)   # This comes up if people use getindex on a single number
 
 _dbg(x::UngetIndex)="U$(id2(x))_$(_dbg(x.container))_$(_dbg(x.value))_$((x.index...))"
 Base.show(io::IO, n::UngetIndex)= print(io, _dbg(n))
-
-# sum_outgrads needs to handle UngetIndex values:
-sum_outgrads(a::UngetIndex,b::UngetIndex)=(if a.index==b.index; UngetIndex(a.container,sum_outgrads(a.value,b.value),a.index); else; sum_outgrads(full(a),b); end)
-sum_outgrads(a::Rec,b::UngetIndex)=error((:sum,a,b))
-sum_outgrads(a::UngetIndex,b::Rec)=error((:sum,a,b))
-sum_outgrads(a::Void,b::UngetIndex)=full(b) # TODO: do we need full here?
-sum_outgrads(a::UngetIndex,b::Void)=error((:sum,a,b))
-sum_outgrads(a::UngetIndex,b)=error((:sum,a,Any))
-sum_outgrads(a::Tuple,b::UngetIndex)=(b=full(b);ntuple(length(a)) do i; sum_outgrads(a[i],b[i]); end) # TODO: do we need full here?
-sum_outgrads(a::AbstractArray,b::UngetIndex)=setindex!(a,sum_outgrads(getindex(a,b.index...),b.value),b.index...) # TODO: fix repeated index bug
-sum_outgrads(a::Associative,b::UngetIndex)=setindex!(a,sum_outgrads(get(a,b.index...,nothing),b.value),b.index...)
-
 
 ### ITERATION
 

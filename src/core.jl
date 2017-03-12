@@ -146,7 +146,7 @@ function rfun(args...; kwargs...)
             rnode.parents[argnum] = parent
         end
     end
-    @dbgcore((:call, f, :y, result, :x, args..., :k, kwargs...))
+    @dbgcore((:call, f, :y, result, :x, args..., (isempty(kwargs) ? () : (:kw, kwargs...))...))
     return result
 end # function rfun
 return (fdict[f] = rfun)
@@ -228,14 +228,14 @@ function backward_pass(start_box, end_box, tape)
     for n in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
         n.outgrad == nothing && continue
         r = n.rec
-        @dbgcore((:back,r.func,:dy,n.outgrad,:y,r.value,:x,r.args...,:k,r.kwargs...))
+        @dbgcore((:back,r.func,:dy,n.outgrad,:y,r.value,:x,r.args...,(isempty(r.kwargs)?():(:kw,r.kwargs...))...))
         for i=1:length(n.parents)
             isassigned(n.parents,i) || continue
             p = n.parents[i]
             og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...)
-            @dbgcore((Symbol("back$i"),og,p.outgrad))
+            @dbgcore((Symbol("sumi"),i,p.outgrad,og))
             p.outgrad = sum_outgrads(p.outgrad, og)
-            @dbgcore((Symbol("back$i"),og,p.outgrad))
+            @dbgcore((Symbol("sumo"),i,p.outgrad,og))
         end
     end
 
@@ -462,10 +462,11 @@ sum_outgrads(a::Tuple, b::Tuple)=tuple([sum_outgrads(x,y) for (x,y) in zip(a,b)]
 sum_outgrads(a::Associative, b::Associative) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=v+get(z,k,0); end; z)
 sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T})=(if isbits(T); (a+b); else; T[sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
 # sum_outgrads needs to be a primitive for higher order gradients:
-sum_outgrads_r = recorder(sum_outgrads)
-sum_outgrads(a::Rec,b::Rec)=sum_outgrads_r(a,b)
-sum_outgrads(a::Rec,b)=sum_outgrads_r(a,b)
-sum_outgrads(a,b::Rec)=sum_outgrads_r(a,b)
+let sum_outgrads_r = recorder(sum_outgrads); global sum_outgrads
+    sum_outgrads(a::Rec,b::Rec)=sum_outgrads_r(a,b)
+    sum_outgrads(a::Rec,b)=sum_outgrads_r(a,b)
+    sum_outgrads(a,b::Rec)=sum_outgrads_r(a,b)
+end
 sum_outgrads{N}(::Type{Grad{N}},dy,y,x1,x2)=dy
 # we use `nothing` to indicate zero gradients
 sum_outgrads(::Void,::Void)=nothing

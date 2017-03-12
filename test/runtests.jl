@@ -8,6 +8,9 @@ using AutoGrad, Base.Test
 # write your own tests here
 @test 1 == 1
 
+# Moving from the addtest mechanism to having separate test files here
+include("interfaces.jl")
+
 info("Test indexing...")
 a1 = rand(3)                    # FAIL: some high-order (b1sum) tests with rand(2)
 t1 = (a1...)
@@ -81,7 +84,7 @@ wd = Dict(); for i=1:length(wa); wd[i]=wa[i]; end
 @test check_grads(n0, wd, rand(3,10), rand(2,10))
 @test check_grads(n1sum, wa, rand(3,10), rand(2,10))
 @test check_grads(n1sum, wt, rand(3,10), rand(2,10))
-# This needs more work:
+# TODO: This needs more work:
 # @test check_grads(n1sumd, wd, rand(3,10), rand(2,10))  # FAIL
 
 info("Test primitives...")

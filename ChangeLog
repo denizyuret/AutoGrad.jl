@@ -1,18 +1,20 @@
-2017-03-08  Deniz Yuret  <dyuret@ku.edu.tr>
+2017-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:
-	# Rename OneHot -> UngetIndex.
+	## Fix buggy gradient of getindex for repeated indices.
+	## fix sum_outgrads as well to do the right thing.
+	## fix full to use addindex!
 
 	* TODO:
 	# ungetindex problems:
-	## Fix buggy gradient of getindex for repeated indices.
 	## we could have indices instead of index and use UngetIndex as a more efficient accumulator.
 	## use full much more rarely and keep things as UngetIndex.
-	## fix full to use addindex!
-	## fix sum_outgrads as well to do the right thing.
 	## implement KnetArray version of addindex!
 	## figure out julia4 problem with Array{CartesianIndex}
 
+	# gradcheck with getindex tuples is broken and not easy to fix: tuple->tuple->tuple type struct means everything needs to be replaced when one leaf changes.
+	# gradcheck with getindex dict is broken.
+	# gradcheck with ungetindex does not work, fix and move ungetindex tests from src to test.
 	# repmat does not work.
 	# oftype(Rec(a), b) should ignore Rec.
 	# similar(Rec(a), 2, 3) does not work.
@@ -33,6 +35,11 @@
 	# avoid double normalization in softmax.
 	# find the problem with runtests when length=2 and higher order	dict support, open issues.
 	# finish all function gradients.
+
+2017-03-08  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* DONE:
+	# Rename OneHot -> UngetIndex.
 
 2017-02-23  Deniz Yuret  <dyuret@ku.edu.tr>
 
