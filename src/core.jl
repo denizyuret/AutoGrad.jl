@@ -123,7 +123,7 @@ r != 0 && return r
 
 function rfun(args...; kwargs...)
     #@dbgcore((:call, f, args..., kwargs...))
-    argvals = unbox(args) 
+    argvals = unbox(args)
     result = f(argvals...; kwargs...)
     for argnum = 1:length(args)
         arg = args[argnum]
@@ -132,7 +132,7 @@ function rfun(args...; kwargs...)
             tape = arg.tapes[t]
             iscomplete(tape) && continue
             parent = arg.nodes[t]
-            if !isa(result,Rec) 
+            if !isa(result,Rec)
                 result = Rec(result, tape; func=f, args=args, kwargs=kwargs)
                 rnode = result.nodes[1]
             else
@@ -154,29 +154,7 @@ end # function recorder
 end # let fdict
 
 # recorder deps: Rec, Node, iscomplete, findeq
-
-"""
-
-    getval(x)
-
-Unbox `x` if it is a boxed value (`Rec`), otherwise return `x`.
-
-"""
-getval(x) = (if isa(x, Rec); x.value; else; x; end)  # we never create Rec(Rec).
-
-# this is much faster than map(getval,args)
-function unbox(args)
-    vals = Array(Any,length(args))
-    for i=1:length(args)
-        ai = args[i]
-        if isa(ai,Rec)
-            vals[i] = ai.value
-        else
-            vals[i] = ai
-        end
-    end
-    return vals
-end
+unbox(x) = map(getval, x)
 
 # findfirst uses == which is inefficient for tapes, so we define findeq with ===
 function findeq(A,v)
@@ -315,6 +293,15 @@ function Rec(value, tape::Tape=Tape(); func=rand, args=(), kwargs=[])
     return self
 end
 
+"""
+    getval(x)
+
+Unbox `x` if it is a boxed value (`Rec`), otherwise return `x`.
+
+"""
+getval(x::Rec) = x.value
+getval(x) = x
+
 function Node(b::Rec, t::Tape) # assumes b is not already in t
     n = Node(b)
     push!(t, n)
@@ -335,7 +322,7 @@ let eot = Node(Rec(nothing))
     iscomplete(a::Tape)=(!isempty(a) && a[end]===eot)
     complete!(a::Tape)=push!(a,eot)
 end # let
-end # if 
+end # if
 
 
 # 6. How new primitives and their gradients are defined.
@@ -387,7 +374,7 @@ end # if
 # 6.2 Gradients
 
 if !isdefined(:Grad)
-"Grad{N} creates a type used by AutoGrad to represent the gradient wrt N'th arg."    
+"Grad{N} creates a type used by AutoGrad to represent the gradient wrt N'th arg."
 immutable Grad{N}; end
 end
 
@@ -497,5 +484,3 @@ sum_outgrads(::Void,a)=a
 # backward_pass(g) calls gradient methods recorded in t1.
 # even though some inputs are Recs again, nothing gets recorded and all primitives return values because t1 is complete.
 # backward_pass(g) returns a regular value which becomes the output of h(x).
-
-

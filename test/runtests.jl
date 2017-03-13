@@ -1,3 +1,4 @@
+# include("../src/AutoGrad.jl")
 using AutoGrad, Base.Test
 # Uncomment these if you want lots of messages:
 # import Base.Test: default_handler, Success, Failure, Error
@@ -228,7 +229,7 @@ function test1arg_array(eps=1e-5)
     return true
 end
 
-function isapprox2(x, y; 
+function isapprox2(x, y;
                    maxeps::Real = max(eps(eltype(x)), eps(eltype(y))),
                    rtol::Real=maxeps^(1/3), atol::Real=maxeps^(1/2))
     size(x) == size(y) || (warn("isapprox: $(size(x))!=$(size(y))"); return false)
