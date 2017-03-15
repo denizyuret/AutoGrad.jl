@@ -75,10 +75,12 @@ get{T<:AbstractArray}(A::Rec{T}, I::Dims, default)    = (if checkbounds(Bool, si
 # cat(Grad{1},...) will never be called.
 
 typealias CatDims Union{Int,Tuple{Int},Vector{Int}} # julia4 gives ambiguity warnings if first arg type not specified
-cat_r = recorder(cat)
-cat(d::CatDims,a::Rec,b::Rec,c...)=cat_r(d,a,b,c...)
-cat(d::CatDims,a,b::Rec,c...)     =cat_r(d,a,b,c...)
-cat(d::CatDims,a::Rec,b...)       =cat_r(d,a,b...)
+let cat_r = recorder(cat)
+    global cat
+    cat(d::CatDims,a::Rec,b::Rec,c...)=cat_r(d,a,b,c...)
+    cat(d::CatDims,a,b::Rec,c...)     =cat_r(d,a,b,c...)
+    cat(d::CatDims,a::Rec,b...)       =cat_r(d,a,b...)
+end
 cat(::Type{Grad{1}},y1,y,dims,x...)=nothing
 cat{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
 

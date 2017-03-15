@@ -1,7 +1,3 @@
-# Uncomment to debug:
-# macro dbgutil(x); esc(:(println(_dbg($x)))); end
-macro dbgutil(x); end
-
 ### @primitive and @zerograd macros:
 
 # I would like to make these type signatures as specific as possible.
@@ -47,8 +43,10 @@ expressions.
 
 The @primitive macro turns the first example into:
 
-    local sin_r = recorder(sin)
-    sin{T<:Number}(x::Rec{T}) = sin_r(x)
+    let sin_r = recorder(sin)
+        global sin
+        sin{T<:Number}(x::Rec{T}) = sin_r(x)
+    end
 
 This will cause calls to `sin` with a boxed argument
 (`Rec{T<:Number}`) to be recorded.  The recorded operations are used
@@ -56,10 +54,12 @@ by `grad` to construct a dynamic computational graph.  With multiple
 arguments things are a bit more complicated.  Here is what happens
 with the second example:
 
-    local hypot_r = recorder(hypot)
-    hypot{T<:Array,S<:Array}(x1::Rec{T},x2::Rec{S})=hypot_r(x1,x2)
-    hypot{T<:Array,S<:Array}(x1::Rec{T},x2::S)=hypot_r(x1,x2)
-    hypot{T<:Array,S<:Array}(x1::T,x2::Rec{S})=hypot_r(x1,x2)
+    let hypot_r = recorder(hypot)
+        global hypot
+        hypot{T<:Array,S<:Array}(x1::Rec{T},x2::Rec{S})=hypot_r(x1,x2)
+        hypot{T<:Array,S<:Array}(x1::Rec{T},x2::S)=hypot_r(x1,x2)
+        hypot{T<:Array,S<:Array}(x1::T,x2::Rec{S})=hypot_r(x1,x2)
+    end
 
 We want the recorder version to be called if any one of the arguments
 is a boxed `Rec`.  There is no easy way to specify this in Julia, so
@@ -101,17 +101,19 @@ macro primitive(f,g...)
     isa(dy,Symbol) || error("Output gradient '$dy' not a symbol")
     isa(y,Symbol) || error("Return variable '$y' not a symbol")
     b = Expr(:block)
+    fn = fname(f)
+    push!(b.args, :(global $fn))
     r = gensym()
-    push!(b.args, esc(:(local $r = recorder($(fname(f))))))
     rx = rcall(r,f)
+    dx = gensym()
     for fx in fsigs(f)
-        push!(b.args, esc(:($fx = $rx)))
+        push!(b.args, :($fx = $rx))
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)
-            push!(b.args, esc(:($gx = $(g[i]))))
+            push!(b.args, :($gx = $(g[i]))) # ($dx=$(g[i]); AutoGrad.@gs; $dx)))
         end
     end
-    return b
+    return esc(Expr(:let,b,:($r=recorder($fn))))
 end
 
 """

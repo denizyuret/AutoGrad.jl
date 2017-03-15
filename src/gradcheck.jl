@@ -249,18 +249,18 @@ EPS, RTOL, ATOL = 1e-4, 1e-2, 1e-4
 # approximations.  Deprecated, use `gradcheck` instead.
 
 function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL, fname=fun)
-    #@dbgutil((:check_grads,fname,:args,args...))
+    #@dbg 2 (:check_grads,fname,:args,args...)
     isempty(args) && error("No args given")
     exact = ntuple(i->grad(fun,i)(args...), length(args))
     numeric = nd(fun, args...; eps=eps)
-    #@dbgutil((:check_grads,fname,:exact,exact,:numeric,numeric))
+    #@dbg 2 (:check_grads,fname,:exact,exact,:numeric,numeric)
     same = isequivalent(exact, numeric; rtol=rtol, atol=atol)
     #same || warn((:check_grads,fname,:args,args,:exact,exact,:numeric,numeric))
     return same
 end
 
 function nd(f, args...; eps=EPS)
-    #@dbgutil((:nd,f,args..., :eps, eps))
+    #@dbg 2 (:nd,f,args..., :eps, eps)
     unary_f = x->f(x...)
     unary_nd(unary_f, args, eps)
 end

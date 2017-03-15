@@ -1,8 +1,3 @@
-# Switch to debug:
-# macro dbgcore(x); esc(:(println(_dbg($x)))); end
-macro dbgcore(x); end
-
-
 # Contents:
 
 # Here are the rough steps performed by g(x) where g=grad(f):
@@ -25,7 +20,6 @@ macro dbgcore(x); end
 # 1.3 in a typical model f would take parameters, return loss, with data kept in global variables.
 # 1.4 to support multiple parameters, they can be grouped in a single arg using Array, Dict, or Tuple.
 
-
 """
 
     grad(fun, argnum=1)
@@ -40,9 +34,11 @@ Tuple, or Dict.
 
 """
 function grad(fun::Function, argnum::Int=1)
-    #@dbgcore((:grad,fun,argnum))
+    #@dbg 1 (:grad,fun,argnum)
     function gradfun(args...; kwargs...)
-        backward_pass(forward_pass(fun, args, kwargs, argnum)...)
+        fp = forward_pass(fun, args, kwargs, argnum)
+        bp = backward_pass(fp...)
+        return bp
     end
     return gradfun
 end
@@ -56,7 +52,7 @@ Another version of `grad` where the generated function returns a
 
 """
 function gradloss(fun::Function, argnum::Int=1)
-    #@dbgcore((:grad,fun,argnum))
+    #@dbg 1 (:grad,fun,argnum)
     function gradfun(args...; kwargs...)
         fwd = forward_pass(fun, args, kwargs, argnum)
         val = fwd[2]
@@ -77,7 +73,7 @@ end
 # 2.6 the output of f (end_box) could be a boxed Rec or a regular value (if it does not depend on x)
 
 function forward_pass(fun, args, kwargs, argnum)
-    @dbgcore((:forw, argnum, fun, args..., kwargs...))
+    @dbg 1 (:forw, argnum, fun, args..., kwargs...)
     tape = Tape()
     arg_wrt = args[argnum]
     if isa(arg_wrt,Rec)
@@ -88,8 +84,8 @@ function forward_pass(fun, args, kwargs, argnum)
     end
     args = Any[args...] # to make args writeable
     args[argnum] = start_box
-    @dbgcore((:fcall, fun, args..., kwargs...))
-    end_box = fun(args...; kwargs...)
+    @dbg 1 (:fcall, fun, args..., kwargs...)
+    end_box = fun(args...; kwargs...) # 4458
     return start_box, end_box, tape
 end
 
@@ -122,9 +118,9 @@ r = get(fdict,f,0)
 r != 0 && return r
 
 function rfun(args...; kwargs...)
-    #@dbgcore((:call, f, args..., kwargs...))
-    argvals = unbox(args) 
-    result = f(argvals...; kwargs...)
+    #@dbg 1 (:call, f, args..., kwargs...)
+    argvals = unbox(args)       # 31
+    result = f(argvals...; kwargs...) # 4959
     for argnum = 1:length(args)
         arg = args[argnum]
         isa(arg,Rec) || continue
@@ -146,7 +142,7 @@ function rfun(args...; kwargs...)
             rnode.parents[argnum] = parent
         end
     end
-    @dbgcore((:call, f, :y, result, :x, args..., (isempty(kwargs) ? () : (:kw, kwargs...))...))
+    @dbg 1 (:call, f, :y, result, :x, args..., (isempty(kwargs) ? () : (:kw, kwargs...))...)
     return result
 end # function rfun
 return (fdict[f] = rfun)
@@ -198,14 +194,14 @@ end
 # the gradient wrt the start_box.
 
 function backward_pass(start_box, end_box, tape)
-    @dbgcore((:back,:start,start_box,:end,end_box)) # ,:tape,tape,tape...))
+    @dbg 1 (:back,:start,start_box,:end,end_box) # ,:tape,tape,tape...)
 
 # 4.2 If end_box is not a Rec on the given tape, we return zero
 # df/fx if x is a bits type, `nothing` otherwise.  end_box may not
 # be a Rec if the output of f does not depend on x.
 
     if !isa(end_box, Rec) || 0==(tapeidx=findeq(end_box.tapes, tape))
-        @dbgcore("Output seems independent of input. Returning zero gradient.")
+        @dbg 1 "Output seems independent of input. Returning zero gradient."
         if isa(start_box,Number); return zero(start_box); else; return nothing; end
     end
 
@@ -228,14 +224,14 @@ function backward_pass(start_box, end_box, tape)
     for n in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
         n.outgrad == nothing && continue
         r = n.rec
-        @dbgcore((:back,r.func,:dy,n.outgrad,:y,r.value,:x,r.args...,(isempty(r.kwargs)?():(:kw,r.kwargs...))...))
+        @dbg 1 (:back,r.func,:dy,n.outgrad,:y,r.value,:x,r.args...,(isempty(r.kwargs)?():(:kw,r.kwargs...))...)
         for i=1:length(n.parents)
             isassigned(n.parents,i) || continue
             p = n.parents[i]
-            og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...)
-            @dbgcore((Symbol("sumi"),i,p.outgrad,og))
-            p.outgrad = sum_outgrads(p.outgrad, og)
-            @dbgcore((Symbol("sumo"),i,p.outgrad,og))
+            og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...) # 4887
+            @dbg 1 (Symbol("sumi"),i,p.outgrad,og)
+            p.outgrad = sum_outgrads(p.outgrad, og) # 1141
+            @dbg 1 (Symbol("sumo"),i,p.outgrad,og)
         end
     end
 
@@ -353,8 +349,10 @@ end # if
 # recorder function. The following example makes `sin(x::Number)` a
 # primitive, but says nothing about e.g. `sin(x::Array)`.
 
-#     local sin_r = recorder(sin)
-#     sin{T<:Number}(x::Rec{T}) = sin_r(x)
+#     let sin_r = recorder(sin)
+#         global sin
+#         sin{T<:Number}(x::Rec{T}) = sin_r(x)
+#     end
 
 # With multiple arguments, things get a bit more complicated.  There
 # is no easy way to say "at least one argument is a Rec" in Julia.
@@ -362,10 +360,12 @@ end # if
 # boxed/unboxed arguments to be safe.  This example makes
 # hypot(x1::Array,x2::Array) a primitive:
 
-#     local hypot_r = recorder(hypot)
-#     hypot{T<:Array,S<:Array}(x1::Rec{T},x2::Rec{S})=hypot_r(x1,x2)
-#     hypot{T<:Array,S<:Array}(x1::Rec{T},x2::S)=hypot_r(x1,x2)
-#     hypot{T<:Array,S<:Array}(x1::T,x2::Rec{S})=hypot_r(x1,x2)
+#     let local hypot_r = recorder(hypot)
+#         global hypot
+#         hypot{T<:Array,S<:Array}(x1::Rec{T},x2::Rec{S})=hypot_r(x1,x2)
+#         hypot{T<:Array,S<:Array}(x1::Rec{T},x2::S)=hypot_r(x1,x2)
+#         hypot{T<:Array,S<:Array}(x1::T,x2::Rec{S})=hypot_r(x1,x2)
+#     end
 
 # I wrote the @primitive macro in util.jl to automate this process.
 # One restriction is the inability to target parametric methods such
@@ -444,9 +444,11 @@ end
 # arguments are never going to be boxed, we can leave their gradients
 # undefined:
 
-#     local sum_r = recorder(sum)
-#     sum{T<:Array}(a::Rec{T},i::Int)=sum_r(a,i)
-#     sum{T<:Array}(::Type{Grad{1}},dy,y,a::Rec{T},i::Int)=dy.+zeros(a)
+#     let local sum_r = recorder(sum)
+#         global sum
+#         sum{T<:Array}(a::Rec{T},i::Int)=sum_r(a,i)
+#         sum{T<:Array}(::Type{Grad{1}},dy,y,a::Rec{T},i::Int)=dy.+zeros(a)
+#     end
 
 # 6.5 Undifferentiable wrt boxed arguments
 
@@ -459,7 +461,7 @@ end
 
 sum_outgrads(a::Number, b::Number)=a+b
 sum_outgrads(a::Tuple, b::Tuple)=tuple([sum_outgrads(x,y) for (x,y) in zip(a,b)]...)
-sum_outgrads(a::Associative, b::Associative) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=v+get(z,k,0); end; z)
+sum_outgrads(a::Associative, b::Associative) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=sum_outgrads(v,get(z,k,nothing)); end; z)
 sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T})=(if isbits(T); (a+b); else; T[sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
 # sum_outgrads needs to be a primitive for higher order gradients:
 let sum_outgrads_r = recorder(sum_outgrads); global sum_outgrads
