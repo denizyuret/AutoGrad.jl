@@ -1,4 +1,4 @@
-using AutoGrad, Base.Test
+include("header.jl")
 # Uncomment these if you want lots of messages:
 # import Base.Test: default_handler, Success, Failure, Error
 # default_handler(r::Success) = info("$(r.expr)")

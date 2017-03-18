@@ -95,26 +95,26 @@ end
 # We need the following two functions to deal with repeated indices.
 
 # Based on base/multidimensional.jl:420 _unsafe_batchsetindex!
+# using Base: index_lengths, setindex_shape_check, decolon # these are not portable!
 using Base.Cartesian
-using Base: index_lengths, setindex_shape_check, decolon
 
 @generated function sum_outgrads_array(A::AbstractArray, X, I::Union{Real,AbstractArray,Colon}...)
     N = length(I)
     quote
-        @nexprs $N d->(I_d = I[d])
-        # We need to handle bool arrays
-        @nexprs $N d->(if isa(I_d,AbstractArray{Bool}); I_d=find(I_d); end)
-        # Using nothing for zero array fails this check
+        ### We need to handle bool arrays and colons here
+        @nexprs $N d->(I_d = I[d]; if isa(I_d,AbstractArray{Bool}); I_d=find(I_d); elseif isa(I_d,Colon); I_d=1:size(A,d); end)
+        ### Using nothing for zero array fails this check
         # idxlens = @ncall $N index_lengths A I
         # @ncall $N setindex_shape_check X (d->idxlens[d])
-        J = @ncall $N decolon A I
-        @nexprs $N d->(J_d = J[d])
+        ### julia4 does not have decolon
+        # J = @ncall $N decolon A I
+        # @nexprs $N d->(J_d = J[d])
         Xs = start(X)
-        @inbounds @nloops $N j d->J_d begin
+        @inbounds @nloops $N i d->I_d begin
             v, Xs = next(X, Xs)
-            u = @ncall $N getindex A j
+            u = @ncall $N getindex A i
             w = sum_outgrads(u,v)
-            @ncall $N setindex! A w j
+            @ncall $N setindex! A w i
         end
         A
     end
