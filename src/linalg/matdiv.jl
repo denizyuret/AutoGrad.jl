@@ -21,18 +21,17 @@ rdiv2arg = [
 ]
 
 # Some matrices for unit testing.
-A = randn(2, 2)
-Σ = A'A + UniformScaling(1e-2)
-X = randn(2, 2)
+let A = randn(2, 2), Σ = A'A + UniformScaling(1e-2), X = randn(2, 2)
 
-# Primitive definition and unit testing for ldiv operations.
-for (f, g1, g2) in ldiv2arg
-    @eval @primitive $f(x1, x2), dy, y $g1 $g2
-    addtest(f, Σ, X)
-end
+    # Primitive definition and unit testing for ldiv operations.
+    for (f, g1, g2) in ldiv2arg
+        @eval @primitive $f(x1, x2), dy, y $g1 $g2
+        addtest(f, Σ, X)
+    end
 
-# Primitive definition and unit testing for rdiv operations.
-for (f, g1, g2) in rdiv2arg
-    @eval @primitive $f(x1, x2), dy, y $g1 $g2
-    addtest(f, X, Σ)
+    # Primitive definition and unit testing for rdiv operations.
+    for (f, g1, g2) in rdiv2arg
+        @eval @primitive $f(x1, x2), dy, y $g1 $g2
+        addtest(f, X, Σ)
+    end
 end
