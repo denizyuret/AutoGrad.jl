@@ -459,6 +459,36 @@ end
 
 # 6.6 sum_outgrads
 
+# Overwriting version (not compatible with higher order gradients)
+sum_outgrads(a::Number, b::Number)=a+b
+sum_outgrads(a::Tuple, b::Tuple)=ntuple(i->sum_outgrads(a[i],b[i]), length(a))
+
+function sum_outgrads(a::Associative, b::Associative)
+    for (k,bk) in b
+        ak=get(a,k,nothing)
+        a[k]=sum_outgrads(ak,bk)
+    end
+    return a
+end
+
+function sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T})
+    if isbits(T)
+        Base.LinAlg.axpy!(1,b,a)
+    else
+        for i=1:length(a)
+            a[i]=sum_outgrads(a[i],b[i])
+        end
+    end
+    return a
+end
+
+# @zerograd sum_outgrads(a,b)
+sum_outgrads(a::Rec,b::Rec)=sum_outgrads(a.value,b.value)
+sum_outgrads(a::Rec,b)=sum_outgrads(a.value,b)
+sum_outgrads(a,b::Rec)=sum_outgrads(a,b.value)
+
+
+#= Functional version (supports higher order derivatives)
 sum_outgrads(a::Number, b::Number)=a+b
 sum_outgrads(a::Tuple, b::Tuple)=tuple([sum_outgrads(x,y) for (x,y) in zip(a,b)]...)
 sum_outgrads(a::Associative, b::Associative) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=sum_outgrads(v,get(z,k,nothing)); end; z)
@@ -470,6 +500,7 @@ let sum_outgrads_r = recorder(sum_outgrads); global sum_outgrads
     sum_outgrads(a,b::Rec)=sum_outgrads_r(a,b)
 end
 sum_outgrads{N}(::Type{Grad{N}},dy,y,x1,x2)=dy
+=#
 # we use `nothing` to indicate zero gradients
 sum_outgrads(::Void,::Void)=nothing
 sum_outgrads(a::Rec,::Void)=a   # to avoid ambiguity
