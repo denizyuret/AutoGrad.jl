@@ -350,3 +350,14 @@ Base.show(io::IO, n::Rec) = print(io, _dbg(n))
 Base.show(io::IO, n::Node) = print(io, _dbg(n))
 Base.show(io::IO, n::Tape) = print(io, _dbg(n))
 
+function dumptape(t::Tape)
+    for i = 1:length(t)
+        n = t[i]
+        r = n.rec
+        p = ntuple(length(n.parents)) do j
+            isassigned(n.parents,j) ? findfirst(t,n.parents[j]) : 0
+        end
+        f = r.func
+        @printf("%d. %s%s\n", i, f, p)
+    end
+end
