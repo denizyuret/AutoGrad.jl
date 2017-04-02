@@ -293,7 +293,7 @@ function unbroadcast(x, dx)
     end
 end
 
-function toscalar(xv; rng=MersenneTwister())
+function toscalar(xv; rng=MersenneTwister(0))
     x = getval(xv)
     isa(x,Number) && return xv
     isa(x,UngetIndex) && (x = full(x))
