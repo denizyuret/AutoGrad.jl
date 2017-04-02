@@ -195,7 +195,7 @@ function fixtest(f, x...)
 end
 
 function randin(range, dims...; eps=0.01)
-    if isa(range, UnitRange{Int64})
+    if isa(range, UnitRange{Int})
         rand(range, dims...)
     elseif range==(-Inf,Inf)
         randn(dims...)
