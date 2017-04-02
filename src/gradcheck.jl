@@ -125,7 +125,7 @@ function gc_interval(w,d)
 end
 
 function gc_scalar(f)
-    r = MersenneTwister()
+    r = MersenneTwister(0)
     function g(x...; o...)
         srand(r,1)
         y = f(x...; o...)
