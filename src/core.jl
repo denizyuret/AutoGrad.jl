@@ -160,23 +160,27 @@ Unbox `x` if it is a boxed value (`Rec`), otherwise return `x`.
 """
 getval(x) = (if isa(x, Rec); x.value; else; x; end)  # we never create Rec(Rec).
 
-# this is much faster than map(getval,args)
-function unbox(args)
-    vals = Array(Any,length(args))
-    for i=1:length(args)
-        ai = args[i]
-        if isa(ai,Rec)
-            vals[i] = ai.value
-        else
-            vals[i] = ai
+if VERSION >= v"0.5.0"
+    unbox(args) = map(getval,args)
+else
+    # this is much faster than map(getval,args) in Julia4
+    function unbox(args)
+        vals = Array(Any,length(args))
+        @inbounds for i=1:length(args)
+            ai = args[i]
+            if isa(ai,Rec)
+                vals[i] = ai.value
+            else
+                vals[i] = ai
+            end
         end
+        return vals
     end
-    return vals
 end
 
 # findfirst uses == which is inefficient for tapes, so we define findeq with ===
 function findeq(A,v)
-    for i=1:length(A)
+    @inbounds for i=1:length(A)
         if A[i] === v
             return i
         end
