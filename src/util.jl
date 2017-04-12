@@ -169,7 +169,7 @@ function zcall(f)
             error("Unrecognized argtype '$zi'")
         end
     end
-    return z
+    return notypes(z)
 end
 
 # get name out of function declaration
