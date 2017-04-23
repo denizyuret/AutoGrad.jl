@@ -337,12 +337,12 @@ _dbg(x::AbstractArray)=_dbg(eltype(x))*ssize(x)*id2(x)
 _dbg(::Type{Any})="A"
 _dbg(::Type{Float32})="S"
 _dbg(::Type{Float64})="D"
-_dbg(t::Type)=t
+_dbg(t::Type)="$t"
 _dbg(x::Dict)="H"*id2(x)
 _dbg(x::Float32)="S"*id2(x)
 _dbg(x::Float64)="D"*id2(x)
-_dbg(x::Symbol)=x
-_dbg(x::Integer)=x
+_dbg(x::Symbol)="$x"
+_dbg(x::Integer)="$x"
 id2(x)="$(object_id(x)%1000)"
 ssize(x)="$(collect(size(x)))"
 
