@@ -8,7 +8,7 @@ macro dbg(i,x); if i & 0 != 0; esc(:(println(_dbg($x)))); end; end;
 macro gs(); if false; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
 
 importall Base  # defining getindex, sin, etc.
-export grad, gradloss, check_grads, gradcheck
+export grad, gradloss, check_grads, gradcheck, getval
 export @primitive, @zerograd, recorder, Rec, Grad  # the last three are required for the macros to work
 datapath = joinpath(dirname(@__FILE__),"..","data")
 
