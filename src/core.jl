@@ -142,6 +142,22 @@ function rfun(args...; kwargs...)
             rnode.parents[argnum] = parent
         end
     end
+    if DEBUGTAPE && isa(result,Rec) #DBG
+        @assert length(result.tapes) == length(result.nodes) == 1
+        t = result.tapes[1]
+        n = result.nodes[1]
+        i = findfirst(t,n)
+        p = ntuple(length(n.parents)) do j
+            if isassigned(n.parents,j)
+                findfirst(t,n.parents[j])
+            elseif isa(argvals[j],Number) || isa(argvals[j],Symbol) || isa(argvals[j],Range)
+                argvals[j]
+            else
+                0
+            end
+        end
+        @printf("%d. %s%s\n", i, f, p)
+    end
     @dbg 1 (:call, f, :y, result, :x, args..., (isempty(kwargs) ? () : (:kw, kwargs...))...)
     return result
 end # function rfun
@@ -150,6 +166,9 @@ end # function recorder
 end # let fdict
 
 # recorder deps: Rec, Node, iscomplete, findeq
+
+DEBUGTAPE=false
+debugtape(b::Bool)=(global DEBUGTAPE=b)
 
 """
 
