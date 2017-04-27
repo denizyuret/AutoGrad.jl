@@ -45,13 +45,13 @@ function gradcheck(f, w, x...; kwargs=[], o...)
 end
 
 function gc_index(w, d, i, f, w0, x...; o...)
+    di = nothing
+    try; di = d[i]; end
     if isa(w[i], Number)
         gc_array(w, d, f, w0, x...; icheck=i, o...)
     elseif isbits(eltype(w[i]))
-        di = (d==nothing ? d : d[i])
         gc_array(w[i], di, f, w0, x...; o...)
     else
-        di = (d==nothing ? d : d[i])
         k = gc_indices(w[i])
         pass = true
         for j in k
@@ -67,10 +67,10 @@ function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, kwargs=[],
         irange = (icheck:icheck)
     elseif length(w) <= gcheck
         irange = (1:length(w))
-    elseif d == nothing
+    else # if d == nothing
         irange = rand(1:length(w), gcheck)
-    else
-        irange = sortperm(abs(vec(Array(d))),rev=true)[1:gcheck]
+    #else
+    #   irange = sortperm(abs(vec(Array(d))),rev=true)[1:gcheck]
     end
     wi = w[irange[1]]
     if delta == 0; delta = gc_dx(wi); end
@@ -91,7 +91,7 @@ function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, kwargs=[],
             if verbose; warn("d=$di nd=$nd"); end
             pass = false
         else
-            if verbose; println("gcheck: d=$di nd=$nd"); end
+            if verbose && (di*nd!=0); println("gcheck: d=$di nd=$nd"); end
         end
     end
     return pass
@@ -106,7 +106,7 @@ function gc_number(d, f, w, x...; delta=gc_dx(w),rtol=gc_dx(w),atol=gc_dx(w),ver
         if verbose; warn("d=$d nd=$nd"); end
         return false
     else
-        if verbose; println("gcheck: d=$d nd=$nd"); end
+        if verbose && (d*nd!=0); println("gcheck: d=$d nd=$nd"); end
         return true
     end
 end
