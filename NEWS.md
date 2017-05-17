@@ -1,12 +1,22 @@
 AutoGrad v0.0.6 Release Notes
 =============================
 
+* Fixed getindex bug effecting repeated indices.
+
+* Fixed typo effecting broadcast comparison operators like .<
+
+* Fixed minor bug in `@zerograd` which did not handle some type
+  declarations.
+
 * Added scalar support to Ac_mul_B etc. which were causing trouble
   with expressions like Array'*Scalar.
 
+* `dumptape()` and `AutoGrad.debugtape(::Bool)` utilities for
+  debugging.
 
 AutoGrad v0.0.5 Release Notes
 =============================
+(558a217 on Feb 13, 2017)
 
 * gradloss is added as an alternative to grad.  gradloss(f) generates
   a function that returns a (gradient, result) tuple.
@@ -24,6 +34,7 @@ AutoGrad v0.0.5 Release Notes
 
 AutoGrad v0.0.4 Release Notes
 =============================
+(f7aaac8 on Oct 23, 2016)
 
 * The word value was being used for too many things.  The type Value
   has been renamed Rec.  The field Node.value got renamed to Node.rec.
