@@ -1,18 +1,22 @@
-AutoGrad v0.0.6 Release Notes
+AutoGrad v0.0.7 Release Notes
 =============================
 
 * Fixed getindex bug effecting repeated indices.
 
-* Fixed typo effecting broadcast comparison operators like .<
-
 * Fixed minor bug in `@zerograd` which did not handle some type
   declarations.
 
-* Added scalar support to Ac_mul_B etc. which were causing trouble
-  with expressions like Array'*Scalar.
-
 * `dumptape()` and `AutoGrad.debugtape(::Bool)` utilities for
   debugging.
+
+AutoGrad v0.0.6 Release Notes
+=============================
+(e0530fe  on Feb 23, 2017)
+
+* Fixed typo effecting broadcast comparison operators like .<
+
+* Added scalar support to Ac_mul_B etc. which were causing trouble
+  with expressions like Array'*Scalar.
 
 AutoGrad v0.0.5 Release Notes
 =============================
