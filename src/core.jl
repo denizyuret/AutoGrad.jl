@@ -313,7 +313,7 @@ type Node
 end #type
 #end #if
 
-typealias Tape Vector{Node}
+const Tape = Vector{Node}
 
 #if !isdefined(:Rec)
 type Rec{T}
