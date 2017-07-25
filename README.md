@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.org/denizyuret/AutoGrad.jl.svg?branch=master)](https://travis-ci.org/denizyuret/AutoGrad.jl)
 [![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_0.4.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
 [![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_0.5.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
+[![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_0.6.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
 <!-- 
 TODO: https://github.com/JuliaCI/Coverage.jl
 [![Coverage Status](https://coveralls.io/repos/denizyuret/AutoGrad.jl/badge.svg)](https://coveralls.io/r/denizyuret/AutoGrad.jl)
