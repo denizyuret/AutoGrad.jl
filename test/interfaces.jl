@@ -53,6 +53,18 @@ using AutoGrad: ungetindex
         @test collect(g(d,2)) == Any[(2=>1.0)]
     end
 
+    @testset "size" begin
+        f0(x) = (p=size(x); p[1]*sum(x.^2))
+        @test grad(f0)(ones(3)) == fill(6, 3)
+
+        f1(x)=(p=size(x, 1); p*sum(x.^2))
+        @test grad(f1)(ones(3, 3)) == fill(6, 3, 3)
+
+        # issue #18
+        f2(x)=(p=size(x, 1, 2); p[1]*sum(x.^2))
+        @test grad(f2)(ones(3, 3)) == fill(6, 3, 3)
+    end
+
 end
 
 nothing

@@ -17,7 +17,7 @@ setindex!(x::Rec,v,i...)=error("Overwriting operations currently not supported."
 getindex{T<:Grad}(::Type{T},o...)=nothing # Only the first arg has gradient
 
 # For efficiency we use the following sparse container
-# This object represents what you would get with 
+# This object represents what you would get with
 # setindex!(similar(container), value, index...)
 # If there are repeated indices, the corresponding values should be summed.
 
@@ -42,7 +42,7 @@ ungetindex(x,dxi,i)=UngetIndex(x,dxi,i)
 # but it only needs to record if the value argument is boxed.  We'll
 # have to define this manually.  To unbox the container arg and
 # resolve ambiguity the ungetindex methods cover all combinations of
-# first two args: 
+# first two args:
 # (a,a), (a,r), (r,r), (r,a), (g2,a), (g2,r), (g,a), (g,r)
 
 let ungetindex_r = recorder(ungetindex); global ungetindex
@@ -146,7 +146,7 @@ end
 # This gets used in higher order gradients.
 function sum_outgrads(a::UngetIndex,b::UngetIndex)
     if a.index==b.index
-        UngetIndex(a.container,sum_outgrads(a.value,b.value),a.index) 
+        UngetIndex(a.container,sum_outgrads(a.value,b.value),a.index)
     else                        # TODO: we could always return UngetIndex if it supported multiple indices.
         sum_outgrads(full(a),b) # TODO: this can be erased if we use full above
     end
@@ -210,11 +210,11 @@ next{T<:Number}(a::Rec{T},i) = (a,true)
 # (e.g. length) or return constant outputs (e.g. zero).
 
 interfaces1arg = [
-:eltype,                                     
+:eltype,
 :endof,
 :isempty,
 :length,
-:ndims,                                     
+:ndims,
 :one,
 :ones,
 :strides,
@@ -240,7 +240,7 @@ interfacesNarg = [
 
 if VERSION >= v"0.5.0"
 # to prevent ambiguity with abstractarray.jl:470
-@zerograd similar(x, dims::Base.DimOrInd...) 
+@zerograd similar(x, dims::Base.DimOrInd...)
 end
 
 for _f in interfacesNarg
@@ -251,7 +251,7 @@ interfaces2arg = [
 :(==),
 :isequal,
 :isless,
-]                  
+]
 
 ==(a::WeakRef,b::Rec)=(a==b.value) # prevents clash with base.jl:68
 ==(a::Rec,b::WeakRef)=(a.value==b) # prevents clash with base.jl:69
@@ -262,3 +262,6 @@ end
 
 @primitive copy(x),dy dy
 addtest(copy, rand(2))
+
+# issue #18
+Base.size(a::Rec, d1::Integer, d2::Integer, dx::Vararg{Integer}) = size(getval(a), d1, d2, dx...)
