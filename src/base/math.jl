@@ -24,7 +24,9 @@ math1arg = [
 for (f,g,r) in math1arg
     bf = broadcast_func(f)
     @eval @primitive $f(x),dy,y  (dy.*($g))
-    @eval @primitive $bf(x),dy,y  (dy.*($g))
+    if f != bf
+        @eval @primitive $bf(x),dy,y  (dy.*($g))
+    end
     addtest1(f,r)
 end
 
@@ -51,7 +53,9 @@ math2arg = [
 for (f,g1,g2) in math2arg
     bf = broadcast_func(f)
     @eval @primitive $f(x1,x2),dy,y  unbroadcast(x1,dy.*($g1))  unbroadcast(x2,dy.*($g2))
-    @eval @primitive $bf(x1,x2),dy,y  unbroadcast(x1,dy.*($g1))  unbroadcast(x2,dy.*($g2))
+    if f != bf
+        @eval @primitive $bf(x1,x2),dy,y  unbroadcast(x1,dy.*($g1))  unbroadcast(x2,dy.*($g2))
+    end
     addtest2(f,(-Inf,Inf))
 end
 
@@ -73,27 +77,34 @@ addtest(^, randin((0,Inf)), randin((-Inf,Inf)))
 # clamp(x,lo,hi) clamps x between lo and hi
 bf = broadcast_func(:clamp)
 @primitive clamp(x,i...),dy,y  unbroadcast(x,dy.*(i[1] .<= x .<= i[2]))
-@eval @primitive $bf(x,i...),dy,y  unbroadcast(x,dy.*(i[1] .<= x .<= i[2]))
+if bf != :clamp
+    @eval @primitive $bf(x,i...),dy,y  unbroadcast(x,dy.*(i[1] .<= x .<= i[2]))
+end
 addtest(clamp, randn(10), -1., 1.)
 addtest(clamp, randn(), -1., 1.)
 
 # ldexp(x,n) computes x*2^n with x real, n integer
 bf = broadcast_func(:ldexp)
 @primitive ldexp(x,n...),dy  (dy*(2.0^n[1]))
-@eval @primitive $bf(x,n...),dy  (dy*(2.0^n[1]))
+if bf != :ldexp
+    @eval @primitive $bf(x,n...),dy  (dy*(2.0^n[1]))
+end
 addtest(ldexp, randn(), rand(-2:2))
 
 # mod2pi(x) returns modulus after division by 2pi for x real.
 bf = broadcast_func(:mod2pi)
 @primitive mod2pi(x::Number),dy dy
-@eval @primitive $bf(x::Number),dy dy
+if bf != :mod2pi
+    @eval @primitive $bf(x::Number),dy dy
+end
 addtest(mod2pi, 100randn())
 
 # zerograd functions
 bf = broadcast_func(:exponent)
 @zerograd exponent(x)
-@eval @zerograd $bf(x)
-
+if bf != :exponent
+    @eval @zerograd $bf(x)
+end
 
 # Other functions defined in julia/base/math.jl
 # add22condh: Not exported
