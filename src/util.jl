@@ -367,13 +367,13 @@ type Broadcasted{T}
 end
 
 broadcast(f, x::Rec) = f(Broadcasted(x)).value
+broadcast(f, x1::Rec, x2::Rec) = f(Broadcasted(x1), Broadcasted(x2)).value
 broadcast(f, x1::Rec, x2) = f(Broadcasted(x1), x2).value
 broadcast(f, x1, x2::Rec) = f(x1, Broadcasted(x2)).value
-broadcast(f, x1::Rec, x2::Rec) = f(Broadcasted(x1), Broadcasted(x2)).value
 
 function broadcast_func(f)
     if VERSION > v"0.6-"
-        f = Symbol(lstrip(String(f), '.'))
+        f = Symbol(lstrip(string(f), '.'))
         bf = Symbol("broadcast#", f)
         @eval begin
             $bf(x) = broadcast($f, x)
