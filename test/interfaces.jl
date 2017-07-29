@@ -5,8 +5,6 @@ if VERSION < v"0.5.0"
     Base.IteratorsMD.CartesianIndex(i::Int...)=CartesianIndex(i)
 end
 
-using AutoGrad: ungetindex
-
 @testset "interfaces" begin
 
     @testset "Array" begin
