@@ -184,7 +184,7 @@ if VERSION >= v"0.5.0"
 else
     # this is much faster than map(getval,args) in Julia4
     function unbox(args)
-        vals = Array(Any,length(args))
+        vals = Array{Any}(length(args))
         @inbounds for i=1:length(args)
             ai = args[i]
             if isa(ai,Rec)
@@ -309,7 +309,7 @@ type Node
     rec
     outgrad
     parents::Vector{Node}
-    Node(b) = new(b, nothing, Array(Node,length(b.args)))
+    Node(b) = new(b, nothing, Array{Node}(length(b.args)))
 end #type
 #end #if
 
@@ -327,7 +327,7 @@ end # type Rec{T}
 #end # if
 
 function Rec(value, tape::Tape=Tape(); func=rand, args=(), kwargs=[])
-    self = Rec(value,func,args,kwargs,Tape[tape],Array(Node,1))
+    self = Rec(value,func,args,kwargs,Tape[tape],Array{Node}(1))
     node = Node(self)
     push!(tape,node)
     self.nodes[1] = node

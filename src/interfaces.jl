@@ -174,7 +174,7 @@ length(b::UngetIndex)=length(b.container)
 full(b::UngetIndex)=sum_outgrads(zeroslike(b.container), b)
 
 zeroslike{T<:Number}(a::AbstractArray{T})=zeros(a)  # TODO: can this be nothing or an empty UngetIndex?
-zeroslike(a::AbstractArray)=fill!(Array(Any,size(a)),nothing) # TODO: can this be nothing or an empty UngetIndex?
+zeroslike(a::AbstractArray)=fill!(Array{Any}(size(a)),nothing) # TODO: can this be nothing or an empty UngetIndex?
 zeroslike(a::Associative)=similar(a)
 zeroslike(a::Tuple)=ntuple(i->nothing, length(a))
 zeroslike(o::UngetIndex)=zeros(o) # TODO: can this be nothing or empty UngetIndex?

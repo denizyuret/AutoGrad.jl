@@ -321,11 +321,12 @@ addtest(fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
 # It gets tiresome to write `Type{Grad{1}}` after a while, here are
 # some convenient aliases:
 
-typealias D1 Type{Grad{1}}
-typealias D2 Type{Grad{2}}
-if !isdefined(:Dn)
-typealias Dn{N} Type{Grad{N}}
-end
+# Update: these are not used much, if needed define julia6 compatible.
+# typealias D1 Type{Grad{1}}
+# typealias D2 Type{Grad{2}}
+# if !isdefined(:Dn)
+# typealias Dn{N} Type{Grad{N}}
+# end
 
 # Pretty print for debugging:
 _dbg(x)=summary(x) # extend to define short printable representations
