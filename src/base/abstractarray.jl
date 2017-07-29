@@ -13,8 +13,10 @@
 # isassigned: interfaces.jl
 # trailingsize: Not exported
 # linearindexing: Not exported but part of AbstractArray interface
+if VERSION < v"0.6-"
 import Base: linearindexing
 @zerograd linearindexing(x)
+end
 # checkbounds: interfaces.jl
 # throw_boundserror: Not exported
 # _internal_checkbounds: Not exported
@@ -74,7 +76,7 @@ get{T<:AbstractArray}(A::Rec{T}, I::Dims, default)    = (if checkbounds(Bool, si
 # Tuple{Int}, or Vector{Int} and is never boxed.  We assume
 # cat(Grad{1},...) will never be called.
 
-typealias CatDims Union{Int,Tuple{Int},Vector{Int}} # julia4 gives ambiguity warnings if first arg type not specified
+const CatDims = Union{Int,Tuple{Int},Vector{Int}} # julia4 gives ambiguity warnings if first arg type not specified
 let cat_r = recorder(cat)
     global cat
     cat(d::CatDims,a::Rec,b::Rec,c...)=cat_r(d,a,b,c...)

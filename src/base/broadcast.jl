@@ -17,7 +17,8 @@ broadcast2arg = [
 ]
 
 for (f,g1,g2) in broadcast2arg
-    @eval @primitive $f(x1,x2),dy,y  unbroadcast(x1,$g1)  unbroadcast(x2,$g2)
+    bf = broadcast_func(f)
+    @eval @primitive $bf(x1,x2),dy,y  unbroadcast(x1,$g1)  unbroadcast(x2,$g2)
     if f==(:.^)
         addtest3(f,(0,Inf))
     else
@@ -46,12 +47,19 @@ broadcast2cmp = [
 :.>=,
 ]                 
 
+if VERSION < v"0.6-"
+    for f in broadcast2cmp
+        @eval begin
+            # To avoid conflict at broadcast.jl:414
+            $f(x1::AbstractArray,x2::Rec)=$f(x1,x2.value)
+            $f(x1::Rec,x2::AbstractArray)=$f(x1.value,x2)
+        end
+    end
+end
 for f in broadcast2cmp
+    bf = broadcast_func(f)
     @eval begin
-        # To avoid conflict at broadcast.jl:414
-        $f(x1::AbstractArray,x2::Rec)=$f(x1,x2.value)
-        $f(x1::Rec,x2::AbstractArray)=$f(x1.value,x2)
-        @zerograd $f(x1,x2)
+        @zerograd $bf(x1,x2)
     end
 end
 

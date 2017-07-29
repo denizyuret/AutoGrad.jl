@@ -194,28 +194,55 @@ function fixtest(f, x...)
     return (f,fargs...)
 end
 
-function randin(range, dims...; eps=0.01)
-    if isa(range, UnitRange{Int})
-        rand(range, dims...)
-    elseif range==(-Inf,Inf)
-        randn(dims...)
-    elseif range==(0,Inf)
-        eps-log(rand(dims...))
-    elseif range==(1,Inf)
-        eps+1-log(rand(dims...))
-    elseif range==(-1,Inf)
-        eps-1-log(rand(dims...))
-    elseif range==(-1,1)
-        (1-eps)*(2rand(dims...)-1)
-    elseif range==(0,1)
-        eps+(1-2eps)*rand(dims...)
-    elseif range==(0,2)
-        eps+2*(1-eps)*rand(dims...)
-    elseif range==(-Inf,-1,1,Inf)
-        x = sec(randn(dims...))
-        sign(x)*eps + x
-    else
-        error("Unknown range $range")
+if VERSION >= v"0.5.0"
+    function randin(range, dims...; eps=0.01)
+        if isa(range, UnitRange{Int})
+            rand(range, dims...)
+        elseif range==(-Inf,Inf)
+            randn(dims...)
+        elseif range==(0,Inf)
+            eps-log.(rand(dims...))
+        elseif range==(1,Inf)
+            eps+1-log.(rand(dims...))
+        elseif range==(-1,Inf)
+            eps-1-log.(rand(dims...))
+        elseif range==(-1,1)
+            (1-eps)*(2rand(dims...)-1)
+        elseif range==(0,1)
+            eps+(1-2eps)*rand(dims...)
+        elseif range==(0,2)
+            eps+2*(1-eps)*rand(dims...)
+        elseif range==(-Inf,-1,1,Inf)
+            x = sec.(randn(dims...))
+            sign.(x)*eps + x
+        else
+            error("Unknown range $range")
+        end
+    end
+else
+    function randin(range, dims...; eps=0.01)
+        if isa(range, UnitRange{Int})
+            rand(range, dims...)
+        elseif range==(-Inf,Inf)
+            randn(dims...)
+        elseif range==(0,Inf)
+            eps-log(rand(dims...))
+        elseif range==(1,Inf)
+            eps+1-log(rand(dims...))
+        elseif range==(-1,Inf)
+            eps-1-log(rand(dims...))
+        elseif range==(-1,1)
+            (1-eps)*(2rand(dims...)-1)
+        elseif range==(0,1)
+            eps+(1-2eps)*rand(dims...)
+        elseif range==(0,2)
+            eps+2*(1-eps)*rand(dims...)
+        elseif range==(-Inf,-1,1,Inf)
+            x = sec(randn(dims...))
+            sign(x)*eps + x
+        else
+            error("Unknown range $range")
+        end
     end
 end
 

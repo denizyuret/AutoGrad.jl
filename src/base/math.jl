@@ -22,7 +22,11 @@ math1arg = [
 ]
 
 for (f,g,r) in math1arg
+    bf = broadcast_func(f)
     @eval @primitive $f(x),dy,y  (dy.*($g))
+    if f != bf
+        @eval @primitive $bf(x),dy,y  (dy.*($g))
+    end
     addtest1(f,r)
 end
 
@@ -40,43 +44,67 @@ end
 # gradient definitions.
 
 math2arg = [
-(:atan2, :(x2./(abs2(x1)+abs2(x2))), :(-x1./(abs2(x1)+abs2(x2)))),
-(:hypot, :(x1./y), :(x2./y)),
-(:max, :(y.==x1), :(y.==x2)),
-(:min, :(y.==x1), :(y.==x2)),
+(:atan2, quote x2./(abs2(x1)+abs2(x2)) end, quote -x1./(abs2(x1)+abs2(x2)) end),
+(:hypot, quote x1./y end, quote x2./y end),
+(:max, quote y.==x1 end, quote y.==x2 end),
+(:min, quote y.==x1 end, quote y.==x2 end),
 ]
 
 for (f,g1,g2) in math2arg
+    bf = broadcast_func(f)
     @eval @primitive $f(x1,x2),dy,y  unbroadcast(x1,dy.*($g1))  unbroadcast(x2,dy.*($g2))
+    if f != bf
+        @eval @primitive $bf(x1,x2),dy,y  unbroadcast(x1,dy.*($g1))  unbroadcast(x2,dy.*($g2))
+    end
     addtest2(f,(-Inf,Inf))
 end
 
 # The 2-arg log supports positive args for reals.
 log(x1::Irrational{:e},x2::Rec)=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
-@primitive log(x1,x2),dy  unbroadcast(x1,-dy.*log(x2)./(x1.*abs2(log(x1))))  unbroadcast(x2,dy./(x2.*log(x1)))
+@primitive log(x1,x2),dy  unbroadcast(x1,begin -dy.*log(x2) end./begin x1.*abs2(log(x1)) end)  unbroadcast(x2,dy./begin x2.*log(x1) end)
+if VERSION > v"0.6-"
+    bf = Symbol("broadcast#log")
+    @eval @primitive $bf(x1,x2),dy  unbroadcast(x1,begin -dy.*log(x2) end./begin x1.*abs2(log(x1)) end)  unbroadcast(x2,dy./begin x2.*log(x1) end)
+end
 addtest2(log,(0,Inf))
 
 # ^ only supports (N>=0,N), arrays not supported in math.jl, only M^N in linalg/dense.jl (TODO)
 (^){T<:Number}(x1::Rec{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
+(^)(x1::Broadcasted,x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
 @primitive (^)(x1::Number,x2::Number),dy,y  (dy*x2*x1^(x2-1))  (dy*y*log(x1))
 addtest(^, randin((0,Inf)), randin((-Inf,Inf)))
 
 # clamp(x,lo,hi) clamps x between lo and hi
+bf = broadcast_func(:clamp)
 @primitive clamp(x,i...),dy,y  unbroadcast(x,dy.*(i[1] .<= x .<= i[2]))
+if bf != :clamp
+    @eval @primitive $bf(x,i...),dy,y  unbroadcast(x,dy.*(i[1] .<= x .<= i[2]))
+end
 addtest(clamp, randn(10), -1., 1.)
 addtest(clamp, randn(), -1., 1.)
 
 # ldexp(x,n) computes x*2^n with x real, n integer
+bf = broadcast_func(:ldexp)
 @primitive ldexp(x,n...),dy  (dy*(2.0^n[1]))
+if bf != :ldexp
+    @eval @primitive $bf(x,n...),dy  (dy*(2.0^n[1]))
+end
 addtest(ldexp, randn(), rand(-2:2))
 
 # mod2pi(x) returns modulus after division by 2pi for x real.
+bf = broadcast_func(:mod2pi)
 @primitive mod2pi(x::Number),dy dy
+if bf != :mod2pi
+    @eval @primitive $bf(x::Number),dy dy
+end
 addtest(mod2pi, 100randn())
 
 # zerograd functions
+bf = broadcast_func(:exponent)
 @zerograd exponent(x)
-
+if bf != :exponent
+    @eval @zerograd $bf(x)
+end
 
 # Other functions defined in julia/base/math.jl
 # add22condh: Not exported
