@@ -1,3 +1,15 @@
+AutoGrad v0.0.8 Release Notes
+=============================
+
+* Julia v0.6.0 compatibility fixes by @ylxdzsw #24.  Now compatible with Julia v4, v5, and v6.
+
+* Switched to new Base.Test functionality added in Julia v0.5.
+
+* Fix size(rec,d1,d2,ds...) from @CarloLucibello #19.
+
+* Fix depwarn from @mdpradeep #23.
+
+
 AutoGrad v0.0.7 Release Notes
 =============================
 

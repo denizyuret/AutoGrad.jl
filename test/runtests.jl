@@ -9,4 +9,6 @@ include("indexing.jl")
 include("rosenbrock.jl")
 include("highorder.jl")
 include("neuralnet.jl")
+if VERSION < v"0.6-" # TODO for v0.6
 include("primitives.jl")
+end

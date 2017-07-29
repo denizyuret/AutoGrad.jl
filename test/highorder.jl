@@ -11,3 +11,5 @@ include("header.jl")
     g8 = grad(g7);  @test g8(1)==sin(1)
     g9 = grad(g8);  @test g9(1)==cos(1)
 end
+
+nothing

@@ -1,6 +1,7 @@
 include("header.jl")
 
 @testset "indexing" begin
+
     # info("Test indexing...")
 
     a1 = rand(3)                    # FAIL: some high-order (b1sum) tests with rand(2)
@@ -11,6 +12,7 @@ include("header.jl")
     s1 = grad(s0)
     s1sum(x)=(y=s1(x);y[1]+y[2])
     s2 = grad(s1sum)
+
     @test check_grads(s0,a1)
     @test check_grads(s0,t1)
     @test check_grads(s0,d1)
@@ -41,3 +43,5 @@ include("header.jl")
     @test check_grads(r1sum,d1)
 
 end
+
+nothing

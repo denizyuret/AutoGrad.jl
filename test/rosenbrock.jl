@@ -14,3 +14,5 @@ include("header.jl")
     @test check_grads(b1sum,t1) # fail with size 2
     @time b1sum(rand(10000))
 end
+
+nothing
