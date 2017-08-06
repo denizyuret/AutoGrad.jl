@@ -390,3 +390,32 @@ function broadcast_func(f)
         f
     end
 end
+
+# The above Broadcasted stuff is a trick by @ylxdzsw to support julia v0.6.
+# https://github.com/JuliaLang/julia/issues/22060#issuecomment-304294397
+
+# Consider:
+# f: primitive function
+# bf: broadcast_func(f)
+# rbf: recorder(bf)
+# x: regular array
+# rx: Rec(x)
+# brx: Broadcasted(rx)
+
+# Here is how it goes down for a primitive function f:
+# f.(rx) ## typed by user
+# => broadcast(f, rx) ## converted by julia
+# => f(brx).value ## util.jl:370
+# => bf(rx) |> Broadcasted ## util.jl:383
+# => rbf(x) ## broadcast.jl:21 @primitive
+# => bf(x)  ## core.jl:123 recorder()
+# => broadcast(f, x) ## util.jl:380
+
+# If we have a composite function:
+# g.(f.(rx)) ## typed by user, f and g primitives
+# => broadcast(h, rx) ## converted by julia, h=x->g(f(x))
+# => h(brx).value ## util.jl:370
+# => g(f(brx)) ### brx treated like a scalar
+# => f(brx) ## util.jl:383 returns a bry
+# => g(bry) ## util.jl:383 returns a brz
+# => rz ## returned as h(brx).value
