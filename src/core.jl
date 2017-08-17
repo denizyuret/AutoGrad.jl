@@ -142,7 +142,7 @@ function rfun(args...; kwargs...)
             rnode.parents[argnum] = parent
         end
     end
-    if DEBUGTAPE && isa(result,Rec) #DBG
+    if DEBUGTAPE && isa(result,Rec)
         @assert length(result.tapes) == length(result.nodes) == 1
         t = result.tapes[1]
         n = result.nodes[1]
@@ -245,7 +245,7 @@ function backward_pass(start_box, end_box, tape)
 # outgrad its ingrads are computed using the gradient methods.
 
     for n in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
-        n.outgrad == nothing && continue
+        if n.outgrad === nothing; continue; end
         r = n.rec
         @dbg 1 (:back,r.func,:dy,n.outgrad,:y,r.value,:x,r.args...,(isempty(r.kwargs)?():(:kw,r.kwargs...))...)
         for i=1:length(n.parents)

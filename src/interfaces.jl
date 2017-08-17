@@ -55,10 +55,12 @@ ungetindex(::Type{Grad{2}},ddx::Rec,dx,x,dxi,i)=getindex(ddx,getval(i)...)
 ungetindex{T<:Grad}(::Type{T},o...)=nothing
 ungetindex{T<:Grad}(::Type{T},ddx::Rec,o...)=nothing
 
-addtest(ungetindex, rand(2),   rand(),  (2,))
-addtest(ungetindex, rand(3),   rand(2), (2:3,))
-addtest(ungetindex, rand(2,2), rand(),  (1,2))
-addtest(ungetindex, rand(3,3), rand(2), (1:2,3))
+# gradcheck works with the first arg, we need to check ungetindex grad for its second arg
+ungetindex2(value, container, index)=ungetindex(container, value, index)
+addtest(:ungetindex2, rand(),  rand(2),   (2,))
+addtest(:ungetindex2, rand(2), rand(3),   (2:3,))
+addtest(:ungetindex2, rand(),  rand(2,2), (1,2))
+addtest(:ungetindex2, rand(2), rand(3,3), (1:2,3))
 
 # sum_outgrads(accumulator,newval) needs to handle UngetIndex values:
 
@@ -261,7 +263,7 @@ for _f in interfaces2arg
 end
 
 @primitive copy(x),dy dy
-addtest(copy, rand(2))
+addtest(:copy, rand(2))
 
 # issue #18
 Base.size(a::Rec, d1::Integer, d2::Integer, dx::Vararg{Integer}) = size(getval(a), d1, d2, dx...)

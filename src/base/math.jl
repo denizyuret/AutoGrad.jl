@@ -6,7 +6,7 @@
 # inputs.  The last part gives the range for generating test cases.
 
 math1arg = [
-(:cbrt, :(1./(3.*abs2(y))), (-Inf,Inf)),
+(:cbrt, :(1./(3.*abs2_dot(y))), (-Inf,Inf)),
 (:deg2rad, :(pi/180), (-Inf,Inf)),
 (:exp, :y, (-Inf,Inf)),
 (:exp10, :(y.*log(10)), (-Inf,Inf)),
@@ -17,7 +17,7 @@ math1arg = [
 (:log1p, :(1./(1+x)), (-1,Inf)),
 (:log2, :(1./(log(2).*x)), (0,Inf)),
 (:rad2deg, :(180/pi), (-Inf,Inf)),
-(:significand, :(0.5.^exponent(x)), (-Inf,Inf)),
+(:significand, :(0.5.^exponent_dot(x)), (-Inf,Inf)),
 (:sqrt, :(1./(2.*y)), (0,Inf)),
 ]
 
@@ -44,7 +44,7 @@ end
 # gradient definitions.
 
 math2arg = [
-(:atan2, quote x2./(abs2(x1)+abs2(x2)) end, quote -x1./(abs2(x1)+abs2(x2)) end),
+(:atan2, quote x2./(abs2_dot(x1)+abs2_dot(x2)) end, quote -x1./(abs2_dot(x1)+abs2_dot(x2)) end),
 (:hypot, quote x1./y end, quote x2./y end),
 (:max, quote y.==x1 end, quote y.==x2 end),
 (:min, quote y.==x1 end, quote y.==x2 end),
@@ -56,54 +56,66 @@ for (f,g1,g2) in math2arg
     if f != bf
         @eval @primitive $bf(x1,x2),dy,y  unbroadcast(x1,dy.*($g1))  unbroadcast(x2,dy.*($g2))
     end
-    addtest2(f,(-Inf,Inf))
+    addtest2(f)
 end
 
 # The 2-arg log supports positive args for reals.
 log(x1::Irrational{:e},x2::Rec)=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
-@primitive log(x1,x2),dy  unbroadcast(x1,begin -dy.*log(x2) end./begin x1.*abs2(log(x1)) end)  unbroadcast(x2,dy./begin x2.*log(x1) end)
+@primitive log(x1,x2),dy  unbroadcast(x1,begin -dy.*log_dot(x2) end./begin x1.*abs2_dot(log_dot(x1)) end)  unbroadcast(x2,dy./begin x2.*log_dot(x1) end)
 if VERSION > v"0.6-"
     bf = Symbol("broadcast#log")
-    @eval @primitive $bf(x1,x2),dy  unbroadcast(x1,begin -dy.*log(x2) end./begin x1.*abs2(log(x1)) end)  unbroadcast(x2,dy./begin x2.*log(x1) end)
+    @eval @primitive $bf(x1,x2),dy  unbroadcast(x1,begin -dy.*log_dot(x2) end./begin x1.*abs2_dot(log_dot(x1)) end)  unbroadcast(x2,dy./begin x2.*log_dot(x1) end)
 end
-addtest2(log,(0,Inf))
+addtest2(:log,(0,Inf))
 
 # ^ only supports (N>=0,N), arrays not supported in math.jl, only M^N in linalg/dense.jl (TODO)
 (^){T<:Number}(x1::Rec{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
 (^)(x1::Broadcasted,x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
-@primitive (^)(x1::Number,x2::Number),dy,y  (dy*x2*x1^(x2-1))  (dy*y*log(x1))
-addtest(^, randin((0,Inf)), randin((-Inf,Inf)))
+@primitive (^)(x1::Number,x2::Number),dy,y  (dy*x2*x1^(x2-1))  (dy*y*log_dot(x1))
+addtestN(:^, randin((0,Inf)), randin((-Inf,Inf)))
 
 # clamp(x,lo,hi) clamps x between lo and hi
+if VERSION >= v"0.6-"; @eval begin
+    @primitive clamp(x,lo,hi),dy,y  unbroadcast(x,dy.*(lo .<= x .<= hi))
+end; else; @eval begin          # ambiguity fix
+    @primitive clamp(x,d...),dy,y  unbroadcast(x,dy.*(d[1] .<= x .<= d[2]))
+end; end
 bf = broadcast_func(:clamp)
-@primitive clamp(x,i...),dy,y  unbroadcast(x,dy.*(i[1] .<= x .<= i[2]))
 if bf != :clamp
-    @eval @primitive $bf(x,i...),dy,y  unbroadcast(x,dy.*(i[1] .<= x .<= i[2]))
+    @eval @primitive $bf(x,d...),dy,y  unbroadcast(x,dy.*(d[1] .<= x .<= d[2]))
 end
-addtest(clamp, randn(10), -1., 1.)
-addtest(clamp, randn(), -1., 1.)
+addtest(:clamp, randn(), -1., 1.)
+addtest(bf, randn(10), -1., 1.)
+broadcast_func(:&)  # need this for (lo .<= x .<= hi)
 
 # ldexp(x,n) computes x*2^n with x real, n integer
-bf = broadcast_func(:ldexp)
 @primitive ldexp(x,n...),dy  (dy*(2.0^n[1]))
+addtest(:ldexp, randn(), rand(-2:2))
+bf = broadcast_func(:ldexp)
 if bf != :ldexp
-    @eval @primitive $bf(x,n...),dy  (dy*(2.0^n[1]))
+    @eval @primitive $bf(x,n...),dy  (dy.*(2.0^n[1]))    
+    addtest(bf, randn(2), rand(-2:2))
 end
-addtest(ldexp, randn(), rand(-2:2))
 
 # mod2pi(x) returns modulus after division by 2pi for x real.
+@primitive mod2pi(x),dy dy
+addtest(:mod2pi, 100randn())
 bf = broadcast_func(:mod2pi)
-@primitive mod2pi(x::Number),dy dy
 if bf != :mod2pi
-    @eval @primitive $bf(x::Number),dy dy
+    @eval @primitive $bf(x),dy dy
+    addtest(bf, 100randn(2))
 end
-addtest(mod2pi, 100randn())
 
 # zerograd functions
 bf = broadcast_func(:exponent)
 @zerograd exponent(x)
 if bf != :exponent
     @eval @zerograd $bf(x)
+end
+if VERSION >= v"0.6-"
+    exponent_dot(x)=exponent.(x)
+else
+    exponent_dot(x)=exponent(x)
 end
 
 # Other functions defined in julia/base/math.jl

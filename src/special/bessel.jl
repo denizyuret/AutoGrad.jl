@@ -13,7 +13,11 @@ bessel1arg = [
 ]
 
 for (f,g,r) in bessel1arg
+    bf = broadcast_func(f)
     @eval @primitive $f(x),dy,y  (dy.*($g))
+    if bf != f
+        @eval @primitive $bf(x),dy,y  (dy.*($g))
+    end
     addtest1(f,r)
 end
 

@@ -7,13 +7,25 @@ float1zero = [
 :round,
 :trunc,
 ]
-for f in float1zero; @eval @zerograd $f(x); end
+for f in float1zero
+    @eval @zerograd $f(x)
+    bf = broadcast_func(f)
+    if bf != f
+        @eval @zerograd $bf(x)
+    end
+end
 
 float2zero = [
 :div, # The quotient from Euclidean division. Computes x/y, truncated to an integer; operators
 #:÷,  # Same as div.
 ]
-for f in float2zero; @eval @zerograd $f(x1,x2); end
+for f in float2zero
+    @eval @zerograd $f(x1,x2)
+    bf = broadcast_func(f)
+    if bf != f
+        @eval @zerograd $bf(x1,x2)
+    end
+end
 
 float1arg = [
 (:+, :dy),  # supports (N,) (A,) (N,N) (N,A) (A,N) (A,A); float arraymath abstractarraymath operators
@@ -23,6 +35,11 @@ float1arg = [
 
 for (f,g) in float1arg
     @eval @primitive $f(x),dy,y $g
+    # The broadcasting versions of unary versions are not defined in broadcast.jl
+    bf = broadcast_func(f)
+    if bf != f
+        @eval @primitive $bf(x),dy,y $g
+    end
     addtest1(f,(-Inf,Inf))
 end
 
@@ -37,7 +54,13 @@ float2arg = [
 
 for (f,g1, g2) in float2arg
     @eval @primitive $f(x1,x2),dy,y unbroadcast(x1,$g1) unbroadcast(x2,$g2)
-    addtest2(f,(-Inf,Inf))
+    # The broadcasting versions defined in broadcast.jl
+    # bf = broadcast_func(f)
+    # if bf != f
+    #     @eval @primitive $bf(x1,x2),dy,y unbroadcast(x1,$g1) unbroadcast(x2,$g2)
+    # end
+    # addtest2(f,(-Inf,Inf))
+    addtestN(f, randn(), randn())
 end
 
 # Methods for multiplication:
@@ -55,14 +78,14 @@ end
 # There is no Number-Array support.
 # \(x,A) is the same as /(A,x)
 
-@primitive (/)(x1,x2::Number),dy,y  (dy/x2)  unbroadcast(x2,-dy.*x1./abs2(x2))
+@primitive (/)(x1,x2::Number),dy,y  (dy/x2)  unbroadcast(x2,-dy.*x1./abs2_dot(x2))
 x = randn(); a = randn(2)
-addtest(/,randn(),randn())
-addtest(/,randn(2),randn())
+addtestN(:/,randn(),randn())
+addtestN(:/,randn(2),randn())
 
-@primitive (\)(x2::Number,x1),dy,y  unbroadcast(x2,-dy.*x1./abs2(x2))  (dy/x2)
-addtest(\,randn(),randn())
-addtest(\,randn(),randn(2))
+@primitive (\)(x2::Number,x1),dy,y  unbroadcast(x2,-dy.*x1./abs2_dot(x2))  (dy/x2)
+addtestN(:\,randn(),randn())
+addtestN(:\,randn(),randn(2))
 
 # These are defined in terms of isless which is handled in interfaces.jl
 # float2arg1 = Dict{Symbol,Any}(

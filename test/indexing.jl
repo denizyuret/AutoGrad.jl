@@ -4,7 +4,7 @@ include("header.jl")
 
     # info("Test indexing...")
 
-    a1 = rand(3)                    # FAIL: some high-order (b1sum) tests with rand(2)
+    a1 = rand(3)                    # TODO: FAIL: some high-order (b1sum) tests with rand(2)
     t1 = (a1...)
     d1 = Dict(); for i=1:length(a1); d1[i]=a1[i]; end
 

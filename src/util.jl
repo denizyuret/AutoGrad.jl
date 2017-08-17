@@ -312,8 +312,8 @@ sumvalues(x::Associative)=sum(values(x))
 @primitive sumvalues(x::Associative),ds fillvalues(ds,x)
 fillvalues(v,x)=(y=similar(x);for k in keys(x); y[k]=v; end; y)
 @primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
-addtest(sumvalues, Dict(1=>1.,2=>2.))
-addtest(fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
+addtest(:sumvalues, Dict(1=>1.,2=>2.))
+addtest(:fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
 
 # This needs more work:
 # @primitive values(x),dy Dict(map((a,b)->(a=>b), keys(x), dy))
@@ -363,36 +363,50 @@ function dumptape(t::Tape)
     end
 end
 
+# The Broadcasted stuff below is a trick by @ylxdzsw to support julia v0.6.
+# https://github.com/JuliaLang/julia/issues/22060#issuecomment-304294397
+
 type Broadcasted{T}
     value::T
 end
 
-broadcast(f, x::Rec) = f(Broadcasted(x)).value
-broadcast(f, x1::Rec, x2::Rec) = f(Broadcasted(x1), Broadcasted(x2)).value
-broadcast(f, x1::Rec, x2) = f(Broadcasted(x1), x2).value
-broadcast(f, x1, x2::Rec) = f(x1, Broadcasted(x2)).value
+if VERSION >= v"0.6-"
+# We need this to not override regular broadcast(f, A, Bs...):
+using Base.Broadcast: broadcast_c, containertype
+broadcast(f, x::Union{Number,AbstractArray}...)=broadcast_c(f, containertype(x...), x...)
+# This captures cases where at least one arg is a Rec:
+function broadcast(f, x::Union{Number,AbstractArray,Rec}...)
+    bx = ntuple(i->(isa(x[i],Rec) ? Broadcasted(x[i]) : x[i]), length(x))
+    f(bx...).value
+end
+end
 
 function broadcast_func(f)
-    if VERSION > v"0.6-"
+    if VERSION >= v"0.6-"
         f = Symbol(lstrip(string(f), '.'))
         bf = Symbol("broadcast#", f)
-        @eval begin
+        if !isdefined(AutoGrad, bf); @eval begin
             $bf(x) = broadcast($f, x)
             $bf(x1, x2) = broadcast($f, x1, x2)
-            
+            $bf(x1, x2, x3) = broadcast($f, x1, x2, x3)
+
             $f(x::Broadcasted) = $bf(x.value) |> Broadcasted
             $f(x1::Broadcasted, x2) = $bf(x1.value, x2) |> Broadcasted
             $f(x1, x2::Broadcasted) = $bf(x1, x2.value) |> Broadcasted
             $f(x1::Broadcasted, x2::Broadcasted) = $bf(x1.value, x2.value) |> Broadcasted
-        end
+        end; end
         bf
     else
         f
     end
 end
 
-# The above Broadcasted stuff is a trick by @ylxdzsw to support julia v0.6.
-# https://github.com/JuliaLang/julia/issues/22060#issuecomment-304294397
+# sign.(Rec(a))
+# => broadcast(sign, Rec(a))
+# => sign(Broadcasted(Rec(a))).value
+# => broadcast#sign(Rec(a)) |> Broadcasted
+# => broadcast#sign(a) # due to @zerograd def
+# => broadcast(sign, a)
 
 # Consider:
 # f: primitive function
@@ -419,3 +433,5 @@ end
 # => f(brx) ## util.jl:383 returns a bry
 # => g(bry) ## util.jl:383 returns a brz
 # => rz ## returned as h(brx).value
+
+

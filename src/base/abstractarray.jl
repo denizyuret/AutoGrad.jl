@@ -23,7 +23,7 @@ end
 # similar: interfaces.jl
 # reshape
 @primitive reshape(x,i...),dy  reshape(dy,size(x))
-addtest(reshape,rand(2,2),(4,1))
+addtest(:reshape,rand(2,2),(4,1))
 # copy!: Overwriting operation
 # copy: interfaces.jl
 # copy_transpose!: Not exported
@@ -147,21 +147,23 @@ end
 #               ↓
 # x3 ← uncat  ← y3
 
-addtest(:cat, 1, 1., 2.)
-addtest(:cat, 1, 1., [2.,3.])
-addtest(:cat, 1, [1.,2.], 3.)
-addtest(:cat, 1, [1.,2.], [3.,4.])
-addtest(:cat, 1, [1. 2.], [3. 4.])
-addtest(:cat, 2, 1., 2.)
-addtest(:cat, 2, 1., [2. 3.])
-addtest(:cat, 2, [1. 2.], 3.)
-addtest(:cat, 2, [1.,2.], [3.,4.])
-addtest(:cat, 2, [1. 2.], [3. 4.])
+cat1(x...)=cat(1,x...)
+cat2(x...)=cat(2,x...)
+addtestN(:cat1, 1., 2.)
+addtestN(:cat1, 1., [2.,3.])
+addtestN(:cat1, [1.,2.], 3.)
+addtestN(:cat1, [1.,2.], [3.,4.])
+addtestN(:cat1, [1. 2.], [3. 4.])
+addtestN(:cat2, 1., 2.)
+addtestN(:cat2, 1., [2. 3.])
+addtestN(:cat2, [1. 2.], 3.)
+addtestN(:cat2, [1.,2.], [3.,4.])
+addtestN(:cat2, [1. 2.], [3. 4.])
 
 # vcat,hcat: should be defined in terms of cat. However base has some
 # generic methods that prevent the cat call when the arguments are
 # boxed.  This should fix it, at least when one of the first two args
-# is boxed.
+# is boxed. TODO: find generic solution for more args.
 vcat(a::Rec,b::Rec,c...)=cat(1,a,b,c...)
 vcat(a,b::Rec,c...)=cat(1,a,b,c...)
 vcat(a::Rec,b...)=cat(1,a,b...)

@@ -1,3 +1,10 @@
+# TODO: merge gradcheck and check_grads.
+# gradcheck iterates over the elements of the first arg.
+# check_grads constructs numerical gradient of all args then compares.
+# gradcheck has the ability to sample large arrays, check_grads cannot.
+# check_grads can handle Tuples and Dicts, gradcheck cannot.
+# gradcheck handles non-scalar functions turning them into scalars.
+
 """
 
     gradcheck(f, w, x...; kwargs...)
@@ -44,6 +51,20 @@ function gradcheck(f, w, x...; kwargs=[], o...)
     end
 end
 
+function gc_number(d, f, w, x...; delta=gc_dx(w),rtol=gc_dx(w),atol=gc_dx(w),verbose=false,kwargs=[])
+    (w1, w2) = gc_interval(w, delta)
+    (f1, f2) = (f(w1,x...;kwargs...), f(w2,x...;kwargs...))
+    nd = (f2-f1) / (w2-w1)
+    di = (d===nothing ? zero(nd) : d)
+    if !isapprox(di, nd; rtol=rtol, atol=atol)
+        if verbose; warn("d=$d nd=$nd"); end
+        return false
+    else
+        if verbose && (d*nd!=0); println("gcheck: d=$d nd=$nd"); end
+        return true
+    end
+end
+
 function gc_index(w, d, i, f, w0, x...; o...)
     di = nothing
     try; di = d[i]; end
@@ -60,6 +81,8 @@ function gc_index(w, d, i, f, w0, x...; o...)
         return pass
     end
 end
+
+# TODO: handle Tuples, Dict
 
 function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, kwargs=[],
                   delta=0, atol=0, rtol=0, verbose=false)
@@ -86,7 +109,7 @@ function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, kwargs=[],
         f2 = f(worig, x...; kwargs...)
         w[i] = w0
         nd = (f2-f1) / (w2-w1)
-        di = (d==nothing ? zero(nd) : d[i])
+        di = (d===nothing ? zero(nd) : d[i])
         if !isapprox(di, nd; rtol=rtol, atol=atol)
             if verbose; warn("d=$di nd=$nd"); end
             pass = false
@@ -95,20 +118,6 @@ function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, kwargs=[],
         end
     end
     return pass
-end
-
-function gc_number(d, f, w, x...; delta=gc_dx(w),rtol=gc_dx(w),atol=gc_dx(w),verbose=false,kwargs=[])
-    (w1, w2) = gc_interval(w, delta)
-    (f1, f2) = (f(w1,x...;kwargs...), f(w2,x...;kwargs...))
-    nd = (f2-f1) / (w2-w1)
-    di = (d==nothing ? zero(nd) : d)
-    if !isapprox(di, nd; rtol=rtol, atol=atol)
-        if verbose; warn("d=$d nd=$nd"); end
-        return false
-    else
-        if verbose && (d*nd!=0); println("gcheck: d=$d nd=$nd"); end
-        return true
-    end
 end
 
 gc_dx(x::Number)=cbrt(eps(x))
@@ -129,12 +138,17 @@ function gc_scalar(f)
     function g(x...; o...)
         srand(r,1)
         y = f(x...; o...)
-        v = AutoGrad.getval(y)
+        # v = AutoGrad.getval(y)
         try
-            a = oftype(v, rand(r, size(v)))
-            return sum(y .* a)
-        catch
-            Base.warn_once("Cannot convert `$f` to a scalar function.")
+            # a = oftype(v, rand(r, size(v)))
+            # return sum(y .* a)
+            if isa(getval(y), Associative)
+                return sumvalues(y)
+            else
+                return sum(y)  # TODO: revert this back to y.*a once julia6 compat issues resolved?
+            end
+        catch e
+            Base.warn_once("Cannot convert `$f` to a scalar function: $e")
             return 0
         end
     end
@@ -144,7 +158,7 @@ end
 
 ### Testing Utilities:
 
-if !isdefined(:runtests)
+if !isdefined(:addtest)
 let tests=[]
     global addtest,runtests,alltests
     alltests()=tests
@@ -152,8 +166,11 @@ let tests=[]
     function runtests(a=tests)
         for fx in a
             try 
-                tx = fixtest(fx...)
-                check_grads(tx...; fname=fx[1]) || throw(:fail)
+                # tx = fixtest(fx...)
+                # check_grads(tx...; fname=fx[1]) || throw(:fail)
+                f = eval(AutoGrad,fx[1])
+                x = fx[2:end]
+                gradcheck(f,x...) || throw(:fail)
             catch e
                 warn((fx...,"$e"))
             end
@@ -162,112 +179,55 @@ let tests=[]
 end
 end
 
-function fixtest(f, x...)
-    f = eval(f)
-    y = f(x...)
-    # detect and prevent testing of zero / undefined grads
-    plist = Any[]               # define fnew(plist)
-    alist = Any[x...]           # to return f(alist)
-    fargs = Any[]               # call fnew(fargs...)
-    for i=1:length(alist)
-        gargs = Any[Grad{i},y,y,x...]
-        gargs[i+3] = Rec(gargs[i+3])
-        g = nothing
-        try
-            g = f(gargs...)
-        catch e
-            if isa(e,MethodError) && e.f === f && e.args[1] === Grad{i}
-                continue        # warn("No grad $i for $f: $e")
-            else
-                error("Error during $f$((gargs...)): $e")
-            end
-        end
-        g == nothing && continue # zero grads
-        push!(fargs, alist[i])
-        alist[i] = Symbol("x$i")
-        push!(plist, alist[i])
-    end
-    isempty(fargs) && error("$f has no differentiable arguments.")
-    f1=f; f = eval(Expr(:->, Expr(:tuple, plist...), Expr(:call, f1, alist...)))
-    # if f has non-scalar output, sum it
-    isbits(y) || (f2=f; f=(x...)->toscalar(f2(x...)))
-    return (f,fargs...)
-end
+# gradcheck only checks the first arg, this helper will allow us to check all args
 
-if VERSION >= v"0.5.0"
-    function randin(range, dims...; eps=0.01)
-        if isa(range, UnitRange{Int})
-            rand(range, dims...)
-        elseif range==(-Inf,Inf)
-            randn(dims...)
-        elseif range==(0,Inf)
-            eps-log.(rand(dims...))
-        elseif range==(1,Inf)
-            eps+1-log.(rand(dims...))
-        elseif range==(-1,Inf)
-            eps-1-log.(rand(dims...))
-        elseif range==(-1,1)
-            (1-eps)*(2rand(dims...)-1)
-        elseif range==(0,1)
-            eps+(1-2eps)*rand(dims...)
-        elseif range==(0,2)
-            eps+2*(1-eps)*rand(dims...)
-        elseif range==(-Inf,-1,1,Inf)
-            x = sec.(randn(dims...))
-            sign.(x)*eps + x
-        else
-            error("Unknown range $range")
-        end
-    end
-else
-    function randin(range, dims...; eps=0.01)
-        if isa(range, UnitRange{Int})
-            rand(range, dims...)
-        elseif range==(-Inf,Inf)
-            randn(dims...)
-        elseif range==(0,Inf)
-            eps-log(rand(dims...))
-        elseif range==(1,Inf)
-            eps+1-log(rand(dims...))
-        elseif range==(-1,Inf)
-            eps-1-log(rand(dims...))
-        elseif range==(-1,1)
-            (1-eps)*(2rand(dims...)-1)
-        elseif range==(0,1)
-            eps+(1-2eps)*rand(dims...)
-        elseif range==(0,2)
-            eps+2*(1-eps)*rand(dims...)
-        elseif range==(-Inf,-1,1,Inf)
-            x = sec(randn(dims...))
-            sign(x)*eps + x
-        else
-            error("Unknown range $range")
-        end
-    end
-end
+applyN(x,f)=f(x...)
+addtestN(f,x...)=addtest(:applyN,collect(x),eval(AutoGrad,f))
+gradcheckN(f,x...;o...)=gradcheck(applyN,collect(x),f;o...)
 
-function addtest1(f,r)          # unary
+# Generate tests based on given ranges
+
+function addtest1(f,r=(-Inf,Inf))          # unary
+    bf = broadcast_func(f)
     addtest(f,randin(r))
-    addtest(f,randin(r,2))
+    addtest(bf,randin(r,2))
 end
 
-function addtest2(f,r1,r2=r1)   # binary
-    addtest(f,randin(r1),randin(r2))
-    addtest(f,randin(r1),randin(r2,2))
-    addtest(f,randin(r1,2),randin(r2))
-    addtest(f,randin(r1,2),randin(r2,2))
+function addtest2(f,r1=(-Inf,Inf),r2=r1)   # binary
+    bf = broadcast_func(f)
+    addtestN(f,randin(r1),randin(r2))
+    addtestN(bf,randin(r1),randin(r2,2))
+    addtestN(bf,randin(r1,2),randin(r2))
+    addtestN(bf,randin(r1,2),randin(r2,2))
 end
 
-function addtest3(f,r1,r2=r1)   # broadcasting
-    addtest2(f,r1,r2)
-    addtest(f,randin(r1,2),randin(r2,2,2))
-    addtest(f,randin(r1,2,2),randin(r2,2))
-    addtest(f,randin(r1,1,2),randin(r2,2,2))
-    addtest(f,randin(r1,2,2),randin(r2,1,2))
+function randin(range, dims...; eps=0.01)
+    if isa(range, UnitRange{Int})
+        rand(range, dims...)
+    elseif range==(-Inf,Inf)
+        r = randn(dims...)
+        sign_dot(r)*eps + r
+    elseif range==(0,Inf)
+        eps-log_dot(rand(dims...))
+    elseif range==(1,Inf)
+        eps+1-log_dot(rand(dims...))
+    elseif range==(-1,Inf)
+        eps-1-log_dot(rand(dims...))
+    elseif range==(-1,1)
+        (1-eps)*(2rand(dims...)-1)
+    elseif range==(0,1)
+        eps+(1-2eps)*rand(dims...)
+    elseif range==(0,2)
+        eps+2*(1-eps)*rand(dims...)
+    elseif range==(-Inf,-1,1,Inf)
+        x = sec_dot(randn(dims...))
+        sign_dot(x)*eps + x
+    else
+        error("Unknown range $range")
+    end
 end
 
-
-# Alternative gradient check utility:
+# Alternative gradient check utility -- deprecated.
 
 # EPS, RTOL, ATOL = 1e-4, 1e-4, 1e-6
 EPS, RTOL, ATOL = 1e-4, 1e-2, 1e-4
@@ -325,3 +285,34 @@ isequivalent{T<:Number}(x::AbstractArray{T},z::Void; o...)=isequivalent(z,x;o...
 isequivalent(z::Void,x::Number; o...)=isapprox(zero(x),x;o...)
 isequivalent{T<:Number}(z::Void,x::AbstractArray{T}; rtol::Real=Base.rtoldefault(T), atol::Real=0, norm::Function=vecnorm) = (norm(x) <= atol/(1-rtol)) # Modified from: linalg/generic.jl:522
 
+function fixtest(f, x...)
+    f = eval(f)
+    y = f(x...)
+    # detect and prevent testing of zero / undefined grads
+    plist = Any[]               # define fnew(plist)
+    alist = Any[x...]           # to return f(alist)
+    fargs = Any[]               # call fnew(fargs...)
+    for i=1:length(alist)
+        gargs = Any[Grad{i},y,y,x...]
+        gargs[i+3] = Rec(gargs[i+3])
+        g = nothing
+        try
+            g = f(gargs...)
+        catch e
+            if isa(e,MethodError) && e.f === f && e.args[1] === Grad{i}
+                continue        # warn("No grad $i for $f: $e")
+            else
+                error("Error during $f$((gargs...)): $e")
+            end
+        end
+        g === nothing && continue # zero grads
+        push!(fargs, alist[i])
+        alist[i] = Symbol("x$i")
+        push!(plist, alist[i])
+    end
+    isempty(fargs) && error("$f has no differentiable arguments.")
+    f1=f; f = eval(Expr(:->, Expr(:tuple, plist...), Expr(:call, f1, alist...)))
+    # if f has non-scalar output, sum it
+    isbits(y) || (f2=f; f=(x...)->toscalar(f2(x...)))
+    return (f,fargs...)
+end
