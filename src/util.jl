@@ -370,16 +370,13 @@ type Broadcasted{T}
     value::T
 end
 
-if VERSION >= v"0.6-"
-# We need this to not override regular broadcast(f, A, Bs...):
-using Base.Broadcast: broadcast_c, containertype
-broadcast(f, x::Union{Number,AbstractArray}...)=broadcast_c(f, containertype(x...), x...)
-# This captures cases where at least one arg is a Rec:
-function broadcast(f, x::Union{Number,AbstractArray,Rec}...)
-    bx = ntuple(i->(isa(x[i],Rec) ? Broadcasted(x[i]) : x[i]), length(x))
-    f(bx...).value
-end
-end
+if VERSION >= v"0.6-"; @eval begin
+    # We need this to not override regular broadcast(f, A, Bs...):
+    using Base.Broadcast: broadcast_c, containertype
+    broadcast(f, x::Union{Number,AbstractArray}...)=broadcast_c(f, containertype(x...), x...)
+    # This captures cases where at least one arg is a Rec:
+    broadcast(f, x::Union{Number,AbstractArray,Rec}...)=f(Broadcasted.(x)...).value
+end; end
 
 function broadcast_func(f)
     if VERSION >= v"0.6-"
