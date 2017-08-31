@@ -369,6 +369,7 @@ end
 type Broadcasted{T}
     value::T
 end
+getval(x::Broadcasted)=x.value
 
 if VERSION >= v"0.6-"; @eval begin
     # We need this to not override regular broadcast(f, A, Bs...):
@@ -383,9 +384,13 @@ function broadcast_func(f)
         f = Symbol(lstrip(string(f), '.'))
         bf = Symbol("broadcast#", f)
         if !isdefined(AutoGrad, bf); @eval begin
-            $bf(x) = broadcast($f, x)
+            # TODO: Why isn't this working?
+            # $bf(x...) = broadcast($f, x...)
+            # $f(x::Broadcasted...) = $bf(getval.(x)...) |> Broadcasted
+
+            $bf(x1) = broadcast($f, x1)
             $bf(x1, x2) = broadcast($f, x1, x2)
-            $bf(x1, x2, x3) = broadcast($f, x1, x2, x3)
+            $bf(x1, x2, x3) = broadcast($f, x1, x2, x3) # TODO: this is necessary for clamp, why? why don't we need 3-arg below?
 
             $f(x::Broadcasted) = $bf(x.value) |> Broadcasted
             $f(x1::Broadcasted, x2) = $bf(x1.value, x2) |> Broadcasted
