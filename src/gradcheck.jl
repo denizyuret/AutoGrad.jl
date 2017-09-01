@@ -134,12 +134,12 @@ function gc_interval(w,d)
 end
 
 function gc_scalar(f)
-    r = MersenneTwister(0)
+    # r = MersenneTwister(0)
     function g(x...; o...)
-        srand(r,1)
-        y = f(x...; o...)
-        # v = AutoGrad.getval(y)
         try
+            y = f(x...; o...)
+            # v = getval(y)
+            # srand(r,1)
             # a = oftype(v, rand(r, size(v)))
             # return sum(y .* a)
             if isa(getval(y), Associative)
