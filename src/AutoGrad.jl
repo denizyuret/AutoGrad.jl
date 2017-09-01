@@ -13,6 +13,7 @@ export @primitive, @zerograd, recorder, Rec, Grad  # the last three are required
 datapath = joinpath(dirname(@__FILE__),"..","data")
 
 include("core.jl")
+include("unfuse.jl")
 include("dotfunc.jl")
 include("gradcheck.jl")
 include("util.jl")
