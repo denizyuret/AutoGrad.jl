@@ -70,18 +70,22 @@ get{T<:AbstractArray}(A::Rec{T}, I::Dims, default)    = (if checkbounds(Bool, si
 # matrix with matrices[1], matrices[2], ... as diagonal blocks and
 # matching zero blocks away from the diagonal.
 
-# After dims, cat can take 0 or more arguments of any type.  We only
-# catch the cases where one of the first two args is a Rec.  We
-# leave the type of the first arg unspecified, which can be an Int,
-# Tuple{Int}, or Vector{Int} and is never boxed.  We assume
-# cat(Grad{1},...) will never be called.
+# After dims, cat can take 0 or more arguments of any type.  In order
+# to catch the cases where at least one arg is Rec, we need to
+# override the generic Base.cat(d,x...). This will call the recording
+# cat_r if a Rec is found, and the original cat_t from the Base
+# definition if not.
 
-const CatDims = Union{Int,Tuple{Int},Vector{Int}} # julia4 gives ambiguity warnings if first arg type not specified
 let cat_r = recorder(cat)
     global cat
-    cat(d::CatDims,a::Rec,b::Rec,c...)=cat_r(d,a,b,c...)
-    cat(d::CatDims,a,b::Rec,c...)     =cat_r(d,a,b,c...)
-    cat(d::CatDims,a::Rec,b...)       =cat_r(d,a,b...)
+    using Base: cat_t, promote_eltypeof
+    function cat(d, x...)
+        if findfirst(v->isa(v,Rec), x) > 0
+            cat_r(d, x...)
+        else
+            cat_t(d, promote_eltypeof(x...), x...)
+        end
+    end
 end
 cat(::Type{Grad{1}},y1,y,dims,x...)=nothing
 cat{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
@@ -161,15 +165,18 @@ addtestN(:cat2, [1.,2.], [3.,4.])
 addtestN(:cat2, [1. 2.], [3. 4.])
 
 # vcat,hcat: should be defined in terms of cat. However base has some
-# generic methods that prevent the cat call when the arguments are
-# boxed.  This should fix it, at least when one of the first two args
-# is boxed. TODO: find generic solution for more args.
-vcat(a::Rec,b::Rec,c...)=cat(1,a,b,c...)
-vcat(a,b::Rec,c...)=cat(1,a,b,c...)
-vcat(a::Rec,b...)=cat(1,a,b...)
-hcat(a::Rec,b::Rec,c...)=cat(2,a,b,c...)
-hcat(a,b::Rec,c...)=cat(2,a,b,c...)
-hcat(a::Rec,b...)=cat(2,a,b...)
+# generic methods that prevent the cat call when all arguments are
+# boxed.  This should fix it:
+
+vcat(x::Rec...) = cat(1, x...)
+hcat(x::Rec...) = cat(2, x...)
+
+# vcat(a::Rec,b::Rec,c...)=cat(1,a,b,c...)
+# vcat(a,b::Rec,c...)=cat(1,a,b,c...)
+# vcat(a::Rec,b...)=cat(1,a,b...)
+# hcat(a::Rec,b::Rec,c...)=cat(2,a,b,c...)
+# hcat(a,b::Rec,c...)=cat(2,a,b,c...)
+# hcat(a::Rec,b...)=cat(2,a,b...)
 
 # typed_vcat: Not exported
 # typed_hcat: Not exported
