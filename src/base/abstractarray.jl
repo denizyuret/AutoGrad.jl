@@ -78,12 +78,14 @@ get{T<:AbstractArray}(A::Rec{T}, I::Dims, default)    = (if checkbounds(Bool, si
 
 let cat_r = recorder(cat)
     global cat
-    using Base: cat_t, promote_eltypeof
-    function cat(d, x...)
-        if findfirst(v->isa(v,Rec), x) > 0
-            cat_r(d, x...)
+    function cat(dims, X...)
+        if findfirst(v->isa(v,Rec), X) > 0
+            cat_r(dims, X...)
+        elseif VERSION >= v"0.6-"
+            Base.cat_t(dims, Base.promote_eltypeof(X...), X...)
         else
-            cat_t(d, promote_eltypeof(x...), x...)
+            T = Base.promote_type(map(x->isa(x,AbstractArray) ? eltype(x) : typeof(x), X)...)
+            Base.cat_t(dims, T, X...)
         end
     end
 end
