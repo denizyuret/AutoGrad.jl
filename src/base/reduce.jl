@@ -1,28 +1,33 @@
-reduce1arg = [
-(:sum,     :(ones(x))),
-(:sumabs_,  :(sign_dot(x))),
-(:sumabs2_, :(2x)),
-(:prod,    :(y./x)),
-(:maximum, :(y.==x)),
-(:minimum, :(y.==x)),
-(:maxabs_,  :(y.==abs_dot(x))),
-(:minabs_,  :(y.==abs_dot(x))),
-]
-
-if VERSION >= v"0.6-"; @eval begin
+if VERSION >= v"0.6-"
+    reduce1arg = [
+    (:sum,      :(ones(x))),
+    (:sumabs_,  :(sign_dot(x))),
+    (:sumabs2_, :(2x)),
+    (:prod,     :(y./x)),
+    (:maximum,  :(y.==x)),
+    (:minimum,  :(y.==x)),
+    (:maxabs_,  :(y.==abs_dot(x))),
+    (:minabs_,  :(y.==abs_dot(x))),
+    ]
     sumabs_(x...)=sum(abs,x...)
     sumabs2_(x...)=sum(abs2,x...)
     minabs_(x...)=minimum(abs,x...)
     maxabs_(x...)=maximum(abs,x...)
-end; else; @eval begin
-    sumabs_(x...) = sumabs(x...)
-    sumabs2_(x...) = sumabs2(x...)
-    minabs_(x...) = minabs(x...)
-    maxabs_(x...) = maxabs(x...)
-end; end
+else
+    reduce1arg = [
+    (:sum,     :(ones(x))),
+    (:sumabs,  :(sign_dot(x))),
+    (:sumabs2, :(2x)),
+    (:prod,    :(y./x)),
+    (:maximum, :(y.==x)),
+    (:minimum, :(y.==x)),
+    (:maxabs,  :(y.==abs_dot(x))),
+    (:minabs,  :(y.==abs_dot(x))),
+    ]
+end
 
 for (f,g) in reduce1arg
-    @eval @primitive $f(x,i...),dy,y   (dy.*($g))
+    @eval @primitive  $f(x,i...),dy,y   (dy.*($g))
     addtest(f, rand(2))
     addtest(f, rand(2,2), 1)
     addtest(f, rand(2,2), 2)
@@ -45,10 +50,10 @@ if VERSION >= v"0.6-"
         sum(f::typeof(abs2), x::Rec, r...) = sum_r(f, x, r...)
         maximum(f::typeof(abs), x::Rec, r...) = max_r(f, x, r...)
         minimum(f::typeof(abs), x::Rec, r...) = min_r(f, x, r...)
-        sum(Grad{2},dy,y,f::typeof(abs),x,r...) = sumabs(Grad{1},dy,y,x,r...)
-        sum(Grad{2},dy,y,f::typeof(abs2),x,r...) = sumabs2(Grad{1},dy,y,x,r...)
-        maximum(Grad{2},dy,y,f::typeof(abs),x,r...) = maxabs(Grad{1},dy,y,x,r...)
-        minimum(Grad{2},dy,y,f::typeof(abs),x,r...) = minabs(Grad{1},dy,y,x,r...)
+        sum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = sumabs_(Grad{1},dy,y,x,r...)
+        sum(::Type{Grad{2}},dy,y,f::typeof(abs2),x,r...) = sumabs2_(Grad{1},dy,y,x,r...)
+        maximum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = maxabs_(Grad{1},dy,y,x,r...)
+        minimum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = minabs_(Grad{1},dy,y,x,r...)
     end
 end
 
