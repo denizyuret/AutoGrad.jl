@@ -6,8 +6,8 @@ if VERSION >= v"0.6-"
     (:prod,     :(y./x)),
     (:maximum,  :(y.==x)),
     (:minimum,  :(y.==x)),
-    (:maxabs_,  :(y.==abs_dot(x))),
-    (:minabs_,  :(y.==abs_dot(x))),
+    (:maxabs_,  :((y.==abs_dot(x)).*sign_dot(x))),
+    (:minabs_,  :((y.==abs_dot(x)).*sign_dot(x))),
     ]
     sumabs_(x...)=sum(abs,x...)
     sumabs2_(x...)=sum(abs2,x...)
@@ -21,16 +21,16 @@ else
     (:prod,    :(y./x)),
     (:maximum, :(y.==x)),
     (:minimum, :(y.==x)),
-    (:maxabs,  :(y.==abs_dot(x))),
-    (:minabs,  :(y.==abs_dot(x))),
+    (:maxabs,  :((y.==abs_dot(x)).*sign_dot(x))),
+    (:minabs,  :((y.==abs_dot(x)).*sign_dot(x))),
     ]
 end
 
 for (f,g) in reduce1arg
     @eval @primitive  $f(x,i...),dy,y   (dy.*($g))
-    addtest(f, rand(2))
-    addtest(f, rand(2,2), 1)
-    addtest(f, rand(2,2), 2)
+    addtest(f, randn(2))
+    addtest(f, randn(2,2), 1)
+    addtest(f, randn(2,2), 2)
     # @eval @primitive $f(x::Tuple),dy,y (x=[x...];tuple((dy.*($g))...))
     # addtest(f, (rand(2)...))
 end    
