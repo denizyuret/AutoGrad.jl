@@ -142,6 +142,12 @@ end
 @primitive  uncat(y1,n...),x2  uncat1(x2,y1,n...)
 @primitive  uncat1(x2,y1,n...),y3  uncat(y3,n...)
 
+# In Julia6+ dims can be Val{N} which breaks uncat:
+if VERSION >= v"0.6-"
+    uncat{N}(y1,n,dims::Type{Val{N}},x...)=uncat(y1,n,N,x...)
+    uncat1{N}(x2,y1,n,dims::Type{Val{N}},x...)=uncat1(x2,y1,n,N,x...)
+end
+
 # Here is a graphic that may explain the variable name choice where xi
 # stands for the i'th order gradient:
 #
