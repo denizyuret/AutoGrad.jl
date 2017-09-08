@@ -9,6 +9,10 @@ AutoGrad v0.0.8 Release Notes
 
 * Fix depwarn from @mdpradeep #23.
 
+* Generalize cat implementation to work with any number of arguments.
+
+* Fix sign bug in derivatives for minabs/maxabs.
+
 
 AutoGrad v0.0.7 Release Notes
 =============================
