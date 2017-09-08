@@ -43,8 +43,9 @@ module CharLM
 using AutoGrad
 using Base.LinAlg: axpy!
 
-sigm(x) = 1 ./ (1 + exp(-x))
-@primitive sigm(x::Array),dy,y  (dy .* y .* (1 - y))
+sigm(x) = 1 ./ (1 + exp.(-x))
+@primitive sigm(x),dy,y  (dy .* y .* (1 - y))
+tanx(x) = tanh.(x)
 
 function xavier(fan_out, fan_in)
     scale = sqrt(6 / (fan_in + fan_out))
@@ -55,8 +56,8 @@ function weights(; input_size=0, output_size=0, embedding_size=0,
                  hidden_size=0, batch_size=0, init=xavier)
     w = Dict()
     for gate in (:ingate, :forget, :outgate, :change)
-        w[symbol(:W_, gate)] = init(hidden_size, embedding_size + hidden_size)
-        w[symbol(:b_, gate)] = (gate == :forget ? ones : zeros)(Float32, (hidden_size, 1))
+        w[Symbol(:W_, gate)] = init(hidden_size, embedding_size + hidden_size)
+        w[Symbol(:b_, gate)] = (gate == :forget ? ones : zeros)(Float32, (hidden_size, 1))
     end
     w[:W_embedding] = init(embedding_size, input_size)
     w[:W_predict]   = init(output_size, hidden_size)
@@ -69,15 +70,15 @@ function lstm(w, input, hidden, cell)
     ingate  = sigm(w[:W_ingate]  * x .+ w[:b_ingate]) # in fact we can probably combine these four operations into one
     forget  = sigm(w[:W_forget]  * x .+ w[:b_forget]) # then use indexing, or (better) subarrays to get individual gates
     outgate = sigm(w[:W_outgate] * x .+ w[:b_outgate])
-    change  = tanh(w[:W_change]  * x .+ w[:b_change]) 
+    change  = tanx(w[:W_change]  * x .+ w[:b_change]) 
     cell    = cell .* forget + ingate .* change
-    hidden  = outgate .* tanh(cell)
+    hidden  = outgate .* tanx(cell)
     return hidden, cell
 end
 
 function predict(w, hidden)
     output = w[:W_predict] * hidden .+ w[:b_predict]
-    return output .- log(sum(exp(output), 1))
+    return output .- log(sum(exp.(output), 1))
 end
 
 function dropout(x, pdrop)
@@ -182,7 +183,7 @@ function loaddata(datasrc, batch_size, char_limit=0)
     end
     info("Read: $(length(chars)) characters, $(length(char_to_index)) vocabulary")
     data = minibatch(chars, char_to_index, batch_size)
-    index_to_char = Array(Char, length(char_to_index))
+    index_to_char = Array{Char}(length(char_to_index))
     for (c, i) in char_to_index
         index_to_char[i] = c
     end
