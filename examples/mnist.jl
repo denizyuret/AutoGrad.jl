@@ -37,7 +37,7 @@ end
 
 function loss(w, x, ygold)
     ypred = predict(w, x)
-    ynorm = ypred .- log(sum(exp(ypred),1))
+    ynorm = ypred .- log(sum(exp.(ypred),1))
     -sum(ygold .* ynorm) / size(ygold,2)
 end
 
