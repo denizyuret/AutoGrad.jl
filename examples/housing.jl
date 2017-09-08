@@ -23,7 +23,7 @@ using Main
 function loss(wb, x=xtrn, ygold=ytrn)
     (w,b) = wb
     ypred = w*x .+ b
-    sum(abs2(ypred - ygold)) / size(ygold,2)
+    sum(abs2,ypred - ygold) / size(ygold,2)
 end
 
 function train(w=Any[0.1*randn(1,13), 0.0]; lr=.1, epochs=20, seed=nothing)
