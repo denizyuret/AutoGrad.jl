@@ -76,21 +76,32 @@ get{T<:AbstractArray}(A::Rec{T}, I::Dims, default)    = (if checkbounds(Bool, si
 # cat_r if a Rec is found, and the original cat_t from the Base
 # definition if not.
 
-let cat_r = recorder(cat)
-    global cat
-    function cat(dims, X...)
-        if findfirst(v->isa(v,Rec), X) > 0
-            cat_r(dims, X...)
-        elseif VERSION >= v"0.6-"
-            Base.cat_t(dims, Base.promote_eltypeof(X...), X...)
-        else
-            T = Base.promote_type(map(x->isa(x,AbstractArray) ? eltype(x) : typeof(x), X)...)
-            Base.cat_t(dims, T, X...)
-        end
-    end
-end
-cat(::Type{Grad{1}},y1,y,dims,x...)=nothing
+const NA = Union{Number,AbstractArray}
+const NAR = Union{Number,AbstractArray,Rec}
+
+# Base has cat(dims,x...) defined, first specialize this:
+cat(dims, X::NA...)=Base.cat_t(dims, prom_(X...), X...)
+
+# Then define the method that catches at least one Rec:
+cat_r = recorder(cat)
+cat(dims, X::NAR...)=cat_r(dims, X...)
+
+cat(::Type{Grad{1}},a::AbstractArray...)=nothing # julia4 ambiguity fix
+cat(::Type{Grad{1}},a::NA...)=nothing # ambiguity fix
+cat(::Type{Grad{1}},a::NAR...)=nothing # ambiguity fix
+cat(::Type{Grad{1}},a...)=nothing
+
+cat{N}(::Type{Grad{N}},y1::AbstractArray,y::AbstractArray,dims::AbstractArray,x::AbstractArray...)=uncat(y1,N-1,dims,x...)   # ambiguity fix
+cat{N}(::Type{Grad{N}},y1::NA,y::NA,dims::NA,x::NA...)=uncat(y1,N-1,dims,x...)   # ambiguity fix
+cat{N}(::Type{Grad{N}},y1::NAR,y::NAR,dims::NAR,x::NAR...)=uncat(y1,N-1,dims,x...)   # ambiguity fix
 cat{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
+
+# Helper function for cat def
+if VERSION >= v"0.6-"
+    prom_(X...) = Base.promote_eltypeof(X...)
+else
+    prom_(X...) = Base.promote_type(map(x->isa(x,AbstractArray) ? eltype(x) : typeof(x), X)...)
+end
 
 # For the gradient, we need to extract the n'th block from dy which
 # has the same shape as y=cat(dims,x...).  Note that the inputs x[i]
