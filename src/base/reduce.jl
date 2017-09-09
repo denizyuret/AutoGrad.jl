@@ -1,4 +1,4 @@
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     reduce1arg = [
     (:sum,      :(ones(x))),
     (:sumabs_,  :(sign_dot(x))),
@@ -43,7 +43,7 @@ end
 
 # TODO: implement more general sum ops
 
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     let sum_r = recorder(sum), max_r = recorder(maximum), min_r = recorder(minimum)
         global sum, maximum, minimum
         sum(f::typeof(abs), x::Rec, r...) = sum_r(f, x, r...)

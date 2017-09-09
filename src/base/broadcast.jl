@@ -56,7 +56,7 @@ broadcast2cmp = [
 :.>=,
 ]                 
 
-if VERSION < v"0.6-"
+if VERSION < v"0.6.0"
     for f in broadcast2cmp
         @eval begin
             # To avoid conflict at broadcast.jl:414

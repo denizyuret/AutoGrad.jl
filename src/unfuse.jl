@@ -29,7 +29,7 @@ type Broadcasted{T}
 end
 getval(x::Broadcasted)=x.value
 
-if VERSION >= v"0.6-"; @eval begin
+if VERSION >= v"0.6.0"; @eval begin
     # We need this to not override regular broadcast(f, A, Bs...):
     using Base.Broadcast: broadcast_c, containertype
     broadcast(f, x::Union{Number,AbstractArray}...)=broadcast_c(f, containertype(x...), x...)
@@ -40,7 +40,7 @@ end; end
 # broadcast_func(f) gets called with every primitive function in AutoGrad.
 
 function broadcast_func(f)
-    if VERSION >= v"0.6-"
+    if VERSION >= v"0.6.0"
         f = Symbol(lstrip(string(f), '.'))
         bf = Symbol("broadcast#", f)
         if !isdefined(AutoGrad, bf); @eval begin

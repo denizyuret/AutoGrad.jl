@@ -62,7 +62,7 @@ end
 # The 2-arg log supports positive args for reals.
 log(x1::Irrational{:e},x2::Rec)=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
 @primitive log(x1,x2),dy  unbroadcast(x1,begin -dy.*log_dot(x2) end./begin x1.*abs2_dot(log_dot(x1)) end)  unbroadcast(x2,dy./begin x2.*log_dot(x1) end)
-if VERSION > v"0.6-"
+if VERSION > v"0.6.0"
     bf = Symbol("broadcast#log")
     @eval @primitive $bf(x1,x2),dy  unbroadcast(x1,begin -dy.*log_dot(x2) end./begin x1.*abs2_dot(log_dot(x1)) end)  unbroadcast(x2,dy./begin x2.*log_dot(x1) end)
 end
@@ -75,7 +75,7 @@ addtest2(:log,(0,Inf))
 addtestN(:^, randin((0,Inf)), randin((-Inf,Inf)))
 
 # clamp(x,lo,hi) clamps x between lo and hi
-if VERSION >= v"0.6-"; @eval begin
+if VERSION >= v"0.6.0"; @eval begin
     @primitive clamp(x,lo,hi),dy,y  unbroadcast(x,dy.*(lo .<= x .<= hi))
 end; else; @eval begin          # ambiguity fix
     @primitive clamp(x,d...),dy,y  unbroadcast(x,dy.*(d[1] .<= x .<= d[2]))
@@ -112,7 +112,7 @@ bf = broadcast_func(:exponent)
 if bf != :exponent
     @eval @zerograd $bf(x)
 end
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     exponent_dot(x)=exponent.(x)
 else
     exponent_dot(x)=exponent(x)

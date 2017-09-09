@@ -30,7 +30,7 @@ include("linalg/matmul.jl")
 include("linalg/dense.jl")
 include("linalg/generic.jl")
 include("special/trig.jl")
-if VERSION < v"0.6-"
+if VERSION < v"0.6.0"
     include("special/bessel.jl") ### Removed from Base in Julia6
     include("special/erf.jl")    ### Removed from Base in Julia6
     include("special/gamma.jl")  ### Removed from Base in Julia6

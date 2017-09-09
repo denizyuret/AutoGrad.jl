@@ -1,7 +1,7 @@
 include("header.jl")
 
 # info("Test neural net...")
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     n0(w,x,y)=sum(((w[3]*max.(0,w[1]*x.+w[2]).+w[4])-y).^2)
 else
     n0(w,x,y)=sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)

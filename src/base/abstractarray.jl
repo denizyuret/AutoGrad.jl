@@ -13,7 +13,7 @@
 # isassigned: interfaces.jl
 # trailingsize: Not exported
 # linearindexing: Not exported but part of AbstractArray interface
-if VERSION < v"0.6-"
+if VERSION < v"0.6.0"
 import Base: linearindexing
 @zerograd linearindexing(x)
 end
@@ -97,7 +97,7 @@ cat{N}(::Type{Grad{N}},y1::NAR,y::NAR,dims::NAR,x::NAR...)=uncat(y1,N-1,dims,x..
 cat{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
 
 # Helper function for cat def
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     prom_(X...) = Base.promote_eltypeof(X...)
 else
     prom_(X...) = Base.promote_type(map(x->isa(x,AbstractArray) ? eltype(x) : typeof(x), X)...)
@@ -154,7 +154,7 @@ end
 @primitive  uncat1(x2,y1,n...),y3  uncat(y3,n...)
 
 # In Julia6+ dims can be Val{N} which breaks uncat:
-if VERSION >= v"0.6-"
+if VERSION >= v"0.6.0"
     uncat{N}(y1,n,dims::Type{Val{N}},x...)=uncat(y1,n,N,x...)
     uncat1{N}(x2,y1,n,dims::Type{Val{N}},x...)=uncat1(x2,y1,n,N,x...)
 end
