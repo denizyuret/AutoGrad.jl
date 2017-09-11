@@ -128,7 +128,7 @@ function rfun(args...; kwargs...)
             tape = arg.tapes[t]
             iscomplete(tape) && continue
             parent = arg.nodes[t]
-            if !isa(result,Rec) 
+            if !isa(result,Rec)
                 result = Rec(result, tape; func=f, args=args, kwargs=kwargs)
                 rnode = result.nodes[1]
             else
@@ -179,23 +179,7 @@ Unbox `x` if it is a boxed value (`Rec`), otherwise return `x`.
 """
 getval(x) = (if isa(x, Rec); x.value; else; x; end)  # we never create Rec(Rec).
 
-if VERSION >= v"0.5.0"
-    unbox(args) = map(getval,args)
-else
-    # this is much faster than map(getval,args) in Julia4
-    function unbox(args)
-        vals = Array{Any}(length(args))
-        @inbounds for i=1:length(args)
-            ai = args[i]
-            if isa(ai,Rec)
-                vals[i] = ai.value
-            else
-                vals[i] = ai
-            end
-        end
-        return vals
-    end
-end
+unbox(args) = map(getval,args)
 
 # findfirst uses == which is inefficient for tapes, so we define findeq with ===
 function findeq(A,v)
@@ -354,7 +338,7 @@ let eot = Node(Rec(nothing))
     iscomplete(a::Tape)=(!isempty(a) && a[end]===eot)
     complete!(a::Tape)=push!(a,eot)
 end # let
-end # if 
+end # if
 
 
 # 6. How new primitives and their gradients are defined.
@@ -410,7 +394,7 @@ end # if
 # 6.2 Gradients
 
 if !isdefined(:Grad)
-"Grad{N} creates a type used by AutoGrad to represent the gradient wrt N'th arg."    
+"Grad{N} creates a type used by AutoGrad to represent the gradient wrt N'th arg."
 immutable Grad{N}; end
 end
 
@@ -522,5 +506,3 @@ sum_outgrads(::Void,a)=a
 # backward_pass(g) calls gradient methods recorded in t1.
 # even though some inputs are Recs again, nothing gets recorded and all primitives return values because t1 is complete.
 # backward_pass(g) returns a regular value which becomes the output of h(x).
-
-

@@ -1,7 +1,8 @@
-VERSION >= v"0.4.0-dev+6521" && __precompile__()
+__precompile__()
 
 module AutoGrad
 using Compat
+using SpecialFunctions # erf, bessel,...
 
 # utilities for debugging and profiling.
 macro dbg(i,x); if i & 0 != 0; esc(:(println(_dbg($x)))); end; end;
@@ -30,10 +31,10 @@ include("linalg/matmul.jl")
 include("linalg/dense.jl")
 include("linalg/generic.jl")
 include("special/trig.jl")
-if VERSION < v"0.6.0"
-    include("special/bessel.jl") ### Removed from Base in Julia6
-    include("special/erf.jl")    ### Removed from Base in Julia6
-    include("special/gamma.jl")  ### Removed from Base in Julia6
-end
+
+# functions in SpecialFunctions.jl
+include("special/bessel.jl")
+include("special/erf.jl")
+include("special/gamma.jl")
 
 end # module
