@@ -48,7 +48,11 @@ math2arg = [
 (:hypot, quote x1./y end, quote x2./y end),
 (:max, quote y.==x1 end, quote y.==x2 end),
 (:min, quote y.==x1 end, quote y.==x2 end),
+(:log, quote -log_dot(x2)./(x1.*abs2_dot(log_dot(x1))) end, quote 1./(x2.*log_dot(x1)) end),
 ]
+
+# The 2-arg log supports positive args for reals.
+log(x1::Irrational{:e},x2::Rec)=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
 
 for (f,g1,g2) in math2arg
     bf = broadcast_func(f)
@@ -56,17 +60,8 @@ for (f,g1,g2) in math2arg
     if f != bf
         @eval @primitive $bf(x1,x2),dy,y  unbroadcast(x1,dy.*($g1))  unbroadcast(x2,dy.*($g2))
     end
-    addtest2(f)
+    addtest2(f, (f==:log ? (0,Inf) : (-Inf,Inf)))
 end
-
-# The 2-arg log supports positive args for reals.
-log(x1::Irrational{:e},x2::Rec)=log(float(x1),x2) # to avoid clash with irrationals.jl:131.
-@primitive log(x1,x2),dy  unbroadcast(x1,begin -dy.*log_dot(x2) end./begin x1.*abs2_dot(log_dot(x1)) end)  unbroadcast(x2,dy./begin x2.*log_dot(x1) end)
-if VERSION > v"0.6.0"
-    bf = Symbol("broadcast#log")
-    @eval @primitive $bf(x1,x2),dy  unbroadcast(x1,begin -dy.*log_dot(x2) end./begin x1.*abs2_dot(log_dot(x1)) end)  unbroadcast(x2,dy./begin x2.*log_dot(x1) end)
-end
-addtest2(:log,(0,Inf))
 
 # ^ only supports (N>=0,N), arrays not supported in math.jl, only M^N in linalg/dense.jl (TODO)
 (^){T<:Number}(x1::Rec{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
