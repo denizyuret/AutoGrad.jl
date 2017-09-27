@@ -1,21 +1,24 @@
-AutoGrad v0.0.8 Release Notes
+AutoGrad v0.0.9 Release Notes
 =============================
 
+* Added SpecialFunctions for Julia 0.6+.
+* Fixed test problem with broadcast#log.
+
+AutoGrad v0.0.8 Release Notes
+=============================
+2f9f7f3 on 2017-09-08
+
 * Julia v0.6.0 compatibility fixes by @ylxdzsw #24.  Now compatible with Julia v4, v5, and v6.
-
 * Switched to new Base.Test functionality added in Julia v0.5.
-
 * Fix size(rec,d1,d2,ds...) from @CarloLucibello #19.
-
 * Fix depwarn from @mdpradeep #23.
-
 * Generalize cat implementation to work with any number of arguments.
-
 * Fix sign bug in derivatives for minabs/maxabs.
 
 
 AutoGrad v0.0.7 Release Notes
 =============================
+71a99da on 2017-05-17
 
 * Fixed getindex bug effecting repeated indices.
 
