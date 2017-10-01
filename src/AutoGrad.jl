@@ -2,8 +2,7 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module AutoGrad
 using Compat
-if VERSION >= v"0.6.0"
-    Pkg.add("SpecialFunctions")
+if VERSION >= v"0.6.0" && Pkg.installed("SpecialFunctions") != nothing
     eval(Expr(:using,:SpecialFunctions))
 end
 
@@ -34,8 +33,10 @@ include("linalg/matmul.jl")
 include("linalg/dense.jl")
 include("linalg/generic.jl")
 include("special/trig.jl")
-include("special/bessel.jl") ### Removed from Base in Julia6
-include("special/erf.jl")    ### Removed from Base in Julia6
-include("special/gamma.jl")  ### Removed from Base in Julia6
+if VERSION < v"0.6.0" || Pkg.installed("SpecialFunctions") != nothing
+    include("special/bessel.jl") ### Removed from Base in Julia6
+    include("special/erf.jl")    ### Removed from Base in Julia6
+    include("special/gamma.jl")  ### Removed from Base in Julia6
+end
 
 end # module
