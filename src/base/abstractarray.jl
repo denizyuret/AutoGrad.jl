@@ -197,6 +197,33 @@ hcat(x::Rec...) = cat(2, x...)
 # hcat(a,b::Rec,c...)=cat(2,a,b,c...)
 # hcat(a::Rec,b...)=cat(2,a,b...)
 
+# Alternative definitions which may work faster when number of
+# arguments large. The compilation cost of different argument Rec
+# patterns slows down our parser for example.
+
+vcatn(x...) = catn(1, x...)
+hcatn(x...) = catn(2, x...)
+
+function catn(dims,X...)
+    recording = false
+    for x in X
+        if isa(x,Rec)
+            recording = true
+            break
+        end
+    end
+    if recording
+        cat_r(dims, X...)
+    else
+        Base.cat_t(dims, prom_(X...), X...)
+    end
+end
+
+catn(::Type{Grad{1}},a...)=nothing
+catn{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
+
+export vcatn, hcatn, catn
+
 # typed_vcat: Not exported
 # typed_hcat: Not exported
 # cat_t: Not exported
