@@ -7,8 +7,8 @@ if VERSION >= v"0.6.0" && Pkg.installed("SpecialFunctions") != nothing
 end
 
 # utilities for debugging and profiling.
-macro dbg(i,x); if i & 0 != 0; esc(:(println(_dbg($x)))); end; end;
-macro gs(); if false; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
+macro dbg(i,x); if i & 0 != 0; esc(:(println(_dbg($x)))); end; end; # change the if condition if you want debug output
+macro gs(); if false; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end # convert to "if true" for profiling with gpu
 
 importall Base  # defining getindex, sin, etc.
 export grad, gradloss, check_grads, gradcheck, gradcheckN, getval

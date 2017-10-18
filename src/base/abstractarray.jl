@@ -222,40 +222,21 @@ hcat(x::Rec...) = cat(2, x...)
 # unshift!: Overwriting function
 # hash: Works for Rec.
 
-# Alternative definitions which may work faster when number of
-# arguments large. The compilation cost of different argument Rec
-# patterns slows down our parser for example.
-
-vcatn(x...) = catn(1, x...)
-hcatn(x...) = catn(2, x...)
-
-function catn(dims,X...)
-    recording = false
-    for x in X
-        if isa(x,Rec)
-            recording = true
-            break
-        end
-    end
-    if recording
-        cat_r(dims, X...)
-    else
-        Base.cat_t(dims, prom_(X...), X...)
-    end
-end
-
-catn(::Type{Grad{1}},a...)=nothing
-catn{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
-
-export vcatn, hcatn, catn
-
-# Another attempt at a fast cat.  This version avoids all compilation
-# at runtime.  It takes a bunch of arrays, could be different shapes
-# and sizes, and concatenates them as if they were all vectors.
+# The cat implementation above is slow when called with a lot of
+# arguments (100s).  In our parser, the first epoch is a lot slower
+# than the other epochs.  This is probably because there is a lot of
+# compilation for different argument type patterns (where Recs
+# appear).  The following version tries to avoid all compilation at
+# runtime.  It takes a bunch of arrays (not numbers), could be
+# different shapes and sizes, and concatenates them as if they were
+# all vectors.  It thus avoids a lot of shape related calculation as
+# well.  It works with KnetArrays but slow, probably due to the copy
+# kernel call overhead.  To make it fast with KnetArrays we need a
+# single GPU kernel call which does all the copying.
 
 gradarg{N}(::Type{Grad{N}})=N
 
-function cat1d(g::DataType,y1,y,x...)
+function cat1d(g::DataType,y1,y,x...) # g = Grad{N}
     argnum = gradarg(g)
     offset2 = 0
     @inbounds for i=1:argnum
@@ -303,3 +284,8 @@ function cat1d(args...)
 end
 
 export cat1d
+
+addtestN(:cat1d, [1.,2.], [3.,4.])
+addtestN(:cat1d, [1. 2.], [3. 4.])
+addtestN(:cat1d, [1.,2.], [3. 4.])
+addtestN(:cat1d, [1. 2.], [3.,4.])
