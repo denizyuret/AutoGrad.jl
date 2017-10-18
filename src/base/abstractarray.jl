@@ -197,6 +197,31 @@ hcat(x::Rec...) = cat(2, x...)
 # hcat(a,b::Rec,c...)=cat(2,a,b,c...)
 # hcat(a::Rec,b...)=cat(2,a,b...)
 
+# typed_vcat: Not exported
+# typed_hcat: Not exported
+# cat_t: Not exported
+# hvcat: TODO
+# hvcat_fill: Not exported
+# typed_hvcat: Not exported
+# isequal: interfaces.jl
+# lexcmp: interfaces.jl
+# ==: interfaces.jl
+# sub2ind: Not an array op.
+# _sub2ind: Not exported
+# ind2sub: Not an array op.
+# ind2sub!: Not an array op.
+# mapslices: Cannot support.
+# promote_to!: Not exported
+# map_promote: Not exported
+# map!: Cannot support.
+# map_to!: Not exported
+# ith_all: Not exported
+# map_n!: Not exported
+# map_to_n!: Not exported
+# push!: Overwriting function
+# unshift!: Overwriting function
+# hash: Works for Rec.
+
 # Alternative definitions which may work faster when number of
 # arguments large. The compilation cost of different argument Rec
 # patterns slows down our parser for example.
@@ -224,27 +249,57 @@ catn{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because 
 
 export vcatn, hcatn, catn
 
-# typed_vcat: Not exported
-# typed_hcat: Not exported
-# cat_t: Not exported
-# hvcat: TODO
-# hvcat_fill: Not exported
-# typed_hvcat: Not exported
-# isequal: interfaces.jl
-# lexcmp: interfaces.jl
-# ==: interfaces.jl
-# sub2ind: Not an array op.
-# _sub2ind: Not exported
-# ind2sub: Not an array op.
-# ind2sub!: Not an array op.
-# mapslices: Cannot support.
-# promote_to!: Not exported
-# map_promote: Not exported
-# map!: Cannot support.
-# map_to!: Not exported
-# ith_all: Not exported
-# map_n!: Not exported
-# map_to_n!: Not exported
-# push!: Overwriting function
-# unshift!: Overwriting function
-# hash: Works for Rec.
+# Another attempt at a fast cat.  This version avoids all compilation
+# at runtime.  It takes a bunch of arrays, could be different shapes
+# and sizes, and concatenates them as if they were all vectors.
+
+gradarg{N}(::Type{Grad{N}})=N
+
+function cat1d(g::DataType,y1,y,x...)
+    argnum = gradarg(g)
+    offset2 = 0
+    @inbounds for i=1:argnum
+        offset2 += length(x[i])
+    end
+    offset1 = offset2 - length(x[argnum]) + 1
+    reshape(y1[offset1:offset2], size(x[argnum]))
+end
+
+function cat1d(args...)
+    totlen = 0
+    @inbounds for arg in args
+        totlen += length(arg)
+    end
+    result = similar(getval(args[1]), totlen)
+    offset1 = 1
+    offset2 = 0
+    @inbounds for arg in args
+        offset2 += length(arg)
+        result[offset1:offset2] = getval(arg)
+        offset1 = offset2+1
+    end
+    @inbounds for argnum = 1:length(args)
+        arg = args[argnum]
+        if !isa(arg,Rec); continue; end
+        for t=1:length(arg.tapes)
+            tape = arg.tapes[t]
+            if iscomplete(tape); continue; end
+            parent = arg.nodes[t]
+            if !isa(result,Rec) 
+                result = Rec(result, tape; func=cat1d, args=args)
+                rnode = result.nodes[1]
+            else
+                s = findeq(result.tapes, tape)
+                if s > 0
+                    rnode = result.nodes[s]
+                else
+                    rnode = Node(result, tape)
+                end
+            end
+            rnode.parents[argnum] = parent
+        end
+    end
+    return result
+end
+
+export cat1d
