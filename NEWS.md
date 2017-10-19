@@ -1,6 +1,12 @@
+AutoGrad v0.0.10 Release Notes
+==============================
+
+* Fixed gradient output type for erf family (@CarloLucibello).
+
+
 AutoGrad v0.0.9 Release Notes
 =============================
-2fc28bc on 2017-10-18
+0c27dd8 2017-10-18
 
 * Added SpecialFunctions for Julia 0.6+.
 * Fixed test problem with broadcast#log.
