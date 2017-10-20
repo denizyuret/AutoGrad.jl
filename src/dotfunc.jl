@@ -12,7 +12,11 @@ flist = [:abs,:abs2,:isinteger,:sign,:signbit,:cbrt,:deg2rad,:exp,:exp10,:exp2,:
          ]
 
 for f in flist
-    g = Symbol(f,"_dot")
+    if VERSION >= v"0.5.0"
+        g = Symbol(f,"_dot")
+    else
+        g = symbol(f,"_dot")
+    end
     if VERSION >= v"0.6.0"
         @eval $g(x)=$f.(x)
     else

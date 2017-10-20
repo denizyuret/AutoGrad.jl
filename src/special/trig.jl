@@ -40,7 +40,7 @@ trig1arg = [
 (:sind, :(cosd_dot(x)*pi/180), (-Inf,Inf)),
 (:sinh, :(cosh_dot(x)), (-Inf,Inf)),
 (:sinpi, :(cospi_dot(x)*pi), (-Inf,Inf)),
-(:tan, :(1+abs2_dot(y)), (-Inf,Inf)),
+(:tan, :(1+abs2_dot(y)), (-1,1)), # (-Inf,Inf)), sometimes fails when too close to pi/2 multiples
 (:tand, :((1+abs2_dot(y))*pi/180), (-Inf,Inf)),
 (:tanh, :(1-abs2_dot(y)), (-Inf,Inf)),
 ]
