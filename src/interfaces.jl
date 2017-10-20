@@ -205,6 +205,7 @@ next(a::Rec,i)=throw(MethodError(next,(a,i)))
 next{T<:Array}(a::Rec{T},i) = (a[i],i+1)
 next{T<:Tuple}(a::Rec{T},i) = (a[i],i+1)
 next{T<:Number}(a::Rec{T},i) = (a,true)
+next{T<:Associative}(a::Rec{T},i) = (((k,v),j)=next(a.value,i);(k=>a[k],j))
 # This needs more work:
 # next{T<:Base.RecIterator}(a::Rec{T},i) = (d=a.value.dict; (d.vals[i], skip_deleted(d,i+1)))
 

@@ -2,6 +2,7 @@ AutoGrad v0.0.10 Release Notes
 ==============================
 
 * Fixed gradient output type for erf family (@CarloLucibello).
+* Added support for Dict iteration.
 
 
 AutoGrad v0.0.9 Release Notes
