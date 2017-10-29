@@ -9,11 +9,11 @@ const DBGFLAGS = 0
 macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; end;
 
 # To perform profiling of AutoGrad internals, set PROFILING to
-# true. Before running the code to be profiled use
-# `profreset!()`. After running see the results using `proftable()`.
+# true. Make sure to Pkg.add("TimerOutputs").
 const PROFILING = false
 if PROFILING
-    include("prof.jl")
+    eval(Expr(:using,:TimerOutputs))
+    macro prof(label,ex); :(@timeit $(esc(label)) $(esc(ex))); end
 else
     macro prof(label,ex); esc(ex); end
 end

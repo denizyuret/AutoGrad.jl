@@ -36,8 +36,8 @@ Tuple, or Dict.
 function grad(fun::Function, argnum::Int=1)
     #@dbg 1 (:grad,fun,argnum)
     function gradfun(args...; kwargs...)
-        @prof "forw" fp = forward_pass(fun, args, kwargs, argnum)
-        @prof "back" bp = backward_pass(fp...)
+        @prof "FORW" fp = forward_pass(fun, args, kwargs, argnum)
+        @prof "BACK" bp = backward_pass(fp...)
         return bp
     end
     return gradfun
@@ -119,8 +119,9 @@ r != 0 && return r
 
 function rfun(args...; kwargs...)
     #@dbg 1 (:call, f, args..., kwargs...)
+@prof "forw.$f" begin
     argvals = unbox(args)       # 31
-    @prof "$f.fw" result = f(argvals...; kwargs...) # 4959
+    result = f(argvals...; kwargs...) # 4959
     for argnum = 1:length(args)
         arg = args[argnum]
         isa(arg,Rec) || continue
@@ -159,6 +160,7 @@ function rfun(args...; kwargs...)
         @printf("%d. %s%s\n", i, f, p)
     end
     @dbg 1 (:call, f, :y, result, :x, args..., (isempty(kwargs) ? () : (:kw, kwargs...))...)
+end # prof begin
     return result
 end # function rfun
 return (fdict[f] = rfun)
@@ -246,14 +248,14 @@ function backward_pass(start_box, end_box, tape)
 
     for n in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
         if n.outgrad === nothing; continue; end
-        r = n.rec
+        @prof "NODE" r = n.rec
         @dbg 1 (:back,r.func,:dy,n.outgrad,:y,r.value,:x,r.args...,(isempty(r.kwargs)?():(:kw,r.kwargs...))...)
         for i=1:length(n.parents)
             isassigned(n.parents,i) || continue
-            p = n.parents[i]
-            @prof "$(r.func).b$i" og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...) # 4887
+            @prof "GRAD" p = n.parents[i]
+            @prof "back$i.$(r.func)" og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...) # 4887
             @dbg 1 (Symbol("sumi"),i,p.outgrad,og)
-            @prof "sumg" p.outgrad = sum_outgrads(p.outgrad, og) # 1141
+            @prof "sumg$i.$(r.func)" p.outgrad = sum_outgrads(p.outgrad, og) # 1141
             @dbg 1 (Symbol("sumo"),i,p.outgrad,og)
         end
     end
