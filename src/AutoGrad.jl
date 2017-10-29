@@ -1,6 +1,9 @@
 VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module AutoGrad
+using TimerOutputs
+const to = TimerOutput()
+
 if VERSION >= v"0.6.0" && Pkg.installed("SpecialFunctions") != nothing
     eval(Expr(:using,:SpecialFunctions))
 end

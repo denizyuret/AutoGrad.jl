@@ -36,6 +36,8 @@ Tuple, or Dict.
 function grad(fun::Function, argnum::Int=1)
     #@dbg 1 (:grad,fun,argnum)
     function gradfun(args...; kwargs...)
+        #@timeit to "forw" fp = forward_pass(fun, args, kwargs, argnum)
+        #@timeit to "back" bp = backward_pass(fp...)
         fp = forward_pass(fun, args, kwargs, argnum)
         bp = backward_pass(fp...)
         return bp
@@ -118,6 +120,7 @@ r = get(fdict,f,0)
 r != 0 && return r
 
 function rfun(args...; kwargs...)
+@timeit "$f.fw" begin
     #@dbg 1 (:call, f, args..., kwargs...)
     argvals = unbox(args)       # 31
     result = f(argvals...; kwargs...) # 4959
@@ -160,6 +163,7 @@ function rfun(args...; kwargs...)
     end
     @dbg 1 (:call, f, :y, result, :x, args..., (isempty(kwargs) ? () : (:kw, kwargs...))...)
     return result
+end # timeit begin
 end # function rfun
 return (fdict[f] = rfun)
 end # function recorder
@@ -251,8 +255,10 @@ function backward_pass(start_box, end_box, tape)
         for i=1:length(n.parents)
             isassigned(n.parents,i) || continue
             p = n.parents[i]
+            # @timeit to "$(r.func).b$i" og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...) # 4887
             og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...) # 4887
             @dbg 1 (Symbol("sumi"),i,p.outgrad,og)
+            # @timeit to "sumg" p.outgrad = sum_outgrads(p.outgrad, og) # 1141
             p.outgrad = sum_outgrads(p.outgrad, og) # 1141
             @dbg 1 (Symbol("sumo"),i,p.outgrad,og)
         end
