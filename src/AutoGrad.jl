@@ -2,25 +2,20 @@ VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module AutoGrad
 
-# To see debug output, set DBGFLAGS to non-zero. Each bit of DBGFLAGS
-# can be used to show a subset of dbg messages indicated by the `bit`
-# argument to the `dbg` macro.
+# To see debug output of AutoGrad internals, set DBGFLAGS to
+# non-zero. Each bit of DBGFLAGS can be used to show a subset of dbg
+# messages indicated by the `bit` argument to the `dbg` macro.
 const DBGFLAGS = 0
 macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; end;
 
-# To perform profiling, set PROFILING to true. Make sure the
-# `TimerOutputs` package is installed. Before running the code to be
-# profiled use `profreset!()`. After running see the results using
-# `proftable()`.
+# To perform profiling of AutoGrad internals, set PROFILING to
+# true. Before running the code to be profiled use
+# `profreset!()`. After running see the results using `proftable()`.
 const PROFILING = false
 if PROFILING
-    eval(Expr(:using,:TimerOutputs))
-    macro prof(label,expr); :(@timeit $(esc(label)) $(esc(expr))); end
-    proftable()=TimerOutputs.flatten(TimerOutputs.get_defaultimer())
-    profreset!()=TimerOutputs.reset_timer!()
-    export proftable, profreset!
+    include("prof.jl")
 else
-    macro prof(label,expr); esc(expr); end
+    macro prof(label,ex); esc(ex); end
 end
 
 importall Base  # defining getindex, sin, etc.

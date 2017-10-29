@@ -118,10 +118,9 @@ r = get(fdict,f,0)
 r != 0 && return r
 
 function rfun(args...; kwargs...)
-@prof "$f.fw" begin
     #@dbg 1 (:call, f, args..., kwargs...)
     argvals = unbox(args)       # 31
-    result = f(argvals...; kwargs...) # 4959
+    @prof "$f.fw" result = f(argvals...; kwargs...) # 4959
     for argnum = 1:length(args)
         arg = args[argnum]
         isa(arg,Rec) || continue
@@ -161,7 +160,6 @@ function rfun(args...; kwargs...)
     end
     @dbg 1 (:call, f, :y, result, :x, args..., (isempty(kwargs) ? () : (:kw, kwargs...))...)
     return result
-end # timeit begin
 end # function rfun
 return (fdict[f] = rfun)
 end # function recorder
