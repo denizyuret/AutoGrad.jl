@@ -1,16 +1,27 @@
 VERSION >= v"0.4.0-dev+6521" && __precompile__()
 
 module AutoGrad
-using TimerOutputs
-const to = TimerOutput()
 
-if VERSION >= v"0.6.0" && Pkg.installed("SpecialFunctions") != nothing
-    eval(Expr(:using,:SpecialFunctions))
+# To see debug output, set DBGFLAGS to non-zero. Each bit of DBGFLAGS
+# can be used to show a subset of dbg messages indicated by the `bit`
+# argument to the `dbg` macro.
+const DBGFLAGS = 0
+macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; end;
+
+# To perform profiling, set PROFILING to true. Make sure the
+# `TimerOutputs` package is installed. Before running the code to be
+# profiled use `profreset!()`. After running see the results using
+# `proftable()`.
+const PROFILING = false
+if PROFILING
+    eval(Expr(:using,:TimerOutputs))
+    macro prof(label,expr); :(@timeit $(esc(label)) $(esc(expr))); end
+    proftable()=TimerOutputs.flatten(TimerOutputs.get_defaultimer())
+    profreset!()=TimerOutputs.reset_timer!()
+    export proftable, profreset!
+else
+    macro prof(label,expr); esc(expr); end
 end
-
-# utilities for debugging and profiling.
-macro dbg(i,x); if i & 0 != 0; esc(:(println(_dbg($x)))); end; end; # change the if condition if you want debug output
-macro gs(); if false; esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end # convert to "if true" for profiling with gpu
 
 importall Base  # defining getindex, sin, etc.
 export grad, gradloss, check_grads, gradcheck, gradcheckN, getval
@@ -35,6 +46,9 @@ include("linalg/matmul.jl")
 include("linalg/dense.jl")
 include("linalg/generic.jl")
 include("special/trig.jl")
+if VERSION >= v"0.6.0" && Pkg.installed("SpecialFunctions") != nothing
+    eval(Expr(:using,:SpecialFunctions))
+end
 if VERSION < v"0.6.0" || Pkg.installed("SpecialFunctions") != nothing
     include("special/bessel.jl") ### Removed from Base in Julia6
     include("special/erf.jl")    ### Removed from Base in Julia6
