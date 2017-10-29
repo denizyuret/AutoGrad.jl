@@ -3,6 +3,7 @@ AutoGrad v0.0.10 Release Notes
 
 * Fixed gradient output type for erf family (@CarloLucibello).
 * Added support for Dict iteration.
+* Added profiling support inspired by TimerOutputs.jl.
 
 
 AutoGrad v0.0.9 Release Notes
