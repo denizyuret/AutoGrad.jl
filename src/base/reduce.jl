@@ -3,7 +3,7 @@ if VERSION >= v"0.6.0"
     (:sum,      :(ones(x))),
     (:sumabs_,  :(sign_dot(x))),
     (:sumabs2_, :(2x)),
-    (:mean,      :(ones(x) .* length(y) ./ length(x))),
+    (:mean,     :(ones(x) .* convert(eltype(x), length(y) / length(x)))),
     (:prod,     :(y./x)),
     (:maximum,  :(y.==x)),
     (:minimum,  :(y.==x)),
@@ -33,6 +33,7 @@ for (f,g) in reduce1arg
     addtest(f, randn(2))
     addtest(f, randn(2,2), 1)
     addtest(f, randn(2,2), 2)
+    addtest(f, randn(2,2,2,2), (1,2))
     # @eval @primitive $f(x::Tuple),dy,y (x=[x...];tuple((dy.*($g))...))
     # addtest(f, (rand(2)...))
 end    
