@@ -1,7 +1,9 @@
 AutoGrad v0.0.10 Release Notes
 ==============================
 
+* Pre-0.6 Julia versions no longer supported.
 * Fixed gradient output type for erf family (@CarloLucibello).
+* Added mean(x,dims) (@CarloLucibello).
 * Added support for Dict iteration.
 * Added profiling support inspired by TimerOutputs.jl.
 
