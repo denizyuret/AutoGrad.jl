@@ -64,8 +64,8 @@ for (f,g1,g2) in math2arg
 end
 
 # ^ only supports (N>=0,N), arrays not supported in math.jl, only M^N in linalg/dense.jl (TODO)
-(^){T<:Number}(x1::Rec{T},x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
-(^)(x1::Broadcasted,x2::Integer)=(^)(x1,float(x2)) # to avoid clash with intfuncs:108
+(^){T<:AbstractFloat}(x1::Rec{T},x2::Integer)=(^)(x1,convert(eltype(x1.value),x2)) # to avoid clash with intfuncs:199
+(^)(x1::Broadcasted,x2::Integer)=(^)(x1,convert(eltype(x1.value),x2)) # to avoid clash with intfuncs:199
 @primitive (^)(x1::Number,x2::Number),dy,y  (dy*x2*x1^(x2-1))  (dy*y*log_dot(x1))
 addtestN(:^, randin((0,Inf)), randin((-Inf,Inf)))
 
