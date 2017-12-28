@@ -95,7 +95,7 @@ or using the `@primitive` and `@zerograd` macros in
 Here is an example:
 
 ```
-@primitive hypot(x1::Number,x2::Number),dy,y  (dy->dy*x1/y)  (dy->dy*x2/y)
+@primitive hypot(x1::Number,x2::Number),dy,y  (dy*x1/y)  (dy*x2/y)
 ```
 
 The `@primitive` macro marks the `hypot(::Number,::Number)` method as
