@@ -77,7 +77,15 @@ end
 # axpy!: Not exported
 # reflector!: Not exported
 # reflectorApply!: Not exported
-# det
-# logdet
+
+import Base.LinAlg: det, logdet
+#ref https://people.maths.ox.ac.uk/gilesm/files/NA-08-01.pdf 
+# TODO make more efficient using the intermediate
+# results of SVD in the forward pass
+@primitive det(x),dy,y  dy*y*inv(x).'
+addtest(:det, rand(3,3))
+@primitive logdet(x),dy,y  dy*inv(x).'
+addtest(:logdet, eye(3) + rand(3,3))
+
 # logabsdet
 # isapprox

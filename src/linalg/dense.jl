@@ -29,7 +29,11 @@ dense2arg = Dict{Symbol,Any}(
 # rcswap!: Not exported
 # logm
 # sqrtm
-# inv
+
+# ref https://people.maths.ox.ac.uk/gilesm/files/NA-08-01.pdf 
+@primitive inv(x),dy,y  (yt=y.'; -yt*dy*yt)
+addtest(:inv, rand(2,2))
+
 # factorize
 # \
 # pinv
