@@ -19,9 +19,15 @@ dense2arg = Dict{Symbol,Any}(
 # tril
 # gradient
 # diagind
-# diag
-# diagm
-# trace
+
+@primitive diagm(x),dy,y   diag(dy) 
+addtest(:diagm, rand(3))
+@primitive diag(x),dy,y   diagm(dy)  # alternative: Diagonal(dy)
+addtest(:diag, rand(3,3))
+@zerograd eye(x)
+@primitive trace(x),dy,y  dy*eye(x) # alternative: dy*Diagonal(ones(x))
+addtest(:trace, rand(3,3))
+
 # kron
 # ^
 # expm
