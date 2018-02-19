@@ -206,13 +206,13 @@ function randin(range, dims...; eps=0.01)
         rand(range, dims...)
     elseif range==(-Inf,Inf)
         r = randn(dims...)
-        sign_dot(r)*eps + r
+        sign.(r)*eps + r
     elseif range==(0,Inf)
-        eps-log_dot(rand(dims...))
+        eps-log.(rand(dims...))
     elseif range==(1,Inf)
-        eps+1-log_dot(rand(dims...))
+        eps+1-log.(rand(dims...))
     elseif range==(-1,Inf)
-        eps-1-log_dot(rand(dims...))
+        eps-1-log.(rand(dims...))
     elseif range==(-1,1)
         (1-eps)*(2rand(dims...)-1)
     elseif range==(0,1)
@@ -220,8 +220,8 @@ function randin(range, dims...; eps=0.01)
     elseif range==(0,2)
         eps+2*(1-eps)*rand(dims...)
     elseif range==(-Inf,-1,1,Inf)
-        x = sec_dot(randn(dims...))
-        sign_dot(x)*eps + x
+        x = sec.(randn(dims...))
+        sign.(x)*eps + x
     else
         error("Unknown range $range")
     end

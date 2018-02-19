@@ -241,10 +241,8 @@ interfacesNarg = [
 
 @zerograd similar(x)
 
-if VERSION >= v"0.5.0"
 # to prevent ambiguity with abstractarray.jl:470
 @zerograd similar(x, dims::Base.DimOrInd...)
-end
 
 for _f in interfacesNarg
     @eval @zerograd $_f(x,i...)

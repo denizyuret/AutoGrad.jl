@@ -1,5 +1,3 @@
-VERSION >= v"0.4.0-dev+6521" && __precompile__()
-
 module AutoGrad
 
 # To see debug output of AutoGrad internals, set DBGFLAGS to
@@ -25,7 +23,6 @@ datapath = joinpath(dirname(@__FILE__),"..","data")
 
 include("core.jl")
 include("unfuse.jl")
-include("dotfunc.jl")
 include("gradcheck.jl")
 include("util.jl")
 include("interfaces.jl")
@@ -41,13 +38,8 @@ include("linalg/matmul.jl")
 include("linalg/dense.jl")
 include("linalg/generic.jl")
 include("special/trig.jl")
-if VERSION >= v"0.6.0" && Pkg.installed("SpecialFunctions") != nothing
+if Pkg.installed("SpecialFunctions") != nothing
     eval(Expr(:using,:SpecialFunctions))
-end
-if VERSION < v"0.6.0" || Pkg.installed("SpecialFunctions") != nothing
-    include("special/bessel.jl") ### Removed from Base in Julia6
-    include("special/erf.jl")    ### Removed from Base in Julia6
-    include("special/gamma.jl")  ### Removed from Base in Julia6
 end
 
 end # module

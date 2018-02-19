@@ -1,10 +1,5 @@
 include("header.jl")
 
-# http://docs.julialang.org/en/latest/manual/arrays.html#man-supported-index-types-1
-if VERSION < v"0.5.0"
-    Base.IteratorsMD.CartesianIndex(i::Int...)=CartesianIndex(i)
-end
-
 @testset "interfaces" begin
 
     @testset "Array" begin
@@ -27,9 +22,6 @@ end
         @test gradcheck(getindex, a, [1 2;1 2])
         @test gradcheck(getindex, a, a.>0.5)
         @test gradcheck(getindex, a, CartesianIndex(1,2))
-        #if VERSION >= v"0.5.0"
-         #   @test gradcheck(getindex, a, [CartesianIndex(1,2),CartesianIndex(1,2)])
-        #end
     end
 
     @testset "Tuple" begin

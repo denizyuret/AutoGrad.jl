@@ -6,7 +6,7 @@
 # inputs.  The last part gives the range for generating test cases.
 
 math1arg = [
-(:cbrt, :(1./(3.*abs2_dot(y))), (-Inf,Inf)),
+(:cbrt, :(1./(3.*abs2.(y))), (-Inf,Inf)),
 (:deg2rad, :(pi/180), (-Inf,Inf)),
 (:exp, :y, (-Inf,Inf)),
 (:exp10, :(y.*log(10)), (-Inf,Inf)),
@@ -17,7 +17,7 @@ math1arg = [
 (:log1p, :(1./(1+x)), (-1,Inf)),
 (:log2, :(1./(log(2).*x)), (0,Inf)),
 (:rad2deg, :(180/pi), (-Inf,Inf)),
-(:significand, :(0.5.^exponent_dot(x)), (-Inf,Inf)),
+(:significand, :(0.5.^exponent.(x)), (-Inf,Inf)),
 (:sqrt, :(1./(2.*y)), (0,Inf)),
 ]
 
@@ -44,11 +44,11 @@ end
 # gradient definitions.
 
 math2arg = [
-(:atan2, quote x2./(abs2_dot(x1)+abs2_dot(x2)) end, quote -x1./(abs2_dot(x1)+abs2_dot(x2)) end),
+(:atan2, quote x2./(abs2.(x1)+abs2.(x2)) end, quote -x1./(abs2.(x1)+abs2.(x2)) end),
 (:hypot, quote x1./y end, quote x2./y end),
 (:max, quote y.==x1 end, quote y.==x2 end),
 (:min, quote y.==x1 end, quote y.==x2 end),
-(:log, quote -log_dot(x2)./(x1.*abs2_dot(log_dot(x1))) end, quote 1./(x2.*log_dot(x1)) end),
+(:log, quote -log.(x2)./(x1.*abs2.(log.(x1))) end, quote 1./(x2.*log.(x1)) end),
 ]
 
 # The 2-arg log supports positive args for reals.
@@ -66,15 +66,10 @@ end
 # ^ only supports (N>=0,N), arrays not supported in math.jl, only M^N in linalg/dense.jl (TODO)
 (^){T<:AbstractFloat}(x1::Rec{T},x2::Integer)=(^)(x1,convert(eltype(x1.value),x2)) # to avoid clash with intfuncs:199
 (^)(x1::Broadcasted,x2::Integer)=(^)(x1,convert(eltype(x1.value),x2)) # to avoid clash with intfuncs:199
-@primitive (^)(x1::Number,x2::Number),dy,y  (dy*x2*x1^(x2-1))  (dy*y*log_dot(x1))
+@primitive (^)(x1::Number,x2::Number),dy,y  (dy*x2*x1^(x2-1))  (dy*y*log.(x1))
 addtestN(:^, randin((0,Inf)), randin((-Inf,Inf)))
 
-# clamp(x,lo,hi) clamps x between lo and hi
-if VERSION >= v"0.6.0"; @eval begin
-    @primitive clamp(x,lo,hi),dy,y  unbroadcast(x,dy.*(lo .<= x .<= hi))
-end; else; @eval begin          # ambiguity fix
-    @primitive clamp(x,d...),dy,y  unbroadcast(x,dy.*(d[1] .<= x .<= d[2]))
-end; end
+@primitive clamp(x,lo,hi),dy,y  unbroadcast(x,dy.*(lo .<= x .<= hi))
 bf = broadcast_func(:clamp)
 if bf != :clamp
     @eval @primitive $bf(x,d...),dy,y  unbroadcast(x,dy.*(d[1] .<= x .<= d[2]))
@@ -106,11 +101,6 @@ bf = broadcast_func(:exponent)
 @zerograd exponent(x)
 if bf != :exponent
     @eval @zerograd $bf(x)
-end
-if VERSION >= v"0.6.0"
-    exponent_dot(x)=exponent.(x)
-else
-    exponent_dot(x)=exponent(x)
 end
 
 # Other functions defined in julia/base/math.jl

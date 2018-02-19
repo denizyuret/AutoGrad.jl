@@ -28,33 +28,26 @@ type Broadcasted{T}
     value::T
 end
 getval(x::Broadcasted)=x.value
-
-if VERSION >= v"0.6.0"; @eval begin
-    # We need this to not override regular broadcast(f, A, Bs...):
-    using Base.Broadcast: broadcast_c, containertype
-    broadcast(f, x::Union{Number,AbstractArray}...)=broadcast_c(f, containertype(x...), x...)
-    # This captures cases where at least one arg is a Rec:
-    broadcast(f, x::Union{Number,AbstractArray,Rec}...)=f(Broadcasted.(x)...).value
-end; end
+# We need this to not override regular broadcast(f, A, Bs...):
+using Base.Broadcast: broadcast_c, containertype
+broadcast(f, x::Union{Number,AbstractArray}...)=broadcast_c(f, containertype(x...), x...)
+# This captures cases where at least one arg is a Rec:
+broadcast(f, x::Union{Number,AbstractArray,Rec}...)=f(Broadcasted.(x)...).value
 
 # broadcast_func(f) gets called with every primitive function in AutoGrad.
 
 function broadcast_func(f)
-    if VERSION >= v"0.6.0"
-        f = Symbol(lstrip(string(f), '.'))
-        bf = Symbol("broadcast#", f)
-        if !isdefined(AutoGrad, bf); @eval begin
-            # We need this when x is of a regular type (@primitive only defines bf for Rec)
-            $bf(x...) = broadcast($f, x...)
-            $f(x::Broadcasted...) = $bf(getval.(x)...) |> Broadcasted
-            # We need the following because sometimes the interpreter does not convert all args to Broadcasted:
-            $f(x1::Broadcasted, x2) = $bf(getval(x1), x2) |> Broadcasted
-            $f(x1, x2::Broadcasted) = $bf(x1, getval(x2)) |> Broadcasted
-        end; end
-        bf
-    else
-        f
-    end
+    f = Symbol(lstrip(string(f), '.'))
+    bf = Symbol("broadcast#", f)
+    if !isdefined(AutoGrad, bf); @eval begin
+        # We need this when x is of a regular type (@primitive only defines bf for Rec)
+        $bf(x...) = broadcast($f, x...)
+        $f(x::Broadcasted...) = $bf(getval.(x)...) |> Broadcasted
+        # We need the following because sometimes the interpreter does not convert all args to Broadcasted:
+        $f(x1::Broadcasted, x2) = $bf(getval(x1), x2) |> Broadcasted
+        $f(x1, x2::Broadcasted) = $bf(x1, getval(x2)) |> Broadcasted
+    end; end
+    bf
 end
 
 

@@ -13,10 +13,6 @@
 # isassigned: interfaces.jl
 # trailingsize: Not exported
 # linearindexing: Not exported but part of AbstractArray interface
-if VERSION < v"0.6.0"
-import Base: linearindexing
-@zerograd linearindexing(x)
-end
 # checkbounds: interfaces.jl
 # throw_boundserror: Not exported
 # _internal_checkbounds: Not exported
@@ -95,13 +91,7 @@ cat{N}(::Type{Grad{N}},y1::AbstractArray,y::AbstractArray,dims::AbstractArray,x:
 cat{N}(::Type{Grad{N}},y1::NA,y::NA,dims::NA,x::NA...)=uncat(y1,N-1,dims,x...)   # ambiguity fix
 cat{N}(::Type{Grad{N}},y1::NAR,y::NAR,dims::NAR,x::NAR...)=uncat(y1,N-1,dims,x...)   # ambiguity fix
 cat{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
-
-# Helper function for cat def
-if VERSION >= v"0.6.0"
-    prom_(X...) = Base.promote_eltypeof(X...)
-else
-    prom_(X...) = Base.promote_type(map(x->isa(x,AbstractArray) ? eltype(x) : typeof(x), X)...)
-end
+prom_(X...) = Base.promote_eltypeof(X...)
 
 # For the gradient, we need to extract the n'th block from dy which
 # has the same shape as y=cat(dims,x...).  Note that the inputs x[i]
@@ -154,10 +144,8 @@ end
 @primitive  uncat1(x2,y1,n...),y3  uncat(y3,n...)
 
 # In Julia6+ dims can be Val{N} which breaks uncat:
-if VERSION >= v"0.6.0"
-    uncat{N}(y1,n,dims::Type{Val{N}},x...)=uncat(y1,n,N,x...)
-    uncat1{N}(x2,y1,n,dims::Type{Val{N}},x...)=uncat1(x2,y1,n,N,x...)
-end
+uncat{N}(y1,n,dims::Type{Val{N}},x...)=uncat(y1,n,N,x...)
+uncat1{N}(x2,y1,n,dims::Type{Val{N}},x...)=uncat1(x2,y1,n,N,x...)
 
 # Here is a graphic that may explain the variable name choice where xi
 # stands for the i'th order gradient:

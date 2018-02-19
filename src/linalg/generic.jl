@@ -9,15 +9,15 @@ function vecnormback(x,p,dy,y)
     elseif p == 2
         (dy/y)*x
     elseif p == 1
-        dy * sign_dot(x)
+        dy * sign.(x)
     elseif p == Inf
-        dy * sign_dot(x) .* (abs_dot(x) .== y)
+        dy * sign.(x) .* (abs.(x) .== y)
     elseif p == 0
         zeros(x)
     elseif p == -Inf
-        dy * sign_dot(x) .* (abs_dot(x) .== y)
+        dy * sign.(x) .* (abs.(x) .== y)
     else
-        (dy*y^(1-p)*(abs_dot(x).^(p-1)).*sign_dot(x))
+        (dy*y^(1-p)*(abs.(x).^(p-1)).*sign.(x))
     end
 end
 
