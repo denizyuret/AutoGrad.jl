@@ -78,7 +78,6 @@ end
 # reflector!: Not exported
 # reflectorApply!: Not exported
 
-import Base.LinAlg: det, logdet
 #ref https://people.maths.ox.ac.uk/gilesm/files/NA-08-01.pdf 
 # TODO make more efficient using the intermediate
 # results of SVD in the forward pass
@@ -86,6 +85,7 @@ import Base.LinAlg: det, logdet
 addtest(:det, rand(3,3))
 @primitive logdet(x),dy,y  dy*inv(x).'
 addtest(:logdet, eye(3) + rand(3,3))
+@primitive logabsdet(x),dy,y  dy[1]*inv(x).'
+gradcheck(logabsdet, rand([-1,1]) .* rand(3,3))
 
-# logabsdet
 # isapprox
