@@ -14,9 +14,15 @@ dense2arg = Dict{Symbol,Any}(
 # vecnorm1: Not exported
 # vecnorm2: Not exported
 # triu!
-# triu
+
+@primitive triu(x),dy,y  dy.*triu(ones(x))
+addtest(:triu, rand(3,3))
+
 # tril!
-# tril
+
+@primitive tril(x),dy,y  dy.*tril(ones(x))
+addtest(:tril, rand(3,3))
+
 # gradient
 # diagind
 
