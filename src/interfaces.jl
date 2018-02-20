@@ -229,6 +229,17 @@ for _f in interfaces1arg
     @eval @zerograd $_f(x)
 end
 
+interfaces1arg_type = [
+:eltype,
+:ndims,
+:one,
+:zero,
+]
+
+for _f in interfaces1arg_type
+    @eval $_f{T}(::Type{Rec{T}}) = $_f(T)
+end
+
 interfacesNarg = [
 :checkbounds,
 :eachindex,
