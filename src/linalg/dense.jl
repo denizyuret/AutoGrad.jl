@@ -40,18 +40,43 @@ dense2arg = Dict{Symbol,Any}(
 
 @primitive chol(x),dy,y   chol_back(y, dy)
 
-chol_ϕ(A) = tril(A) - 0.5diagm(diag(A))
-
-# ref: Iain Murray's https://arxiv.org/pdf/1602.07527.pdf
-# difference with the paper with respect to the paper:
-# julia L is upper triangular and we do not need the
-# final simmetrization of S
+# ref: formulua in https://arxiv.org/pdf/1602.07527.pdf
+# as described in https://arxiv.org/pdf/1710.08717.pdf
+# In julia L is upper triangular
 function chol_back(L, dL)
     dL = triu(dL)
     iL = inv(L)
-    S = iL * chol_ϕ(L*dL') * iL'
-    #  S + S' - diagm(diag(S))
+    S = iL * Symmetric(L*dL',:L) * iL'
+    S/2
+end
+
+@primitive lq(x),dy,y   lq_back(y, dy)
+
+
+# ref: https://arxiv.org/pdf/1710.08717.pdf
+function lq_back(y, dy)
+    L, Q = y
+    dL, dQ = dy
+    dL == nothing && (dL = zeros(L))
+    dQ == nothing && (dQ = zeros(Q))
+    dL = tril(dL)
+    M = Symmetric(L'dL - dQ*Q', :L)
+    S = inv(L)' *(dQ + M*Q)
     S
 end
+
+@primitive qr(x),dy,y   qr_back(y, dy)
+
+function qr_back(y, dy)
+    Q, R = y
+    dQ, dR = dy
+    dR == nothing && (dR = zeros(R))
+    dQ == nothing && (dQ = zeros(Q))
+    dR = triu(dR)
+    M = Symmetric(R*dR' - dQ'*Q, :L)
+    S = (dQ + Q*M)*inv(R)'
+    S
+end
+
 
 
