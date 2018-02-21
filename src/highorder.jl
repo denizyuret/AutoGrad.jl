@@ -13,15 +13,6 @@ function jacobian(f)
 end
 
 """
-    hessian(f)
-
-Compute the hessian of the scalar valued function `f`. 
-It is equivalent to `jacobian(grad(f))`.
-"""
-hessian(f) = jacobian(grad(f))
-
-
-"""
     vjp(f)
 
 Returns the  vector-Jacobian product operator
@@ -59,3 +50,31 @@ function jvp(f)
         vjp(g)(v, u)'        
     end
 end
+
+"""
+    hessian(f)
+
+Compute the hessian of the scalar valued function `f`. 
+It is equivalent to `jacobian(grad(f))`.
+"""
+hessian(f) = jacobian(grad(f))
+
+hvp(f) = jvp(grad(f))
+
+"""
+    vhp(f)
+
+Returns the vector-Hessian product operat.
+It is equivalent to `vjp(grad(f))` 
+"""
+vhp(f) = vjp(grad(f))
+
+
+"""
+    hvp(f)
+
+Returns the Hessian product operat.
+It is equivalent to `jvp(grad(f))` 
+"""
+hvp(f) = vjp(grad(f))'  # can use vjp instead of jvp since the 
+                        # hessian is symmetric
