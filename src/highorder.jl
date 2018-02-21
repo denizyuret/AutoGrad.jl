@@ -59,22 +59,19 @@ It is equivalent to `jacobian(grad(f))`.
 """
 hessian(f) = jacobian(grad(f))
 
-hvp(f) = jvp(grad(f))
-
 """
     vhp(f)
 
-Returns the vector-Hessian product operat.
-It is equivalent to `vjp(grad(f))` 
+Returns the vector-Hessian product operator.
+We have the equivalence `vhp(f)(x, v) == vjp(grad(f))(x, v)`.
 """
-vhp(f) = vjp(grad(f))
-
+vhp(f) = vjp(x->vec(grad(f)(x)))
 
 """
     hvp(f)
 
 Returns the Hessian product operat.
-It is equivalent to `jvp(grad(f))` 
+It is equivalent to `jvp(jacobian(f))` 
 """
-hvp(f) = vjp(grad(f))'  # can use vjp instead of jvp since the 
+hvp(f) = (x,v) -> vhp(f)(x,v)'   # can use vjp instead of jvp since the 
                         # hessian is symmetric
