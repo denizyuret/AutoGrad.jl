@@ -81,3 +81,32 @@ end
 # logdet
 # logabsdet
 # isapprox
+
+
+@primitive svd(x),dy,y  svd_back(x, y, dy)
+
+# ref https://j-towns.github.io/papers/svd-derivative.pdf
+function svd_back(x, y, dy)
+    U, s, V = y
+    dU, ds, dV = dy
+
+    F = s'.^2 .- s.^2 
+    F = 1 ./ (F + eye(F)) - eye(F) #avoid infinities on the diagonal
+
+    dx = zeros(x)
+    S = diagm(s)
+    if ds != nothing
+        dx += U*diagm(ds)*V' 
+    end
+    if dU != nothing
+        UUt = U*U'
+        dx += (U*(F.*(U'dU-dU'U))*S + (eye(UUt) - UUt)*dU*inv(S))*V'
+    end
+
+    if dV != nothing
+        VVt = V*V'
+        dx += U*(S*(F.*(V'dV-dV'V))*V' + inv(S)*dV'*(eye(VVt) - VVt))
+    end
+
+    dx
+end
