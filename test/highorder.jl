@@ -10,6 +10,16 @@ include("header.jl")
     g7 = grad(g6);  @test g7(1)==-cos(1)
     g8 = grad(g7);  @test g8(1)==sin(1)
     g9 = grad(g8);  @test g9(1)==cos(1)
+
+    A = rand(2, 3)
+    f(x) = A*x
+    jacobian(f)(rand(3)) == A
+
+    v = rand(3)
+    jvp(f)(rand(3), v) == A*v
+
+    u = rand(2)
+    vjp(f)(rand(3), u) == u'A
 end
 
 nothing

@@ -21,6 +21,7 @@ end
 importall Base  # defining getindex, sin, etc.
 export grad, gradloss, check_grads, gradcheck, gradcheckN, getval
 export @primitive, @zerograd, recorder, Rec, Grad  # the last three are required for the macros to work
+export jacobian, hessian, jvp, vjp
 datapath = joinpath(dirname(@__FILE__),"..","data")
 
 include("core.jl")
@@ -29,6 +30,7 @@ include("dotfunc.jl")
 include("gradcheck.jl")
 include("util.jl")
 include("interfaces.jl")
+include("highorder.jl")
 include("base/reduce.jl")
 include("base/number.jl")
 include("base/float.jl")
