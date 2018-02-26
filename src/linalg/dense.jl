@@ -38,7 +38,7 @@ end
 kron(a::Rec, b::Rec)  = _kron(a, b)
 kron(a::Rec, b) = _kron(a, b)
 kron(a, b::Rec) = _kron(a, b)
-addtest(:kron, rand(2,3), rand(4,5))
+addtestN(:kron, rand(2,3), rand(4,5))
 
 # ^
 # expm
