@@ -84,7 +84,7 @@ end
 @primitive det(x),dy,y  dy*y*inv(x).'
 addtest(:det, rand(3,3))
 @primitive logdet(x),dy,y  dy*inv(x).'
-addtest(:logdet, eye(3) + rand(3,3))
+addtest(:logdet, 5eye(3) + rand(3,3))
 @primitive logabsdet(x),dy,y  dy[1]*inv(x).'
 gradcheck(logabsdet, rand([-1,1]) .* rand(3,3))
 
