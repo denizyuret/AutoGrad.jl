@@ -71,7 +71,7 @@ addtestN(:^, randin((0,Inf)), randin((-Inf,Inf)))
 
 # fix ambiguity #48
 @primitive (^)(x1::Int,x2::Int),dy,y  (dy*x2*x1^(x2-1))  (dy*y*log_dot(x1))
-#addtestN(:^, rand(1:100), rand(1:100)) # problem with eps(Int) 
+addtestN(:^, rand(1:10), rand(1:5))
 
 # clamp(x,lo,hi) clamps x between lo and hi
 if VERSION >= v"0.6.0"; @eval begin
