@@ -240,9 +240,8 @@ interfacesNarg = [
 ]
 
 @zerograd similar(x)
-
-# to prevent ambiguity with abstractarray.jl:470
-@zerograd similar(x, dims::Base.DimOrInd...)
+@zerograd similar(f, shape::Tuple) # abstractarray.jl:565
+@zerograd similar(x, dims::Base.DimOrInd...) # abstractarray.jl:566
 
 for _f in interfacesNarg
     @eval @zerograd $_f(x,i...)
