@@ -1,9 +1,9 @@
 if VERSION >= v"0.6.0"
     reduce1arg = [
-    (:sum,      :(ones(x))),
+    (:sum,      :(_ones(x))),
     (:sumabs_,  :(sign_dot(x))),
     (:sumabs2_, :(2x)),
-    (:mean,     :(ones(x) .* convert(eltype(x), length(y) / length(x)))),
+    (:mean,     :(_ones(x) .* convert(eltype(x), length(y) / length(x)))),
     (:prod,     :(y./x)),
     (:maximum,  :(y.==x)),
     (:minimum,  :(y.==x)),
@@ -16,10 +16,10 @@ if VERSION >= v"0.6.0"
     maxabs_(x...)=maximum(abs,x...)
 else
     reduce1arg = [
-    (:sum,     :(ones(x))),
+    (:sum,     :(_ones(x))),
     (:sumabs,  :(sign_dot(x))),
     (:sumabs2, :(2x)),
-    (:mean,      :(ones(x) .* length(y) ./ length(x))),
+    (:mean,      :(_ones(x) .* length(y) ./ length(x))),
     (:prod,    :(y./x)),
     (:maximum, :(y.==x)),
     (:minimum, :(y.==x)),
@@ -28,8 +28,12 @@ else
     ]
 end
 
+_ones(x::Rec{T}) where T<:Number = one(T) #fix #56
+_ones(x::Rec) = ones(x)
+
 for (f,g) in reduce1arg
     @eval @primitive  $f(x,i...),dy,y   (dy.*($g))
+    addtest(f, randn())
     addtest(f, randn(2))
     addtest(f, randn(2,2), 1)
     addtest(f, randn(2,2), 2)
