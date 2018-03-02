@@ -1,3 +1,4 @@
+__precompile__()
 module AutoGrad
 
 # To see debug output of AutoGrad internals, set DBGFLAGS to
