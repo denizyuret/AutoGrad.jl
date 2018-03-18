@@ -47,7 +47,9 @@ end
 # scale!
 # scale
 # vecdot
-# dot
+@primitive dot(x1, x2),dy,y  dy*x2  dy*x1
+addtestN(:dot, rand(3,2), rand(3,2))
+
 # Ac_mul_B
 # At_mul_B
 # *
