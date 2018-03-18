@@ -42,6 +42,9 @@ include("linalg/generic.jl")
 include("special/trig.jl")
 if Pkg.installed("SpecialFunctions") != nothing
     eval(Expr(:using,:SpecialFunctions))
+    include("special/bessel.jl")
+    include("special/erf.jl")
+    include("special/gamma.jl")
 end
 
 end # module
