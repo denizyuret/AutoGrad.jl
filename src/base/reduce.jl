@@ -1,32 +1,18 @@
-if VERSION >= v"0.6.0"
-    reduce1arg = [
-    (:sum,      :(_ones(x))),
-    (:sumabs_,  :(sign_dot(x))),
-    (:sumabs2_, :(2x)),
-    (:mean,     :(_ones(x) .* convert(eltype(x), length(y) / length(x)))),
-    (:prod,     :(y./x)),
-    (:maximum,  :(y.==x)),
-    (:minimum,  :(y.==x)),
-    (:maxabs_,  :((y.==abs_dot(x)).*sign_dot(x))),
-    (:minabs_,  :((y.==abs_dot(x)).*sign_dot(x))),
-    ]
-    sumabs_(x...)=sum(abs,x...)
-    sumabs2_(x...)=sum(abs2,x...)
-    minabs_(x...)=minimum(abs,x...)
-    maxabs_(x...)=maximum(abs,x...)
-else
-    reduce1arg = [
-    (:sum,     :(_ones(x))),
-    (:sumabs,  :(sign_dot(x))),
-    (:sumabs2, :(2x)),
-    (:mean,      :(_ones(x) .* length(y) ./ length(x))),
-    (:prod,    :(y./x)),
-    (:maximum, :(y.==x)),
-    (:minimum, :(y.==x)),
-    (:maxabs,  :((y.==abs_dot(x)).*sign_dot(x))),
-    (:minabs,  :((y.==abs_dot(x)).*sign_dot(x))),
-    ]
-end
+reduce1arg = [
+(:sum,      :(_ones(x))),
+(:sumabs_,  :(sign.(x))),
+(:sumabs2_, :(2x)),
+(:mean,     :(_ones(x) .* convert(eltype(x), length(y) / length(x)))),
+(:prod,     :(y./x)),
+(:maximum,  :(y.==x)),
+(:minimum,  :(y.==x)),
+(:maxabs_,  :((y.==abs.(x)).*sign.(x))),
+(:minabs_,  :((y.==abs.(x)).*sign.(x))),
+]
+sumabs_(x...)=sum(abs,x...)
+sumabs2_(x...)=sum(abs2,x...)
+minabs_(x...)=minimum(abs,x...)
+maxabs_(x...)=maximum(abs,x...)
 
 _ones(x::Rec{T}) where T<:Number = one(T) #fix #56
 _ones(x::Rec) = ones(x)
@@ -50,18 +36,16 @@ end
 
 # TODO: implement more general sum ops
 
-if VERSION >= v"0.6.0"
-    let sum_r = recorder(sum), max_r = recorder(maximum), min_r = recorder(minimum)
-        global sum, maximum, minimum
-        sum(f::typeof(abs), x::Rec, r...) = sum_r(f, x, r...)
-        sum(f::typeof(abs2), x::Rec, r...) = sum_r(f, x, r...)
-        maximum(f::typeof(abs), x::Rec, r...) = max_r(f, x, r...)
-        minimum(f::typeof(abs), x::Rec, r...) = min_r(f, x, r...)
-        sum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = sumabs_(Grad{1},dy,y,x,r...)
-        sum(::Type{Grad{2}},dy,y,f::typeof(abs2),x,r...) = sumabs2_(Grad{1},dy,y,x,r...)
-        maximum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = maxabs_(Grad{1},dy,y,x,r...)
-        minimum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = minabs_(Grad{1},dy,y,x,r...)
-    end
+let sum_r = recorder(sum), max_r = recorder(maximum), min_r = recorder(minimum)
+    global sum, maximum, minimum
+    sum(f::typeof(abs), x::Rec, r...) = sum_r(f, x, r...)
+    sum(f::typeof(abs2), x::Rec, r...) = sum_r(f, x, r...)
+    maximum(f::typeof(abs), x::Rec, r...) = max_r(f, x, r...)
+    minimum(f::typeof(abs), x::Rec, r...) = min_r(f, x, r...)
+    sum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = sumabs_(Grad{1},dy,y,x,r...)
+    sum(::Type{Grad{2}},dy,y,f::typeof(abs2),x,r...) = sumabs2_(Grad{1},dy,y,x,r...)
+    maximum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = maxabs_(Grad{1},dy,y,x,r...)
+    minimum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = minabs_(Grad{1},dy,y,x,r...)
 end
 
 # TODO: other functions in reduce.jl:
@@ -86,15 +70,7 @@ end
 # mapreduce_no_sc: Not exported
 # mapreduce_sc: Not exported
 # sum_pairwise_blocksize: Not exported
-# sum
-# sumabs
-# sumabs2
 # sum_kbn
-# prod
-# maximum
-# minimum
-# maxabs
-# minabs
 # extrema
 # any
 # all

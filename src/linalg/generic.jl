@@ -9,15 +9,15 @@ function vecnormback(x,p,dy,y)
     elseif p == 2
         (dy/y)*x
     elseif p == 1
-        dy * sign_dot(x)
+        dy * sign.(x)
     elseif p == Inf
-        dy * sign_dot(x) .* (abs_dot(x) .== y)
+        dy * sign.(x) .* (abs.(x) .== y)
     elseif p == 0
         zeros(x)
     elseif p == -Inf
-        dy * sign_dot(x) .* (abs_dot(x) .== y)
+        dy * sign.(x) .* (abs.(x) .== y)
     else
-        (dy*y^(1-p)*(abs_dot(x).^(p-1)).*sign_dot(x))
+        (dy*y^(1-p)*(abs.(x).^(p-1)).*sign.(x))
     end
 end
 
@@ -77,7 +77,53 @@ end
 # axpy!: Not exported
 # reflector!: Not exported
 # reflectorApply!: Not exported
-# det
-# logdet
-# logabsdet
+
+#ref https://people.maths.ox.ac.uk/gilesm/files/NA-08-01.pdf 
+# TODO make more efficient using the intermediate
+# results of SVD in the forward pass
+@primitive det(x),dy,y  dy*y*inv(x).'
+addtest(:det, rand(3,3))
+@primitive logdet(x),dy,y  dy*inv(x).'
+addtest(:logdet, 5eye(3) + rand(3,3))
+@primitive logabsdet(x),dy,y  dy[1]*inv(x).'
+gradcheck(logabsdet, rand([-1,1]) .* rand(3,3))
+
 # isapprox
+
+
+@primitive svd(x),dy,y  svd_back(x, y, dy)
+
+# ref https://j-towns.github.io/papers/svd-derivative.pdf
+function svd_back(x, y, dy)
+    U, s, V = y
+    dU, ds, dV = dy
+
+    F = s'.^2 .- s.^2 
+    F = 1 ./ (F + eye(F)) - eye(F) #avoid infinities on the diagonal
+
+    dx = zeros(x)
+    S = diagm(s)
+    if ds != nothing
+        dx += U*diagm(ds)*V' 
+    end
+    if dU != nothing
+        UUt = U*U'
+        dx += (U*(F.*(U'dU-dU'U))*S + (eye(UUt) - UUt)*dU*inv(S))*V'
+    end
+
+    if dV != nothing
+        VVt = V*V'
+        dx += U*(S*(F.*(V'dV-dV'V))*V' + inv(S)*dV'*(eye(VVt) - VVt))
+    end
+
+    dx
+end
+
+_svd1(x)=svd(x)[1]
+_svd2(x)=svd(x)[2]
+_svd3(x)=svd(x)[3]
+for A in (rand(2,2), rand(2,3), rand(3,2))
+    addtest(:_svd1, A)
+    addtest(:_svd2, A)
+    addtest(:_svd3, A)
+end

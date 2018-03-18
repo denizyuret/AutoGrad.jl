@@ -157,7 +157,7 @@ function rfun(args...; kwargs...)
                 0
             end
         end
-        @printf("%d. %s%s\n", i, f, p)
+        println("$i. $f$p")
     end
     @dbg 1 (:call, f, :y, result, :x, args..., (isempty(kwargs) ? () : (:kw, kwargs...))...)
 end # prof begin
@@ -180,24 +180,7 @@ Unbox `x` if it is a boxed value (`Rec`), otherwise return `x`.
 
 """
 getval(x) = (if isa(x, Rec); x.value; else; x; end)  # we never create Rec(Rec).
-
-if VERSION >= v"0.5.0"
-    unbox(args) = map(getval,args)
-else
-    # this is much faster than map(getval,args) in Julia4
-    function unbox(args)
-        vals = Array{Any}(length(args))
-        @inbounds for i=1:length(args)
-            ai = args[i]
-            if isa(ai,Rec)
-                vals[i] = ai.value
-            else
-                vals[i] = ai
-            end
-        end
-        return vals
-    end
-end
+unbox(args) = map(getval,args)
 
 # findfirst uses == which is inefficient for tapes, so we define findeq with ===
 function findeq(A,v)

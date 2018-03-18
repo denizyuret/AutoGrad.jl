@@ -20,15 +20,8 @@ addtest(:vec,rand(2,2))
 # circshift
 # cumsum_kbn
 # ipermutedims
-if VERSION >= v"0.6.0"; @eval begin            # ipermutedims was deprecated in julia6
-    @primitive permutedims(x,d...),dy permutedims(dy,invperm(d...))
-    addtest(:permutedims,rand(2,3,4),(3,1,2))
-end; else; @eval begin
-    @primitive permutedims(x,d...),dy ipermutedims(dy,d...)
-    @primitive ipermutedims(x,d...),dy permutedims(dy,d...)
-    addtest(:permutedims,rand(2,3,4),(3,1,2))
-    addtest(:ipermutedims,rand(2,3,4),(3,1,2))
-end;end
+@primitive permutedims(x,d...),dy permutedims(dy,invperm(d...))
+addtest(:permutedims,rand(2,3,4),(3,1,2))
 
 # if VERSION >= v"0.6.0"
 #     ipermutedims6(x,dims)=permutedims(x,invperm(dims))

@@ -120,8 +120,8 @@ function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, kwargs=[],
     return pass
 end
 
-gc_dx(x::Number)=cbrt(eps(x))
-gc_dx(x)=cbrt(eps(eltype(x)))
+gc_dx(x::Number)=cbrt(eps(float(x)))
+gc_dx(x)=cbrt(eps(float(eltype(x))))
 gc_indices(w::Tuple)=(1:length(w))
 gc_indices(w)=eachindex(w)
 
@@ -182,8 +182,8 @@ end
 # gradcheck only checks the first arg, this helper will allow us to check all args
 
 applyN(x,f)=f(x...)
-addtestN(f,x...)=addtest(:applyN,collect(x),eval(AutoGrad,f))
-gradcheckN(f,x...;o...)=gradcheck(applyN,collect(x),f;o...)
+addtestN(f,x...)=addtest(:applyN,collect(Any,x),eval(AutoGrad,f))
+gradcheckN(f,x...;o...)=gradcheck(applyN,collect(Any,x),f;o...)
 
 # Generate tests based on given ranges
 
@@ -206,13 +206,13 @@ function randin(range, dims...; eps=0.01)
         rand(range, dims...)
     elseif range==(-Inf,Inf)
         r = randn(dims...)
-        sign_dot(r)*eps + r
+        sign.(r)*eps + r
     elseif range==(0,Inf)
-        eps-log_dot(rand(dims...))
+        eps-log.(rand(dims...))
     elseif range==(1,Inf)
-        eps+1-log_dot(rand(dims...))
+        eps+1-log.(rand(dims...))
     elseif range==(-1,Inf)
-        eps-1-log_dot(rand(dims...))
+        eps-1-log.(rand(dims...))
     elseif range==(-1,1)
         (1-eps)*(2rand(dims...)-1)
     elseif range==(0,1)
@@ -220,8 +220,8 @@ function randin(range, dims...; eps=0.01)
     elseif range==(0,2)
         eps+2*(1-eps)*rand(dims...)
     elseif range==(-Inf,-1,1,Inf)
-        x = sec_dot(randn(dims...))
-        sign_dot(x)*eps + x
+        x = sec.(randn(dims...))
+        sign.(x)*eps + x
     else
         error("Unknown range $range")
     end

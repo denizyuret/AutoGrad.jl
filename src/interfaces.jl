@@ -229,6 +229,17 @@ for _f in interfaces1arg
     @eval @zerograd $_f(x)
 end
 
+interfaces1arg_type = [
+:eltype,
+:ndims,
+:one,
+:zero,
+]
+
+for _f in interfaces1arg_type
+    @eval $_f{T}(::Type{Rec{T}}) = $_f(T)
+end
+
 interfacesNarg = [
 :checkbounds,
 :eachindex,
@@ -240,11 +251,8 @@ interfacesNarg = [
 ]
 
 @zerograd similar(x)
-
-if VERSION >= v"0.5.0"
-# to prevent ambiguity with abstractarray.jl:470
-@zerograd similar(x, dims::Base.DimOrInd...)
-end
+@zerograd similar(f, shape::Tuple) # abstractarray.jl:565
+@zerograd similar(x, dims::Base.DimOrInd...) # abstractarray.jl:566
 
 for _f in interfacesNarg
     @eval @zerograd $_f(x,i...)
