@@ -157,7 +157,7 @@ function rfun(args...; kwargs...)
                 0
             end
         end
-        @printf("%d. %s%s\n", i, f, p)
+        println("$i. $f$p")
     end
     @dbg 1 (:call, f, :y, result, :x, args..., (isempty(kwargs) ? () : (:kw, kwargs...))...)
 end # prof begin

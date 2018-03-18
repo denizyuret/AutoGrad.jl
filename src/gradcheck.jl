@@ -120,8 +120,8 @@ function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, kwargs=[],
     return pass
 end
 
-gc_dx(x::Number)=cbrt(eps(x))
-gc_dx(x)=cbrt(eps(eltype(x)))
+gc_dx(x::Number)=cbrt(eps(float(x)))
+gc_dx(x)=cbrt(eps(float(eltype(x))))
 gc_indices(w::Tuple)=(1:length(w))
 gc_indices(w)=eachindex(w)
 
