@@ -182,8 +182,8 @@ end
 # gradcheck only checks the first arg, this helper will allow us to check all args
 
 applyN(x,f)=f(x...)
-addtestN(f,x...)=addtest(:applyN,collect(x),eval(AutoGrad,f))
-gradcheckN(f,x...;o...)=gradcheck(applyN,collect(x),f;o...)
+addtestN(f,x...)=addtest(:applyN,collect(Any,x),eval(AutoGrad,f))
+gradcheckN(f,x...;o...)=gradcheck(applyN,collect(Any,x),f;o...)
 
 # Generate tests based on given ranges
 
