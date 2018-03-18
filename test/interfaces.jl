@@ -55,6 +55,12 @@ include("header.jl")
         @test grad(f2)(ones(3, 3)) == fill(6, 3, 3)
     end
 
+    @testset "1arg_type" begin
+        @test ndims(Rec{Vector{Int}}) == ndims(Vector{Int})
+        @test eltype(Rec{Vector{Int}}) == eltype(Vector{Int})
+        @test one(Rec{Int}) === one(Int)
+        @test zero(Rec{Int}) === zero(Int)
+    end
 end
 
 nothing
