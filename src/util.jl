@@ -359,7 +359,7 @@ function dumptape(t::Tape)
             isassigned(n.parents,j) ? findfirst(t,n.parents[j]) : 0
         end
         f = r.func
-        @printf("%d. %s%s\n", i, f, p)
+        println("$i. $f$p")
     end
 end
 

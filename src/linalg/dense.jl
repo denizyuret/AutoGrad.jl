@@ -14,14 +14,17 @@ dense2arg = Dict{Symbol,Any}(
 # vecnorm1: Not exported
 # vecnorm2: Not exported
 # triu!
-# triu
+
+@primitive triu(x),dy,y  dy.*triu(ones(x))
+addtest(:triu, rand(3,3))
+
 # tril!
-# tril
+
+@primitive tril(x),dy,y  dy.*tril(ones(x))
+addtest(:tril, rand(3,3))
+
 # gradient
 # diagind
-# diag
-# diagm
-# trace
 
 # code adapted from https://github.com/FluxML/Flux.jl/pull/169
 function _kron(mat1, mat2)
@@ -40,13 +43,25 @@ kron(a::Rec, b) = _kron(a, b)
 kron(a, b::Rec) = _kron(a, b)
 addtestN(:kron, rand(2,3), rand(4,5))
 
+@primitive diagm(x),dy,y   diag(dy) 
+addtest(:diagm, rand(3))
+@primitive diag(x),dy,y   diagm(dy)  # alternative: Diagonal(dy)
+addtest(:diag, rand(3,3))
+@zerograd eye(x)
+@primitive trace(x),dy,y  dy*eye(x) # alternative: dy*Diagonal(ones(x))
+addtest(:trace, rand(3,3))
+
 # ^
 # expm
 # expm!: Not exported
 # rcswap!: Not exported
 # logm
 # sqrtm
-# inv
+
+# ref https://people.maths.ox.ac.uk/gilesm/files/NA-08-01.pdf 
+@primitive inv(x),dy,y  (yt=y.'; -yt*dy*yt)
+addtest(:inv, rand(2,2))
+
 # factorize
 # \
 # pinv
