@@ -1,3 +1,13 @@
+AutoGrad v0.0.11 Release Notes
+==============================
+
+* LinAlg support (@CarloLucibello): det, logdet, inv, dot, diag, diagm, trace, logabsdet, kron, triu, tril, chol, lq, qr, svd
+* Added grads for std, var, Int^Int (@CarloLucibello)
+* Added f(Rec(::Type{T}) = f(T) for eltype, ndims, one, zero (@CarloLucibello)
+* Fixed reduction of scalars, e.g. `grad(sum)(3.1)` (@CarloLucibello)
+* Fixed `similar(::Rec{KnetArray}, ::Dims)`
+
+
 AutoGrad v0.0.10 Release Notes
 ==============================
 
