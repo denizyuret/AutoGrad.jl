@@ -89,3 +89,41 @@ addtest(:logdet, 5eye(3) + rand(3,3))
 gradcheck(logabsdet, rand([-1,1]) .* rand(3,3))
 
 # isapprox
+
+
+@primitive svd(x),dy,y  svd_back(x, y, dy)
+
+# ref https://j-towns.github.io/papers/svd-derivative.pdf
+function svd_back(x, y, dy)
+    U, s, V = y
+    dU, ds, dV = dy
+
+    F = s'.^2 .- s.^2 
+    F = 1 ./ (F + eye(F)) - eye(F) #avoid infinities on the diagonal
+
+    dx = zeros(x)
+    S = diagm(s)
+    if ds != nothing
+        dx += U*diagm(ds)*V' 
+    end
+    if dU != nothing
+        UUt = U*U'
+        dx += (U*(F.*(U'dU-dU'U))*S + (eye(UUt) - UUt)*dU*inv(S))*V'
+    end
+
+    if dV != nothing
+        VVt = V*V'
+        dx += U*(S*(F.*(V'dV-dV'V))*V' + inv(S)*dV'*(eye(VVt) - VVt))
+    end
+
+    dx
+end
+
+_svd1(x)=svd(x)[1]
+_svd2(x)=svd(x)[2]
+_svd3(x)=svd(x)[3]
+for A in (rand(2,2), rand(2,3), rand(3,2))
+    addtest(:_svd1, A)
+    addtest(:_svd2, A)
+    addtest(:_svd3, A)
+end
