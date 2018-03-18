@@ -1,28 +1,21 @@
 # work in progress...
 
 bessel1arg = [
-(:airyai, :(airyaiprime_dot(x)), (-Inf,Inf)),
-(:airyaiprime, :(x.*airyai_dot(x)), (-Inf,Inf)),
-(:airybi, :(airybiprime_dot(x)), (-Inf,Inf)),
-(:airybiprime, :(x.*airybi_dot(x)), (-Inf,Inf)),
-(:airyprime, :(x.*airyai_dot(x)), (-Inf,Inf)), # airyprime(z::Number) is deprecated, use airyaiprime(z) instead.
-(:besselj0, :(-besselj1_dot(x)), (-Inf,Inf)),
-(:besselj1, :((besselj0_dot(x)-besselj2_dot(x))/2), (-Inf,Inf)),
+(:airyai, :(airyaiprime.(x)), (-Inf,Inf)),
+(:airyaiprime, :(x.*airyai.(x)), (-Inf,Inf)),
+(:airybi, :(airybiprime.(x)), (-Inf,Inf)),
+(:airybiprime, :(x.*airybi.(x)), (-Inf,Inf)),
+(:airyprime, :(x.*airyai.(x)), (-Inf,Inf)), # airyprime(z::Number) is deprecated, use airyaiprime(z) instead.
+(:besselj0, :(-besselj1.(x)), (-Inf,Inf)),
+(:besselj1, :((besselj0.(x)-besselj2.(x))/2), (-Inf,Inf)),
 (:besselj2, :(error()), (-Inf,Inf)),
-(:bessely0, :(-bessely1_dot(x)), (0,Inf)), 
-(:bessely1, :((bessely0_dot(x)-bessely2_dot(x))/2), (0,Inf)),
+(:bessely0, :(-bessely1.(x)), (0,Inf)), 
+(:bessely1, :((bessely0.(x)-bessely2.(x))/2), (0,Inf)),
 (:bessely2, :(error()), (-Inf,Inf)),
 ]
 
 besselj2(x)=besselj(2,x)
 bessely2(x)=bessely(2,x)
-if VERSION >= v"0.6.0"
-    besselj2_dot(x)=besselj2.(x)
-    bessely2_dot(x)=bessely2.(x)
-else
-    besselj2_dot(x)=besselj2(x)
-    bessely2_dot(x)=bessely2(x)
-end
 
 for (f,g,r) in bessel1arg
     bf = broadcast_func(f)

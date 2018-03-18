@@ -1,5 +1,5 @@
 number1arg = [
-    (:abs, :(sign_dot(x))),
+    (:abs, :(sign.(x))),
     (:abs2, :(2x)),
 ]
 

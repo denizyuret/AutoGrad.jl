@@ -78,12 +78,12 @@ end
 # There is no Number-Array support.
 # \(x,A) is the same as /(A,x)
 
-@primitive (/)(x1,x2::Number),dy,y  (dy/x2)  unbroadcast(x2,-dy.*x1./abs2_dot(x2))
+@primitive (/)(x1,x2::Number),dy,y  (dy/x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
 x = randn(); a = randn(2)
 addtestN(:/,randn(),randn())
 addtestN(:/,randn(2),randn())
 
-@primitive (\)(x2::Number,x1),dy,y  unbroadcast(x2,-dy.*x1./abs2_dot(x2))  (dy/x2)
+@primitive (\)(x2::Number,x1),dy,y  unbroadcast(x2,-dy.*x1./abs2.(x2))  (dy/x2)
 addtestN(:\,randn(),randn())
 addtestN(:\,randn(),randn(2))
 

@@ -1,11 +1,7 @@
 include("header.jl")
 
 # info("Test neural net...")
-if VERSION >= v"0.6.0"
-    n0(w,x,y)=sum(((w[3]*max.(0,w[1]*x.+w[2]).+w[4])-y).^2)
-else
-    n0(w,x,y)=sum(((w[3]*max(0,w[1]*x.+w[2]).+w[4])-y).^2)
-end
+n0(w,x,y)=sum(((w[3]*max.(0,w[1]*x.+w[2]).+w[4])-y).^2)
 n1 = grad(n0)
 n1sum(w,x,y)=sum(map(sum,n1(w,x,y)))
 n1sumd(w,x,y)=sum(map(sum,values(n1(w,x,y))))
