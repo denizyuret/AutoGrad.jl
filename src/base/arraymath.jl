@@ -30,15 +30,16 @@
 # rot180
 # transpose!: Overwriting
 # transposeblock!: Not exported
-# ctranspose!: Overwriting
+# adjoint!: Overwriting
 # ctransposeblock!: Not exported
 # ccopy!: Not exported
 # transpose
 @primitive transpose(x),dy  transpose(dy)
 addtest(:transpose,rand(2,2))
-# ctranspose
-@primitive ctranspose(x),dy ctranspose(dy)
-addtest(:ctranspose,rand(2,2))
+# adjoint
+import Compat.adjoint
+@primitive adjoint(x),dy adjoint(dy)
+addtest(:adjoint,rand(2,2))
 # _cumsum_type: Not exported
 # cumsum
 # cumsum!

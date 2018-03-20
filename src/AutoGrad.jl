@@ -1,6 +1,8 @@
 __precompile__()
 module AutoGrad
 
+using Compat, Compat.Pkg, Compat.LinearAlgebra
+
 # To see debug output of AutoGrad internals, set DBGFLAGS to
 # non-zero. Each bit of DBGFLAGS can be used to show a subset of dbg
 # messages indicated by the `bit` argument to the `dbg` macro.
@@ -17,7 +19,40 @@ else
     macro prof(label,ex); esc(ex); end
 end
 
-importall Base  # defining getindex, sin, etc.
+mathsyms = names(Base.Math)
+for x in mathsyms
+    eval(:(import Base.Math.$x))
+end
+
+using Compat.LinearAlgebra
+linalgsyms = setdiff(names(Compat.LinearAlgebra), [:trace])
+for x in linalgsyms
+    eval(:(import Compat.LinearAlgebra.$x))
+end
+
+using FFTW
+fftwsyms = names(FFTW)
+for x in fftwsyms
+    eval(:(import FFTW.$x))
+end
+
+using DSP
+dspsyms = setdiff(names(DSP), [:polyfit])
+for x in dspsyms
+    eval(:(import DSP.$x))
+end
+
+syms = names(Base)
+syms = setdiff(syms, mathsyms)
+syms = setdiff(syms, linalgsyms)
+syms = setdiff(syms, fftwsyms)
+syms = setdiff(syms, dspsyms)
+syms = setdiff(syms, [:Pkg, :trace])
+
+for x in syms
+    eval(:(import Base.$x))
+end
+
 export grad, gradloss, check_grads, gradcheck, gradcheckN, getval
 export @primitive, @zerograd, recorder, Rec, Grad  # the last three are required for the macros to work
 datapath = joinpath(dirname(@__FILE__),"..","data")
@@ -41,7 +76,10 @@ include("linalg/dense.jl")
 include("linalg/generic.jl")
 include("special/trig.jl")
 if Pkg.installed("SpecialFunctions") != nothing
-    eval(Expr(:using,:SpecialFunctions))
+    eval(:(using SpecialFunctions))
+    for y in names(SpecialFunctions)
+        eval(:(import SpecialFunctions.$y))
+    end
     include("special/bessel.jl")
     include("special/erf.jl")
     include("special/gamma.jl")

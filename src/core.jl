@@ -104,7 +104,7 @@ end
 # called many times for different methods.  To avoid duplication we
 # hold recorders in a hash.
 
-let fdict=ObjectIdDict()
+let fdict= VERSION < v"0.7.0-DEV.3439" ? ObjectIdDict() : IdDict()  # https://github.com/JuliaLang/Compat.jl/issues/464
 global recorder
 
 """
@@ -145,13 +145,13 @@ function rfun(args...; kwargs...)
     end
     if DEBUGTAPE && isa(result,Rec)
         @assert length(result.tapes) == length(result.nodes) == 1
-        t = result.tapes[1]
+        t2 = result.tapes[1]
         n = result.nodes[1]
-        i = findfirst(t,n)
+        i = findfirst(t2,n)
         p = ntuple(length(n.parents)) do j
             if isassigned(n.parents,j)
-                findfirst(t,n.parents[j])
-            elseif isa(argvals[j],Number) || isa(argvals[j],Symbol) || isa(argvals[j],Range)
+                findfirst(t2,n.parents[j])
+            elseif isa(argvals[j],Number) || isa(argvals[j],Symbol) || isa(argvals[j],AbstractRange)
                 argvals[j]
             else
                 0
@@ -232,7 +232,7 @@ function backward_pass(start_box, end_box, tape)
     for n in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
         if n.outgrad === nothing; continue; end
         @prof "NODE" r = n.rec
-        @dbg 1 (:back,r.func,:dy,n.outgrad,:y,r.value,:x,r.args...,(isempty(r.kwargs)?():(:kw,r.kwargs...))...)
+        @dbg 1 (:back,r.func,:dy,n.outgrad,:y,r.value,:x,r.args...,(isempty(r.kwargs) ? () : (:kw,r.kwargs...))...)
         for i=1:length(n.parents)
             isassigned(n.parents,i) || continue
             @prof "GRAD" p = n.parents[i]
@@ -289,30 +289,30 @@ end
 # function of x will be called before its descendent y.  Thus we keep
 # a Tape which is an array of Nodes in the order they were created.
 
-#if !isdefined(:Node)
-type Node
+#if !isdefined(@__MODULE__, :Node)
+mutable struct Node
     rec
     outgrad
     parents::Vector{Node}
-    Node(b) = new(b, nothing, Array{Node}(length(b.args)))
-end #type
+    Node(b) = new(b, nothing, Array{Node}(undef, length(b.args)))
+end #mutable struct
 #end #if
 
 const Tape = Vector{Node}
 
-#if !isdefined(:Rec)
-type Rec{T}
+#if !isdefined(@__MODULE__, :Rec)
+mutable struct Rec{T}
     value::T
     func::Function
     args::Tuple
     kwargs::Vector
     tapes::Vector{Tape}
     nodes::Vector{Node}
-end # type Rec{T}
+end # mutable struct Rec{T}
 #end # if
 
 function Rec(value, tape::Tape=Tape(); func=rand, args=(), kwargs=[])
-    self = Rec(value,func,args,kwargs,Tape[tape],Array{Node}(1))
+    self = Rec(value,func,args,collect(kwargs),Tape[tape],Array{Node}(undef, 1))
     node = Node(self)
     push!(tape,node)
     self.nodes[1] = node
@@ -333,7 +333,7 @@ end
 # forward_pass, see Sec 7 for details).  We stop the recording on a
 # Tape by calling its complete! method.
 
-if !isdefined(:iscomplete)
+if !isdefined(@__MODULE__, :iscomplete)
 let eot = Node(Rec(nothing))
     global iscomplete, complete!
     iscomplete(a::Tape)=(!isempty(a) && a[end]===eot)
@@ -394,9 +394,9 @@ end # if
 
 # 6.2 Gradients
 
-if !isdefined(:Grad)
+if !isdefined(@__MODULE__, :Grad)
 "Grad{N} creates a type used by AutoGrad to represent the gradient wrt N'th arg."    
-immutable Grad{N}; end
+struct Grad{N}; end
 end
 
 # In AutoGrad, gradients are defined using gradient methods that have
@@ -469,21 +469,21 @@ end
 
 sum_outgrads(a::Number, b::Number)=a+b
 sum_outgrads(a::Tuple, b::Tuple)=tuple([sum_outgrads(x,y) for (x,y) in zip(a,b)]...)
-sum_outgrads(a::Associative, b::Associative) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=sum_outgrads(v,get(z,k,nothing)); end; z)
-sum_outgrads{T}(a::AbstractArray{T},b::AbstractArray{T})=(if isbits(T); (a+b); else; T[sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
+sum_outgrads(a::AbstractDict, b::AbstractDict) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=sum_outgrads(v,get(z,k,nothing)); end; z)
+sum_outgrads(a::AbstractArray{T},b::AbstractArray{T}) where T = (if isbits(T); (a+b); else; T[sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
 # sum_outgrads needs to be a primitive for higher order gradients:
 let sum_outgrads_r = recorder(sum_outgrads); global sum_outgrads
     sum_outgrads(a::Rec,b::Rec)=sum_outgrads_r(a,b)
     sum_outgrads(a::Rec,b)=sum_outgrads_r(a,b)
     sum_outgrads(a,b::Rec)=sum_outgrads_r(a,b)
 end
-sum_outgrads{N}(::Type{Grad{N}},dy,y,x1,x2)=dy
+sum_outgrads(::Type{Grad{N}},dy,y,x1,x2) where N = dy
 # we use `nothing` to indicate zero gradients
-sum_outgrads(::Void,::Void)=nothing
-sum_outgrads(a::Rec,::Void)=a   # to avoid ambiguity
-sum_outgrads(::Void,a::Rec)=a   # to avoid ambiguity
-sum_outgrads(a,::Void)=a
-sum_outgrads(::Void,a)=a
+sum_outgrads(::Nothing,::Nothing)=nothing
+sum_outgrads(a::Rec,::Nothing)=a   # to avoid ambiguity
+sum_outgrads(::Nothing,a::Rec)=a   # to avoid ambiguity
+sum_outgrads(a,::Nothing)=a
+sum_outgrads(::Nothing,a)=a
 
 
 # 7. How higher order gradients work.

@@ -15,12 +15,12 @@ dense2arg = Dict{Symbol,Any}(
 # vecnorm2: Not exported
 # triu!
 
-@primitive triu(x),dy,y  dy.*triu(ones(x))
+@primitive triu(x),dy,y  dy.*triu(fill(1.0,size(x)))
 addtest(:triu, rand(3,3))
 
 # tril!
 
-@primitive tril(x),dy,y  dy.*tril(ones(x))
+@primitive tril(x),dy,y  dy.*tril(fill(1.0,size(x)))
 addtest(:tril, rand(3,3))
 
 # gradient
@@ -43,13 +43,22 @@ kron(a::Rec, b) = _kron(a, b)
 kron(a, b::Rec) = _kron(a, b)
 addtestN(:kron, rand(2,3), rand(4,5))
 
-@primitive diagm(x),dy,y   diag(dy) 
-addtest(:diagm, rand(3))
-@primitive diag(x),dy,y   diagm(dy)  # alternative: Diagonal(dy)
+_diagm(x) = diagm(0 => x)
+@primitive _diagm(x),dy,y   diag(dy) 
+addtest(:_diagm, rand(3))
+@primitive diag(x),dy,y   _diagm(dy)  # alternative: Diagonal(dy)
 addtest(:diag, rand(3,3))
-@zerograd eye(x)
-@primitive trace(x),dy,y  dy*eye(x) # alternative: dy*Diagonal(ones(x))
-addtest(:trace, rand(3,3))
+# @zerograd Matrix(1.0I, x, x)
+# @zerograd eye(x)
+
+if VERSION < v"0.7.0-DEV.3439"
+    import Compat.LinearAlgebra.trace
+    @primitive trace(x),dy,y  dy*eye(size(x,1),size(x,2))            # alternative: dy*Diagonal(ones(x))
+    addtest(:trace, rand(3,3))
+else
+    @primitive tr(x),dy,y  dy*Matrix(1.0I, size(x,1), size(x,2))     # alternative: dy*Diagonal(ones(x))
+    addtest(:tr, rand(3,3))
+end
 
 # ^
 # expm
@@ -59,7 +68,7 @@ addtest(:trace, rand(3,3))
 # sqrtm
 
 # ref https://people.maths.ox.ac.uk/gilesm/files/NA-08-01.pdf 
-@primitive inv(x),dy,y  (yt=y.'; -yt*dy*yt)
+@primitive inv(x),dy,y  (yt=transpose(y); -yt*dy*yt)
 addtest(:inv, rand(2,2))
 
 # factorize
@@ -92,8 +101,8 @@ addtest(:_choltest, rand(3,3))
 function lq_back(y, dy)
     L, Q = y
     dL, dQ = dy
-    dL == nothing && (dL = zeros(L))
-    dQ == nothing && (dQ = zeros(Q))
+    dL == nothing && (dL = fill(0.0,size(L)))
+    dQ == nothing && (dQ = fill(0.0,size(Q)))
     dL = tril(dL)
     M = Symmetric(L'dL - dQ*Q', :L)
     S = inv(L)' *(dQ + M*Q)
@@ -109,8 +118,8 @@ _lq3(x)=(y=lq(x); sum(y[1]+y[2])); addtest(:_lq3, rand(3,3))
 function qr_back(y, dy)
     Q, R = y
     dQ, dR = dy
-    dR == nothing && (dR = zeros(R))
-    dQ == nothing && (dQ = zeros(Q))
+    dR == nothing && (dR = fill(0.0, size(R)))
+    dQ == nothing && (dQ = fill(0.0, size(Q)))
     dR = triu(dR)
     M = Symmetric(R*dR' - dQ'*Q, :L)
     S = (dQ + Q*M)*inv(R)'

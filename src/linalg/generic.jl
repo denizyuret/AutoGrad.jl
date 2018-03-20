@@ -13,7 +13,7 @@ function vecnormback(x,p,dy,y)
     elseif p == Inf
         dy * sign.(x) .* (abs.(x) .== y)
     elseif p == 0
-        zeros(x)
+        fill(0.0,size(x))
     elseif p == -Inf
         dy * sign.(x) .* (abs.(x) .== y)
     else
@@ -22,10 +22,10 @@ function vecnormback(x,p,dy,y)
 end
 
 @primitive vecnorm(x),dy,y  vecnormback(x,2,dy,y)
-addtest(:vecnorm, rand(2,2)-0.5)
+addtest(:vecnorm, rand(2,2) .- 0.5)
 @primitive vecnorm(x,p::Real),dy,y vecnormback(x,p,dy,y)
 for p in (0,1,2,Inf,-Inf,rand(),-rand(),1+rand(),-1-rand())
-    addtest(:vecnorm, rand(2,2)-0.5, p)
+    addtest(:vecnorm, rand(2,2) .- 0.5, p)
 end
 
 # TODO:
@@ -81,11 +81,11 @@ end
 #ref https://people.maths.ox.ac.uk/gilesm/files/NA-08-01.pdf 
 # TODO make more efficient using the intermediate
 # results of SVD in the forward pass
-@primitive det(x),dy,y  dy*y*inv(x).'
+@primitive det(x),dy,y  dy*y*transpose(inv(x))
 addtest(:det, rand(3,3))
-@primitive logdet(x),dy,y  dy*inv(x).'
-addtest(:logdet, 5eye(3) + rand(3,3))
-@primitive logabsdet(x),dy,y  dy[1]*inv(x).'
+@primitive logdet(x),dy,y  dy*transpose(inv(x))
+addtest(:logdet, 5 .* Matrix(1.0I, 3, 3) .+ rand(3,3))
+@primitive logabsdet(x),dy,y  dy[1]*transpose(inv(x))
 gradcheck(logabsdet, rand([-1,1]) .* rand(3,3))
 
 # isapprox
@@ -94,26 +94,27 @@ gradcheck(logabsdet, rand([-1,1]) .* rand(3,3))
 @primitive svd(x),dy,y  svd_back(x, y, dy)
 
 # ref https://j-towns.github.io/papers/svd-derivative.pdf
+eye_(x) = Matrix(1.0I, size(x,1), size(x,2))
 function svd_back(x, y, dy)
     U, s, V = y
     dU, ds, dV = dy
 
     F = s'.^2 .- s.^2 
-    F = 1 ./ (F + eye(F)) - eye(F) #avoid infinities on the diagonal
+    F = 1 ./ (F .+ eye_(F)) - eye_(F) #avoid infinities on the diagonal
 
-    dx = zeros(x)
-    S = diagm(s)
+    dx = fill(0.0, size(x))
+    S = diagm(0 => s)
     if ds != nothing
-        dx += U*diagm(ds)*V' 
+        dx += U*diagm(0 => ds)*V' 
     end
     if dU != nothing
         UUt = U*U'
-        dx += (U*(F.*(U'dU-dU'U))*S + (eye(UUt) - UUt)*dU*inv(S))*V'
+        dx += (U*(F.*(U'dU-dU'U))*S .+ (eye_(UUt) .- UUt)*dU*inv(S))*V'
     end
 
     if dV != nothing
         VVt = V*V'
-        dx += U*(S*(F.*(V'dV-dV'V))*V' + inv(S)*dV'*(eye(VVt) - VVt))
+        dx += U*(S*(F.*(V'dV-dV'V))*V' .+ inv(S)*dV'*(eye_(VVt) .- VVt))
     end
 
     dx

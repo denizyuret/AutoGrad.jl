@@ -1,11 +1,18 @@
+_Ac_mul_B(A,B) = adjoint(A) * B
+_At_mul_B(A,B) = transpose(A) * B
+_A_mul_Bc(A,B) = A * adjoint(B)
+_A_mul_Bt(A,B) = A * transpose(B)
+_Ac_mul_Bc(A,B) = adjoint(A) * adjoint(B)
+_At_mul_Bt(A,B) = transpose(A) * transpose(B)
+
 matmul2arg = [
 (:*,         :(dy*x2'),    :(x1'*dy),    :(dy),   :(dy)),
-(:Ac_mul_B,  :(x2*dy'),    :(x1*dy),     :(dy'),  :(dy)),
-(:At_mul_B,  :(x2*dy.'),   :(x1*dy),     :(dy.'), :(dy)),
-(:A_mul_Bc,  :(dy*x2),     :(dy'*x1),    :(dy),   :(dy')),
-(:A_mul_Bt,  :(dy*x2),     :(dy.'*x1),   :(dy),   :(dy.')),
-(:Ac_mul_Bc, :(x2'*dy'),   :(dy'*x1'),   :(dy'),  :(dy')),
-(:At_mul_Bt, :(x2.'*dy.'), :(dy.'*x1.'), :(dy.'), :(dy.')),
+(:_Ac_mul_B,  :(x2*dy'),    :(x1*dy),     :(dy'),  :(dy)),
+(:_At_mul_B,  :(x2*transpose(dy)),   :(x1*dy),     :(transpose(dy)), :(dy)),
+(:_A_mul_Bc,  :(dy*x2),     :(dy'*x1),    :(dy),   :(dy')),
+(:_A_mul_Bt,  :(dy*x2),     :(transpose(dy)*x1),   :(dy),   :(transpose(dy))),
+(:_Ac_mul_Bc, :(x2'*dy'),   :(dy'*x1'),   :(dy'),  :(dy')),
+(:_At_mul_Bt, :(transpose(x2)*transpose(dy)), :(transpose(dy)*transpose(x1)), :(transpose(dy)), :(transpose(dy))),
 ]
 
 function addtest_matmul(f)
@@ -48,7 +55,7 @@ end
 # scale
 # vecdot
 @primitive dot(x1, x2),dy,y  dy*x2  dy*x1
-addtestN(:dot, rand(3,2), rand(3,2))
+addtestN(:dot, rand(3), rand(3))
 
 # Ac_mul_B
 # At_mul_B

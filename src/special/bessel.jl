@@ -18,13 +18,14 @@ besselj2(x)=besselj(2,x)
 bessely2(x)=bessely(2,x)
 
 for (f,g,r) in bessel1arg
-    bf = broadcast_func(f)
-    @eval @primitive $f(x),dy,y  (dy.*($g))
-    if bf != f
-        @eval @primitive $bf(x),dy,y  (dy.*($g))
-    end
-    if !in(f, (:airyprime, :besselj2, :bessely2))
-        addtest1(f,r)
+    let bf = broadcast_func(f)
+        @eval @primitive $f(x),dy,y  (dy.*($g))
+        if bf != f
+            @eval @primitive $bf(x),dy,y  (dy.*($g))
+        end
+        if !in(f, (:airyprime, :besselj2, :bessely2))
+            addtest1(f,r)
+        end
     end
 end
 

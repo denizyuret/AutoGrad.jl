@@ -30,8 +30,8 @@
 # getindex: interfaces.jl
 # setindex!: overwriting
 # push!: overwriting
-# ObjectIdDict
-# similar: interfaces.jl
+# IdDict
+# empty: interfaces.jl
 # get: TODO
 # pop!: overwriting
 # delete!: overwriting

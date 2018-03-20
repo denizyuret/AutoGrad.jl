@@ -24,13 +24,18 @@
 # 1. broadcast(F, x::Union{previous_types,T}...) = F(Broadcasted.(x)...).value
 # 2. bf(x::T) needs to be implemented (after being imported)
 
-type Broadcasted{T}
+mutable struct Broadcasted{T}
     value::T
 end
 getval(x::Broadcasted)=x.value
 # We need this to not override regular broadcast(f, A, Bs...):
-using Base.Broadcast: broadcast_c, containertype
-broadcast(f, x::Union{Number,AbstractArray}...)=broadcast_c(f, containertype(x...), x...)
+if VERSION < v"0.7.0-DEV.2635"
+    using Base.Broadcast: broadcast_c, containertype
+    broadcast(f, x::Union{Number,AbstractArray}...)=broadcast_c(f, containertype(x...), x...)
+else
+    using Base.Broadcast: combine_styles
+    broadcast(f, x::Union{Number,AbstractArray}...)=broadcast(f, combine_styles(x...), nothing, nothing, x...)
+end
 # This captures cases where at least one arg is a Rec:
 broadcast(f, x::Union{Number,AbstractArray,Rec}...)=f(Broadcasted.(x)...).value
 

@@ -4,12 +4,13 @@ number1arg = [
 ]
 
 for (f,g) in number1arg
-    bf = broadcast_func(f)
-    @eval @primitive $f(x),dy,y  (dy.*($g))
-    if bf != f
-        @eval @primitive $bf(x),dy,y  (dy.*($g))
+    let bf = broadcast_func(f)
+        @eval @primitive $f(x),dy,y  (dy.*($g))
+        if bf != f
+            @eval @primitive $bf(x),dy,y  (dy.*($g))
+        end
+        addtest1(f,(-Inf,Inf))
     end
-    addtest1(f,(-Inf,Inf))
 end
 
 number1zero = [
@@ -18,10 +19,11 @@ number1zero = [
 :signbit,
 ]
 for f in number1zero
-    bf = broadcast_func(f)
-    @eval @zerograd $f(x)
-    if bf != f
-        @eval @zerograd $bf(x)
+    let bf = broadcast_func(f)
+        @eval @zerograd $f(x)
+        if bf != f
+            @eval @zerograd $bf(x)
+        end
     end
 end
 
@@ -30,17 +32,17 @@ end
 # eltype: interfaces.jl
 # ndims: interfaces.jl
 # length: interfaces.jl
-# endof: interfaces.jl
+# lastindex: interfaces.jl
 # getindex: interfaces.jl
 # unsafe_getindex: Not exported
 # first: compound using start/next
-# last: compound using getindex/endof
+# last: compound using getindex/lastindex
 # divrem
 # fldmod
 # copysign
 # conj
 # transpose
-# ctranspose
+# adjoint
 # inv
 # angle
 # widemul

@@ -9,21 +9,28 @@ reduce1arg = [
 (:maxabs_,  :((y.==abs.(x)).*sign.(x))),
 (:minabs_,  :((y.==abs.(x)).*sign.(x))),
 ]
-sumabs_(x...)=sum(abs,x...)
-sumabs2_(x...)=sum(abs2,x...)
-minabs_(x...)=minimum(abs,x...)
-maxabs_(x...)=maximum(abs,x...)
+sumabs_(x...; kargs...)=sum(abs,x...; kargs...)
+sumabs2_(x...; kargs...)=sum(abs2,x...; kargs...)
+minabs_(x...; kargs...)=minimum(abs,x...; kargs...)
+maxabs_(x...; kargs...)=maximum(abs,x...; kargs...)
 
 _ones(x::Rec{T}) where T<:Number = one(T) #fix #56
+_ones(x::Rec{Array{T}}) where T<:Number = fill(one(T), size(x,value))
 _ones(x::Rec) = ones(x)
 
 for (f,g) in reduce1arg
-    @eval @primitive  $f(x,i...),dy,y   (dy.*($g))
+    @eval @primitive  $f(x,i...; kargs...),dy,y   (dy.*($g))
     addtest(f, randn())
     addtest(f, randn(2))
-    addtest(f, randn(2,2), 1)
-    addtest(f, randn(2,2), 2)
-    addtest(f, randn(2,2,2,2), (1,2))
+    if VERSION < v"0.7.0-DEV.4064"
+        addtest(f, randn(2,2), 1)
+        addtest(f, randn(2,2), 2)
+        addtest(f, randn(2,2,2,2), (1,2))
+    else
+        addtest(f, randn(2,2), dims = 1)
+        addtest(f, randn(2,2), dims = 2)
+        addtest(f, randn(2,2,2,2), dims = (1,2))
+    end
     # @eval @primitive $f(x::Tuple),dy,y (x=[x...];tuple((dy.*($g))...))
     # addtest(f, (rand(2)...))
 end    
@@ -38,14 +45,14 @@ end
 
 let sum_r = recorder(sum), max_r = recorder(maximum), min_r = recorder(minimum)
     global sum, maximum, minimum
-    sum(f::typeof(abs), x::Rec, r...) = sum_r(f, x, r...)
-    sum(f::typeof(abs2), x::Rec, r...) = sum_r(f, x, r...)
-    maximum(f::typeof(abs), x::Rec, r...) = max_r(f, x, r...)
-    minimum(f::typeof(abs), x::Rec, r...) = min_r(f, x, r...)
-    sum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = sumabs_(Grad{1},dy,y,x,r...)
-    sum(::Type{Grad{2}},dy,y,f::typeof(abs2),x,r...) = sumabs2_(Grad{1},dy,y,x,r...)
-    maximum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = maxabs_(Grad{1},dy,y,x,r...)
-    minimum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = minabs_(Grad{1},dy,y,x,r...)
+    sum(f::typeof(abs), x::Rec, r...; kargs...) = sum_r(f, x, r...; kargs...)
+    sum(f::typeof(abs2), x::Rec, r...; kargs...) = sum_r(f, x, r...; kargs...)
+    maximum(f::typeof(abs), x::Rec, r...; kargs...) = max_r(f, x, r...; kargs...)
+    minimum(f::typeof(abs), x::Rec, r...; kargs...) = min_r(f, x, r...; kargs...)
+    sum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...; kargs...) = sumabs_(Grad{1},dy,y,x,r...; kargs...)
+    sum(::Type{Grad{2}},dy,y,f::typeof(abs2),x,r...; kargs...) = sumabs2_(Grad{1},dy,y,x,r...; kargs...)
+    maximum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...; kargs...) = maxabs_(Grad{1},dy,y,x,r...; kargs...)
+    minimum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...; kargs...) = minabs_(Grad{1},dy,y,x,r...; kargs...)
 end
 
 # TODO: other functions in reduce.jl:

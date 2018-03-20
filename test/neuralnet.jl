@@ -6,7 +6,7 @@ n1 = grad(n0)
 n1sum(w,x,y)=sum(map(sum,n1(w,x,y)))
 n1sumd(w,x,y)=sum(map(sum,values(n1(w,x,y))))
 wa = Any[rand(2,3),rand(2),rand(2,2),rand(2)]
-wt = (wa...)
+wt = (wa...,)
 wd = Dict(); for i=1:length(wa); wd[i]=wa[i]; end
 
 @testset "neuralnet" begin
