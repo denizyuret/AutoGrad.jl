@@ -15,8 +15,7 @@ minabs_(x...; kargs...)=minimum(abs,x...; kargs...)
 maxabs_(x...; kargs...)=maximum(abs,x...; kargs...)
 
 _ones(x::Rec{T}) where T<:Number = one(T) #fix #56
-_ones(x::Rec{Array{T}}) where T<:Number = fill(one(T), size(x,value))
-_ones(x::Rec) = ones(x)
+_ones(x::Rec) = fill(1.0, size(x.value))
 
 for (f,g) in reduce1arg
     @eval @primitive  $f(x,i...; kargs...),dy,y   (dy.*($g))
