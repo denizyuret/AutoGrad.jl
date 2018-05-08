@@ -14,8 +14,9 @@ sumabs2_(x...; kargs...)=sum(abs2,x...; kargs...)
 minabs_(x...; kargs...)=minimum(abs,x...; kargs...)
 maxabs_(x...; kargs...)=maximum(abs,x...; kargs...)
 
+_ones(x::Rec) = fill!(similar(x.value), 1)
+_ones(x::Rec{T}) where T<:UngetIndex = fill!(similar(x.value.container), 1)
 _ones(x::Rec{T}) where T<:Number = one(T) #fix #56
-_ones(x::Rec) = fill(1.0, size(x.value))
 
 for (f,g) in reduce1arg
     @eval @primitive  $f(x,i...; kargs...),dy,y   (dy.*($g))
