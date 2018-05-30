@@ -1,6 +1,8 @@
-AutoGrad v0.0.11 Release Notes
+AutoGrad v0.1.0 Release Notes
 ==============================
+2018-05-30
 
+* Pre-0.6 Julia versions no longer supported.
 * LinAlg support (@CarloLucibello): det, logdet, inv, dot, diag, diagm, trace, logabsdet, kron, triu, tril, chol, lq, qr, svd
 * Added grads for std, var, Int^Int (@CarloLucibello)
 * Added f(Rec(::Type{T}) = f(T) for eltype, ndims, one, zero (@CarloLucibello)
@@ -10,8 +12,8 @@ AutoGrad v0.0.11 Release Notes
 
 AutoGrad v0.0.10 Release Notes
 ==============================
+823ea16 2017-11-28
 
-* Pre-0.6 Julia versions no longer supported.
 * Fixed gradient output type for erf family (@CarloLucibello).
 * Added mean(x,dims) (@CarloLucibello).
 * Added support for Dict iteration.
