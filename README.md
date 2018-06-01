@@ -28,12 +28,12 @@ for a description of how the code works in detail.
 ## Installation
 
 You can install AutoGrad in Julia using:
-```
+```julia
 julia> Pkg.add("AutoGrad")
 ```
 
 In order to use it in your code start with:
-```
+```julia
 using AutoGrad
 ```
 
@@ -42,7 +42,7 @@ using AutoGrad
 Here is a linear regression example simplified from
 [housing.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/examples/housing.jl):
 
-```
+```julia
 using AutoGrad
 
 function loss(w)
@@ -94,7 +94,7 @@ or using the `@primitive` and `@zerograd` macros in
 [util.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/util.jl)
 Here is an example:
 
-```
+```julia
 @primitive hypot(x1::Number,x2::Number),dy,y  (dy*x1/y)  (dy*x2/y)
 ```
 
@@ -110,6 +110,52 @@ multiple methods each supporting different argument types.  For
 example `hypot(x1::Array,x2::Array)` is another hypot method.  In
 AutoGrad.jl each method can independently be defined as a primitive
 and can have its own specific gradient.
+
+## Jacobian and Higher Order Derivatives
+Since `grad` typically returns a differentiable function, it is really easy
+to take higher order derivatives of functions with scalar input and scalar output:
+```julia
+julia> g1 = grad(sin)
+(::gradfun) (generic function with 1 method)
+
+julia> g1(1) == cos(1)
+true
+
+julia> g2 = grad(g1)
+(::gradfun) (generic function with 1 method)
+
+julia> g2(1) == -sin(1)
+true   
+```
+More care has to be taken when functions with vector inputs are considered instead, 
+since the resulting gradient will be vector valued and AutoGrad is only able to
+differentiate scalar valued functions. In this case each output component of the gradient
+has to be differentiated separately in order to obtain the Hessian.
+AutoGrad provides the utilty function `hessian`, such that
+
+```julia
+julia> A = rand(3, 3);
+
+julia> f(x) = x'*A*x/2;
+
+julia> hessian(f)(rand(3)) == (A + A')/2
+true
+```
+Similarly the `jacobian` method returns the Jacobian matrix
+of a vector valued function:
+```julia
+
+```julia
+julia> A = rand(2, 3);
+
+julia> f(x) = A*x;
+
+julia> jacobian(f)(rand(3)) == (A + A')/2
+true
+```
+Computing Jacobians and Hessians can be heavily resource expensive, 
+both in time and in memory. In some use cases Jacobian/Hessian product 
+operators `jvp,vjp,hvp,vhp` can be used as a much faster alternative. 
 
 ## Code structure
 
