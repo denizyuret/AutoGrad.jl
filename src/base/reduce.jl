@@ -16,6 +16,7 @@ maxabs_(x...; kargs...)=maximum(abs,x...; kargs...)
 
 _ones(x::Rec{T}) where T<:Number = one(T) #fix #56
 _ones(x::Rec) = fill(1.0, size(x.value))
+# _ones(x::Rec) = ones(x)
 
 for (f,g) in reduce1arg
     @eval @primitive  $f(x,i...; kargs...),dy,y   (dy.*($g))

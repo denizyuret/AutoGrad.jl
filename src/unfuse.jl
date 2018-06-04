@@ -34,7 +34,7 @@ if VERSION < v"0.7.0-DEV.2635"
     broadcast(f, x::Union{Number,AbstractArray}...)=broadcast_c(f, containertype(x...), x...)
 else
     using Base.Broadcast: combine_styles
-    broadcast(f, x::Union{Number,AbstractArray}...)=broadcast(f, combine_styles(x...), nothing, nothing, x...)
+    broadcast(f, x::Union{Number,AbstractArray}...)=broadcast(f, Ref(combine_styles(x...)), nothing, nothing, x...)
 end
 # This captures cases where at least one arg is a Rec:
 broadcast(f, x::Union{Number,AbstractArray,Rec}...)=f(Broadcasted.(x)...).value
