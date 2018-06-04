@@ -1,5 +1,6 @@
 name = "AutoGrad"
 version = "0.1.0"
+uuid ="87f375c9-9a48-40e3-9860-abb945b7e0cf"
 
 [deps]
 DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
