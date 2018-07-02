@@ -58,7 +58,9 @@ export @primitive, @zerograd, recorder, Rec, Grad  # the last three are required
 datapath = joinpath(dirname(@__FILE__),"..","data")
 
 include("core.jl")
-include("unfuse.jl")
+if VERSION < v"0.7.0-DEV.2635" # TODO: find the right version before the j7 broadcast change
+    include("unfuse.jl")
+end
 include("gradcheck.jl")
 include("util.jl")
 include("interfaces.jl")
