@@ -77,6 +77,7 @@ function forward_pass(fun, args, kwargs, argnum)
     tape = Tape()
     arg_wrt = args[argnum]
     if isa(arg_wrt,Rec)
+        arg_wrt = identity(arg_wrt)
         Node(arg_wrt, tape)
         start_box = arg_wrt
     else
