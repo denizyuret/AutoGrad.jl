@@ -315,6 +315,8 @@ fillvalues(v,x)=(y=similar(x);for k in keys(x); y[k]=v; end; y)
 addtest(:sumvalues, Dict(1=>1.,2=>2.))
 addtest(:fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
 
+@primitive identity(x),dy dy
+
 # This needs more work:
 # @primitive values(x),dy Dict(map((a,b)->(a=>b), keys(x), dy))
 
