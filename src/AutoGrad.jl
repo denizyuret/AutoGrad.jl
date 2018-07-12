@@ -1,7 +1,7 @@
 __precompile__()
 module AutoGrad
 
-using Compat, Compat.Pkg, Compat.LinearAlgebra
+using Compat, Compat.Pkg, Compat.LinearAlgebra, Statistics
 
 # To see debug output of AutoGrad internals, set DBGFLAGS to
 # non-zero. Each bit of DBGFLAGS can be used to show a subset of dbg

@@ -67,7 +67,7 @@ end
 
 function gc_index(w, d, i, f, w0, x...; o...)
     di = nothing
-    try; di = d[i]; end
+    try; di = d[i]; catch end
     if isa(w[i], Number)
         gc_array(w, d, f, w0, x...; icheck=i, o...)
     elseif isbits(eltype(w[i]))

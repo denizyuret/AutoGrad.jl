@@ -1,3 +1,5 @@
+import Statistics.mean
+
 reduce1arg = [
 (:sum,      :(_ones(x))),
 (:sumabs_,  :(sign.(x))),
