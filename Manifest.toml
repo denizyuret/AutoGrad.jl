@@ -120,6 +120,9 @@ git-tree-sha1 = "1cf00baba50536d254f02082c90b98d6e4e1f968"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
 version = "0.6.0"
 
+[[Statistics]]
+uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
 [[Test]]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
