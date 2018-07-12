@@ -43,7 +43,7 @@ function dxndx(x1,x2,dy)
     elseif x2==2
         2x1.*dy
     else
-        dy.*x2.*x1.^(x2-1)
+        dy.*x2.*x1.^(x2.-1)
     end
 end
 

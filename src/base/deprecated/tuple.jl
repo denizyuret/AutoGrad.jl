@@ -1,5 +1,5 @@
 # length: interfaces.jl
-# endof: interfaces.jl
+# lastindex: interfaces.jl
 # size: interfaces.jl
 # getindex: interfaces.jl
 # start: interfaces.jl

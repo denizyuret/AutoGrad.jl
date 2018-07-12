@@ -67,7 +67,7 @@ end
 
 function gc_index(w, d, i, f, w0, x...; o...)
     di = nothing
-    try; di = d[i]; end
+    try; di = d[i]; catch end
     if isa(w[i], Number)
         gc_array(w, d, f, w0, x...; icheck=i, o...)
     elseif isbits(eltype(w[i]))
@@ -142,7 +142,7 @@ function gc_scalar(f)
             # srand(r,1)
             # a = oftype(v, rand(r, size(v)))
             # return sum(y .* a)
-            if isa(getval(y), Associative)
+            if isa(getval(y), AbstractDict)
                 return sumvalues(y)
             else
                 return sum(y)  # TODO: revert this back to y.*a once julia6 compat issues resolved?
@@ -158,19 +158,27 @@ end
 
 ### Testing Utilities:
 
-if !isdefined(:addtest)
-let tests=[]
+struct KnetTest
+    f::Symbol
+    args::Tuple
+    kargs::Array
+end
+
+if !isdefined(@__MODULE__, :addtest)
+let tests=KnetTest[]
     global addtest,runtests,alltests
     alltests()=tests
-    addtest(t...)=push!(tests,t)
-    function runtests(a=tests)
-        for fx in a
+    function addtest(f,t...; kargs...)
+        push!(tests,KnetTest(f,t,collect(kargs)))
+    end
+    function runtests(a::Array{KnetTest} = tests)
+        for test in a
             try 
                 # tx = fixtest(fx...)
                 # check_grads(tx...; fname=fx[1]) || throw(:fail)
                 f = eval(AutoGrad,fx[1])
                 x = fx[2:end]
-                gradcheck(f,x...) || throw(:fail)
+                gradcheck(test.f,test.args...; test.kargs...) || throw(:fail)
             catch e
                 warn((fx...,"$e"))
             end
@@ -206,22 +214,22 @@ function randin(range, dims...; eps=0.01)
         rand(range, dims...)
     elseif range==(-Inf,Inf)
         r = randn(dims...)
-        sign.(r)*eps + r
+        sign.(r)*eps .+ r
     elseif range==(0,Inf)
-        eps-log.(rand(dims...))
+        eps .- log.(rand(dims...))
     elseif range==(1,Inf)
-        eps+1-log.(rand(dims...))
+        eps .+ 1 .- log.(rand(dims...))
     elseif range==(-1,Inf)
-        eps-1-log.(rand(dims...))
+        eps .- 1 .- log.(rand(dims...))
     elseif range==(-1,1)
-        (1-eps)*(2rand(dims...)-1)
+        (1 .- eps) .* (2 .* rand(dims...) .- 1)
     elseif range==(0,1)
-        eps+(1-2eps)*rand(dims...)
+        eps .+ (1 .- 2eps) .* rand(dims...)
     elseif range==(0,2)
-        eps+2*(1-eps)*rand(dims...)
+        eps .+2 .* (1 .- eps) .* rand(dims...)
     elseif range==(-Inf,-1,1,Inf)
         x = sec.(randn(dims...))
-        sign.(x)*eps + x
+        sign.(x) .* eps .+ x
     else
         error("Unknown range $range")
     end
@@ -253,7 +261,7 @@ function nd(f, args...; eps=EPS)
 end
 
 unary_nd(f, x::Tuple, eps)         = ntuple(i->unary_nd(indexed_function(f, x, i), x[i], eps), length(x))
-unary_nd(f, x::Associative, eps)   = (a=similar(x); for(k,v) in x; a[k] = unary_nd(indexed_function(f, x, k), v, eps); end; a)
+unary_nd(f, x::AbstractDict, eps)   = (a=(VERSION < v"0.7.0-DEV.2723" ? similar(x) : empty(x)); for(k,v) in x; a[k] = unary_nd(indexed_function(f, x, k), v, eps); end; a)
 unary_nd(f, x::AbstractArray, eps) = reshape(eltype(x)[unary_nd(indexed_function(f, x, i), v, eps) for (i,v) in enumerate(x)], size(x))
 unary_nd(f, x::Complex, eps)       = ((f(x + eps/2) - f(x - eps/2)) / eps - im*(f(x + im*eps/2) - f(x - im*eps/2)) / eps)
 unary_nd(f, x::Real, eps)          = ((f(x + eps/2) - f(x - eps/2)) / eps)
@@ -272,18 +280,18 @@ end
 
 # isequivalent uses isapprox for Number and AbstractArray{T<:Number}
 isequivalent(x::Number,y::Number; o...)=isapprox(x,y;o...)
-isequivalent{T<:Number,S<:Number}(x::AbstractArray{T},y::AbstractArray{S}; o...)=(size(x)==size(y) && isapprox(x,y;o...))
+isequivalent(x::AbstractArray{T},y::AbstractArray{S}; o...) where {T<:Number,S<:Number}=(size(x)==size(y) && isapprox(x,y;o...))
 
-# isequivalent extends to Tuple, Associative, and other Arrays, comparing elementwise
+# isequivalent extends to Tuple, AbstractDict, and other Arrays, comparing elementwise
 isequivalent(x::Tuple, y::Tuple; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
 isequivalent(x::AbstractArray, y::AbstractArray; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
-isequivalent(x::Associative, y::Associative; o...)=all(k->isequivalent(get(x,k,nothing),get(y,k,nothing);o...), unique([keys(x)...,keys(y)...]))
+isequivalent(x::AbstractDict, y::AbstractDict; o...)=all(k->isequivalent(get(x,k,nothing),get(y,k,nothing);o...), unique([keys(x)...,keys(y)...]))
 
 # isequivalent treats `nothing` as equivalent to zero or zero array.
-isequivalent(x::Number,z::Void; o...)=isequivalent(z,x;o...)
-isequivalent{T<:Number}(x::AbstractArray{T},z::Void; o...)=isequivalent(z,x;o...)
-isequivalent(z::Void,x::Number; o...)=isapprox(zero(x),x;o...)
-isequivalent{T<:Number}(z::Void,x::AbstractArray{T}; rtol::Real=Base.rtoldefault(T), atol::Real=0, norm::Function=vecnorm) = (norm(x) <= atol/(1-rtol)) # Modified from: linalg/generic.jl:522
+isequivalent(x::Number,z::Nothing; o...)=isequivalent(z,x;o...)
+isequivalent(x::AbstractArray{T},z::Nothing; o...) where {T<:Number}=isequivalent(z,x;o...)
+isequivalent(z::Nothing,x::Number; o...)=isapprox(zero(x),x;o...)
+isequivalent(z::Nothing,x::AbstractArray{T}; rtol::Real=Base.rtoldefault(T), atol::Real=0, norm::Function=vecnorm) where {T<:Number} = (norm(x) <= atol/(1-rtol)) # Modified from: linalg/generic.jl:522
 
 function fixtest(f, x...)
     f = eval(f)
@@ -302,7 +310,7 @@ function fixtest(f, x...)
             if isa(e,MethodError) && e.f === f && e.args[1] === Grad{i}
                 continue        # warn("No grad $i for $f: $e")
             else
-                error("Error during $f$((gargs...)): $e")
+                error("Error during $f$((gargs...,)): $e")
             end
         end
         g === nothing && continue # zero grads

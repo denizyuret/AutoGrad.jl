@@ -1,6 +1,6 @@
 # isinteger
 # isreal
-# ctranspose
+# adjoint
 # transpose
 # vec
 @primitive vec(x),dy reshape(dy,size(x))

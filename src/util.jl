@@ -113,7 +113,16 @@ macro primitive(f,g...)
             push!(b.args, :($gx = $(g[i]))) # ($dx=$(g[i]); AutoGrad.@gs; $dx)))
         end
     end
-    return esc(Expr(:let,b,:($r=recorder($fn))))
+    if VERSION < v"0.7.0-DEV.1639"
+        r = esc(Expr(:let,b,:($r=recorder($fn))))
+    else
+        r = esc(Expr(:let,:($r=recorder($fn)),b))
+    end
+    # dump(r, maxdepth = 100)
+    # println("#### got here ####")
+    # println(r)
+    # exit()
+    return r
 end
 
 """
@@ -148,8 +157,8 @@ end
 
 function zcall(f)
     z = copy(f)
-    z1 = z.args[1]
-    isa(z1,Expr) && z1.head==:curly && (z.args[1]=z1.args[1])
+    isa(z,Expr) && z.head==:where && (z=z.args[1])
+    z1 = z   # the call expr
     for i=2:length(z.args)
         zi = z.args[i]
         if isa(zi,Symbol)
@@ -165,6 +174,7 @@ function zcall(f)
             end
         elseif zi.head==:(...)  # done
         elseif zi.head==:parameters # done
+        elseif length(zi.args) > 2 && zi.args[3] == :I # done
         else
             error("Unrecognized argtype '$zi'")
         end
@@ -236,6 +246,7 @@ function fsigs(f)
             ti = gensym()
             push!(a1.args, Expr(:<:,ti,ai.args[2]))
             ai.args[2] = ti
+        elseif ai.args[3] == :I || ai.args[1] == :(=>)
         else
             error("Argtype not supported: '$ai'")
         end
@@ -247,12 +258,21 @@ function fsigs(f)
         for i=2:length(fn.args)
             ai = fn.args[i]
             in(ai.head, (:parameters, :(...))) && continue
-            ai.head == :(::) || error("Bad arg '$ai'")
-            if nodes & (1<<iargs) == 0
+            ai.head == :(::) || (length(ai.args) > 2 && ai.args[3] == :I) || error("Bad arg '$ai'")
+            if nodes & (1<<iargs) == 0 && !isa(ai.args[2], Number)
                 ai.args[2] = Expr(:curly,:Rec,ai.args[2])
             end
             iargs += 1
         end
+        curly = fn.args[1].args[2:end]
+        fargs = fn.args[2:end]
+
+        fn.args[1].args = [fn.args[1].args[1], fargs...]
+
+        fn.head = :where
+        fn.args[1].head = :call
+        fn.args = [fn.args[1], curly...]
+
         push!(flist, fn)
     end
     return flist
@@ -260,10 +280,10 @@ end
 
 function gsig(f,dy,y,i)
     g = copy(f)
-    if g.args[2].head == :parameters; a = 3; else; a = 2; end
-    insert!(g.args, a, :(::Type{Grad{$i}}))
-    insert!(g.args, a+1, dy)
-    insert!(g.args, a+2, y)
+    if g.args[1].args[2].head == :parameters; a = 3; else; a = 2; end
+    insert!(g.args[1].args, a, :(::Type{Grad{$i}}))
+    insert!(g.args[1].args, a+1, dy)
+    insert!(g.args[1].args, a+2, y)
     return g
 end
 
@@ -289,7 +309,7 @@ function unbroadcast(x, dx)
             push!(d,i)
         end
         length(d)==1 && (d=d[1])
-        return reshape(sum(dx, d), size(x))
+        return reshape(VERSION < v"0.7.0-DEV.4064" ? sum(dx, d) : sum(dx, dims = d), size(x))
     end
 end
 
@@ -308,9 +328,9 @@ end
 # sumvalues sums values of dictionaries, otherwise acts like sum:
 
 sumvalues(x)=sum(x)
-sumvalues(x::Associative)=sum(values(x))
-@primitive sumvalues(x::Associative),ds fillvalues(ds,x)
-fillvalues(v,x)=(y=similar(x);for k in keys(x); y[k]=v; end; y)
+sumvalues(x::AbstractDict)=sum(values(x))
+@primitive sumvalues(x::AbstractDict),ds fillvalues(ds,x)
+fillvalues(v,x)=(y=(VERSION < v"0.7.0-DEV.2723" ? similar(x) : empty(x));for k in keys(x); y[k]=v; end; y)
 @primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
 addtest(:sumvalues, Dict(1=>1.,2=>2.))
 addtest(:fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
@@ -324,7 +344,7 @@ addtest(:fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
 # Update: these are not used much, if needed define julia6 compatible.
 # typealias D1 Type{Grad{1}}
 # typealias D2 Type{Grad{2}}
-# if !isdefined(:Dn)
+# if !isdefined(@__MODULE__, :Dn)
 # typealias Dn{N} Type{Grad{N}}
 # end
 
@@ -344,7 +364,7 @@ _dbg(x::Float32)="S"*id2(x)
 _dbg(x::Float64)="D"*id2(x)
 _dbg(x::Symbol)="$x"
 _dbg(x::Integer)="$x"
-id2(x)="$(object_id(x)%1000)"
+id2(x)="$(objectid(x)%1000)"
 ssize(x)="$(collect(size(x)))"
 
 Base.show(io::IO, n::Rec) = print(io, _dbg(n))

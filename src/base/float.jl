@@ -9,9 +9,10 @@ float1zero = [
 ]
 for f in float1zero
     @eval @zerograd $f(x)
-    bf = broadcast_func(f)
-    if bf != f
-        @eval @zerograd $bf(x)
+    let bf = broadcast_func(f)
+        if bf != f
+            @eval @zerograd $bf(x)
+        end
     end
 end
 
@@ -21,9 +22,10 @@ float2zero = [
 ]
 for f in float2zero
     @eval @zerograd $f(x1,x2)
-    bf = broadcast_func(f)
-    if bf != f
-        @eval @zerograd $bf(x1,x2)
+    let bf = broadcast_func(f)
+        if bf != f
+            @eval @zerograd $bf(x1,x2)
+        end
     end
 end
 
@@ -36,11 +38,12 @@ float1arg = [
 for (f,g) in float1arg
     @eval @primitive $f(x),dy,y $g
     # The broadcasting versions of unary versions are not defined in broadcast.jl
-    bf = broadcast_func(f)
-    if bf != f
-        @eval @primitive $bf(x),dy,y $g
+    let bf = broadcast_func(f)
+        if bf != f
+            @eval @primitive $bf(x),dy,y $g
+        end
+        addtest1(f,(-Inf,Inf))
     end
-    addtest1(f,(-Inf,Inf))
 end
 
 float2arg = [
