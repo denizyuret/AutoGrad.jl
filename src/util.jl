@@ -4,6 +4,7 @@
 # The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
 # f{T<:Number,A<:AbstractArray{T}}(x::Rec{A})
 # f{T<:Number,A<:AbstractArray}(x::Rec{A{T}})
+# 20180725: TODO: This may have changed in Julia 0.7
 
 """
 
@@ -31,7 +32,7 @@ The second example specifies variable names for the output gradient
 `dy` and the output `y` after the method declaration which can be used
 in gradient expressions.  Untyped, ellipsis and keyword arguments are
 ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
-`f{T<:Number}(x::T)` cannot be used.
+`f(x::T) where {T<:Number}` cannot be used.
 
 The method declaration can optionally be followed by gradient
 expressions.  The third and fourth examples show how gradients can be
@@ -45,7 +46,7 @@ The @primitive macro turns the first example into:
 
     let sin_r = recorder(sin)
         global sin
-        sin{T<:Number}(x::Rec{T}) = sin_r(x)
+        sin(x::Rec{T}) where {T<:Number} = sin_r(x)
     end
 
 This will cause calls to `sin` with a boxed argument
@@ -56,9 +57,9 @@ with the second example:
 
     let hypot_r = recorder(hypot)
         global hypot
-        hypot{T<:Array,S<:Array}(x1::Rec{T},x2::Rec{S})=hypot_r(x1,x2)
-        hypot{T<:Array,S<:Array}(x1::Rec{T},x2::S)=hypot_r(x1,x2)
-        hypot{T<:Array,S<:Array}(x1::T,x2::Rec{S})=hypot_r(x1,x2)
+        hypot(x1::Rec{T},x2::Rec{S}) where {T<:Array,S<:Array} = hypot_r(x1,x2)
+        hypot(x1::Rec{T},x2::S) where {T<:Array,S<:Array} = hypot_r(x1,x2)
+        hypot(x1::T,x2::Rec{S}) where {T<:Array,S<:Array} =hypot_r(x1,x2)
     end
 
 We want the recorder version to be called if any one of the arguments
@@ -72,13 +73,13 @@ the following signature:
 
 For the third example here is the generated gradient method:
 
-    sin{T<:Number}(::Type{Grad{1}}, dy, y, x::Rec{T})=(dy*cos(x))
+    sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy*cos(x))
 
 For the last example a different gradient method is generated for each
 argument:
 
-    hypot{T<:Array,S<:Array}(::Type{Grad{1}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x1./y)
-    hypot{T<:Array,S<:Array}(::Type{Grad{2}},dy,y,x1::Rec{T},x2::Rec{S})=(dy.*x2./y)
+    hypot(::Type{Grad{1}},dy,y,x1::Rec{T},x2::Rec{S}) where {T<:Array,S<:Array} = (dy.*x1./y)
+    hypot(::Type{Grad{2}},dy,y,x1::Rec{T},x2::Rec{S}) where {T<:Array,S<:Array} = (dy.*x2./y)
 
 In fact @primitive generates four more definitions for the other
 boxed/unboxed argument combinations.
@@ -113,7 +114,7 @@ macro primitive(f,g...)
             push!(b.args, :($gx = $(g[i]))) # ($dx=$(g[i]); AutoGrad.@gs; $dx)))
         end
     end
-    return esc(Expr(:let,b,:($r=recorder($fn))))
+    return esc(Expr(:let,:($r=recorder($fn)),b))
 end
 
 """
@@ -146,10 +147,11 @@ macro zerograd(f)
     return b
 end
 
+# Input is of the form: (where (call f (:: x (curly Rec T))) (<: T Int))
 function zcall(f)
-    z = copy(f)
+    z = copy(f.args[1])
     z1 = z.args[1]
-    isa(z1,Expr) && z1.head==:curly && (z.args[1]=z1.args[1])
+    isa(z1,Expr) && z1.head==:curly && (z.args[1]=z1.args[1]) # This should not be needed in 0.7
     for i=2:length(z.args)
         zi = z.args[i]
         if isa(zi,Symbol)
@@ -174,6 +176,7 @@ end
 
 # get name out of function declaration
 function fname(f)
+    f.head == :where && error("parametric methods not currently supported")
     n = f.args[1]
     isa(n,Expr) && n.head==:curly && error("parametric methods not currently supported")
     if isa(n,Symbol)
@@ -215,10 +218,14 @@ function notypes(ex)
     end
 end
 
-# create type signatures for f where one or more args are Nodes.
+# create type signatures for f where one or more args are Rec's.
+# With multiple args add Rec to each subset combinatorially.
+# The input has the form (call f (:: x Int))
+# The 0.6 output was     (call (curly f (<: T Int)) (:: x (curly Rec T)))
+# The 0.7 output is      (where (call f (:: x (curly Rec T))) (<: T Int))
 function fsigs(f)
     f1 = copy(f)
-    a1 = f1.args[1] = Expr(:curly,fname(f1))
+    a1 = Expr(:where,f1)
     nargs = 0
     for i=2:length(f1.args)
         ai = f1.args[i]
@@ -242,10 +249,11 @@ function fsigs(f)
     end
     flist = []
     for nodes=0:(1<<nargs-2)
-        fn = copy(f1)
+        fn = copy(a1)
+        f1 = fn.args[1]
         iargs = 0
-        for i=2:length(fn.args)
-            ai = fn.args[i]
+        for i=2:length(f1.args)
+            ai = f1.args[i]
             in(ai.head, (:parameters, :(...))) && continue
             ai.head == :(::) || error("Bad arg '$ai'")
             if nodes & (1<<iargs) == 0
@@ -258,13 +266,16 @@ function fsigs(f)
     return flist
 end
 
+# The first input to gsig is an output of fsigs, e.g.
+# (where (call f (:: x (curly Rec T))) (<: T Int))
 function gsig(f,dy,y,i)
-    g = copy(f)
+    fcopy = copy(f)
+    g = fcopy.args[1]
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::Type{Grad{$i}}))
     insert!(g.args, a+1, dy)
     insert!(g.args, a+2, y)
-    return g
+    return fcopy
 end
 
 
@@ -308,8 +319,8 @@ end
 # sumvalues sums values of dictionaries, otherwise acts like sum:
 
 sumvalues(x)=sum(x)
-sumvalues(x::Associative)=sum(values(x))
-@primitive sumvalues(x::Associative),ds fillvalues(ds,x)
+sumvalues(x::AbstractDict)=sum(values(x))
+@primitive sumvalues(x::AbstractDict),ds fillvalues(ds,x)
 fillvalues(v,x)=(y=similar(x);for k in keys(x); y[k]=v; end; y)
 @primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
 addtest(:sumvalues, Dict(1=>1.,2=>2.))

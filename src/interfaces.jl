@@ -1,7 +1,9 @@
+import Base: ==, checkbounds, copy, done, eachindex, eltype, endof, full, getindex, isassigned, isempty, isequal, isless, length, ndims, next, one, ones, pointer, setindex!, show, similar, size, start, stride, strides, sum, zero, zeros
+
 # Here we will define iteration (start,done,next) and indexing
 # (getindex,setindex!,endof) interfaces for generic Rec types.
 
-# Julia handles access to AbstractArray, Associative, and Tuple
+# Julia handles access to AbstractArray, AbstractDict, and Tuple
 # subtypes using getindex:
 
 # getindex(obj, key...) => value
@@ -14,7 +16,7 @@ setindex!(x::Rec,v,i...)=error("Overwriting operations currently not supported."
 # We handle the containers by overloading getindex:
 
 @primitive  getindex(x,i...),dxi,xi  ungetindex(x,dxi,i)
-getindex{T<:Grad}(::Type{T},o...)=nothing # Only the first arg has gradient
+getindex(::Type{T},o...) where {T<:Grad} = nothing # Only the first arg has gradient
 
 # For efficiency we use the following sparse container
 # This object represents what you would get with
@@ -26,7 +28,7 @@ getindex{T<:Grad}(::Type{T},o...)=nothing # Only the first arg has gradient
 # TODO: implement KnetArray version of addindex!
 # TODO: figure out julia4 problem with Array{CartesianIndex}
 
-immutable UngetIndex; container; value; index; end
+struct UngetIndex; container; value; index; end
 
 # Gradient of getindex: If xi=getindex(x,i...) and we receive dxi,
 # ungetindex creates dx representing zeros similar to x, with only
@@ -52,8 +54,8 @@ ungetindex(x::Rec,dxi::Rec,i)=ungetindex(getval(x),dxi,getval(i))
 ungetindex(x::Rec,dxi,i)=ungetindex(getval(x),dxi,getval(i))
 ungetindex(::Type{Grad{2}},ddx,dx,x,dxi,i)=getindex(ddx,getval(i)...)
 ungetindex(::Type{Grad{2}},ddx::Rec,dx,x,dxi,i)=getindex(ddx,getval(i)...)
-ungetindex{T<:Grad}(::Type{T},o...)=nothing
-ungetindex{T<:Grad}(::Type{T},ddx::Rec,o...)=nothing
+ungetindex(::Type{T},o...) where {T<:Grad} = nothing
+ungetindex(::Type{T},ddx::Rec,o...) where {T<:Grad} = nothing
 
 # gradcheck works with the first arg, we need to check ungetindex grad for its second arg
 ungetindex2(value, container, index)=ungetindex(container, value, index)
@@ -69,7 +71,7 @@ addtest(:ungetindex2, rand(2), rand(3,3), (1:2,3))
 # design is to not use UngetIndex for outgrad lest it gets exposed to
 # the user. May rethink this from an efficiency perspective.
 
-function sum_outgrads(a::Void,b::UngetIndex)
+function sum_outgrads(a::Nothing,b::UngetIndex)
     full(b) # TODO: do we need full here? consider keeping UngetIndex as an accumulator.
 end
 
@@ -85,7 +87,7 @@ end
 
 # Dict has no multiple/repeated index problem, so simple setindex should work.
 # If we change UngetIndex to have multiple indices, we need to be careful here.
-function sum_outgrads(a::Associative,b::UngetIndex)
+function sum_outgrads(a::AbstractDict,b::UngetIndex)
     setindex!(a,sum_outgrads(get(a,b.index...,nothing),b.value),b.index...)
 end
 
@@ -139,7 +141,7 @@ sum_outgrads_array(A::AbstractArray, X, I::CartesianIndex)=sum_outgrads_single(A
 sum_outgrads_array(A::AbstractArray, X, I::Real)=sum_outgrads_single(A,X,I)
 sum_outgrads_array(A::AbstractArray, X, I::Colon)=sum_outgrads_single(A,X,I)
 sum_outgrads_array(A::AbstractArray, X, I::AbstractArray{Bool})=sum_outgrads_single(A,X,I)
-sum_outgrads_array(A::AbstractArray, X, I::Range)=sum_outgrads_single(A,X,I)
+sum_outgrads_array(A::AbstractArray, X, I::AbstractRange)=sum_outgrads_single(A,X,I)
 function sum_outgrads_single(A::AbstractArray, X, I)
     v = sum_outgrads(getindex(A,I), X)
     setindex!(A, v, I)
@@ -155,7 +157,7 @@ function sum_outgrads(a::UngetIndex,b::UngetIndex)
 end
 
 # This comes up if people use getindex on a number:
-function sum_outgrads{T<:Number}(a::T, b::UngetIndex)
+function sum_outgrads(a::T, b::UngetIndex) where {T<:Number}
     if !(b.index == (1,) && isa(b.value,T))
         throw(ArgumentError("sum_outgrads($a,$b)"))
     end
@@ -165,27 +167,28 @@ end
 # These should be never needed as long as we do not use UngetIndex as an accumulator on the LHS.
 # sum_outgrads(a::Rec,b::UngetIndex)=error((:sum,a,b))
 # sum_outgrads(a::UngetIndex,b::Rec)=error((:sum,a,b))
-# sum_outgrads(a::UngetIndex,b::Void)=error((:sum,a,b))
+# sum_outgrads(a::UngetIndex,b::Nothing)=error((:sum,a,b))
 # sum_outgrads(a::UngetIndex,b)=error((:sum,a,Any))
 
 sum(b::UngetIndex)=sum(b.value)
 getindex(b::UngetIndex,i...)=getindex(full(b),i...) # TODO: solve without full(b)?
 zeros(b::UngetIndex)=zeros(b.container)             # TODO: solve without b.container?
+zero(b::UngetIndex)=zero(b.container)               # TODO: solve without b.container?
 ones(b::UngetIndex)=ones(b.container)
 length(b::UngetIndex)=length(b.container)
 full(b::UngetIndex)=sum_outgrads(zeroslike(b.container), b)
 
-zeroslike{T<:Number}(a::AbstractArray{T})=zeros(a)  # TODO: can this be nothing or an empty UngetIndex?
+zeroslike(a::AbstractArray{T}) where {T<:Number} = zero(a)  # TODO: can this be nothing or an empty UngetIndex?
 zeroslike(a::AbstractArray)=fill!(Array{Any}(size(a)),nothing) # TODO: can this be nothing or an empty UngetIndex?
-zeroslike(a::Associative)=similar(a)
+zeroslike(a::AbstractDict)=similar(a)
 zeroslike(a::Tuple)=ntuple(i->nothing, length(a))
 zeroslike(o::UngetIndex)=zeros(o) # TODO: can this be nothing or empty UngetIndex?
-zeroslike{T<:Number}(a::T)=T(0)   # This comes up if people use getindex on a single number
+zeroslike(a::T) where {T<:Number} = T(0)   # This comes up if people use getindex on a single number
 
-_dbg(x::UngetIndex)="U$(id2(x))_$(_dbg(x.container))_$(_dbg(x.value))_$((x.index...))"
-Base.show(io::IO, n::UngetIndex)= print(io, _dbg(n))
+_dbg(x::UngetIndex)="U$(id2(x))_$(_dbg(x.container))_$(_dbg(x.value))_$((x.index...,))"
+show(io::IO, n::UngetIndex)= print(io, _dbg(n))
 
-### ITERATION
+### ITERATION: TODO -- rewrite this section based on iterate and indexed_iterate of 0.7
 
 # Iteration is used in `for x in a` loops and for `(x,y)=a` multiple
 # assignments.
@@ -195,19 +198,19 @@ Base.show(io::IO, n::UngetIndex)= print(io, _dbg(n))
 # next(a,state) => (element, nextState)
 
 # start and done return state and bool, not differentiable.
-start(a::Rec)=start(a.value)
-done(a::Rec,i)=done(a.value,i)
+# start(a::Rec)=start(a.value)
+# done(a::Rec,i)=done(a.value,i)
 
 # next returns a tuple with an element and needs to be defined for each iterable.
 # Specific types need to define their own next methods for Recs:
 
-next(a::Rec,i)=throw(MethodError(next,(a,i)))
-next{T<:Array}(a::Rec{T},i) = (a[i],i+1)
-next{T<:Tuple}(a::Rec{T},i) = (a[i],i+1)
-next{T<:Number}(a::Rec{T},i) = (a,true)
-next{T<:Associative}(a::Rec{T},i) = (((k,v),j)=next(a.value,i);(k=>a[k],j))
+# next(a::Rec,i)=throw(MethodError(next,(a,i)))
+# next(a::Rec{T},i) where {T<:Array} = (a[i],i+1)
+# next(a::Rec{T},i) where {T<:Tuple} = (a[i],i+1)
+# next(a::Rec{T},i) where {T<:Number} = (a,true)
+# next(a::Rec{T},i) where {T<:AbstractDict} = (((k,v),j)=next(a.value,i);(k=>a[k],j))
 # This needs more work:
-# next{T<:Base.RecIterator}(a::Rec{T},i) = (d=a.value.dict; (d.vals[i], skip_deleted(d,i+1)))
+# next(a::Rec{T},i) where {T<:Base.RecIterator} = (d=a.value.dict; (d.vals[i], skip_deleted(d,i+1)))
 
 # Finally here are some common functions that do not return floats
 # (e.g. length) or return constant outputs (e.g. zero).
@@ -237,7 +240,7 @@ interfaces1arg_type = [
 ]
 
 for _f in interfaces1arg_type
-    @eval $_f{T}(::Type{Rec{T}}) = $_f(T)
+    @eval $_f(::Type{Rec{T}}) where T = $_f(T)
 end
 
 interfacesNarg = [
@@ -275,4 +278,4 @@ end
 addtest(:copy, rand(2))
 
 # issue #18
-Base.size(a::Rec, d1::Integer, d2::Integer, dx::Vararg{Integer}) = size(getval(a), d1, d2, dx...)
+size(a::Rec, d1::Integer, d2::Integer, dx::Vararg{Integer}) = size(getval(a), d1, d2, dx...)

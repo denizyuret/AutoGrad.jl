@@ -67,7 +67,7 @@ end
 
 function gc_index(w, d, i, f, w0, x...; o...)
     di = nothing
-    try; di = d[i]; end
+    try; di = d[i]; catch; end
     if isa(w[i], Number)
         gc_array(w, d, f, w0, x...; icheck=i, o...)
     elseif isbits(eltype(w[i]))
@@ -142,7 +142,7 @@ function gc_scalar(f)
             # srand(r,1)
             # a = oftype(v, rand(r, size(v)))
             # return sum(y .* a)
-            if isa(getval(y), Associative)
+            if isa(getval(y), AbstractDict)
                 return sumvalues(y)
             else
                 return sum(y)  # TODO: revert this back to y.*a once julia6 compat issues resolved?
@@ -158,12 +158,12 @@ end
 
 ### Testing Utilities:
 
-if !isdefined(:addtest)
+#if !(@isdefined addtest)
 let tests=[]
-    global addtest,runtests,alltests
+    global addtest,runtest,alltests
     alltests()=tests
     addtest(t...)=push!(tests,t)
-    function runtests(a=tests)
+    function runtest(a=tests)   # 20180725: rename runtests->runtest to avoid Base conflict
         for fx in a
             try 
                 # tx = fixtest(fx...)
@@ -177,7 +177,7 @@ let tests=[]
         end
     end
 end
-end
+#end
 
 # gradcheck only checks the first arg, this helper will allow us to check all args
 
@@ -253,7 +253,7 @@ function nd(f, args...; eps=EPS)
 end
 
 unary_nd(f, x::Tuple, eps)         = ntuple(i->unary_nd(indexed_function(f, x, i), x[i], eps), length(x))
-unary_nd(f, x::Associative, eps)   = (a=similar(x); for(k,v) in x; a[k] = unary_nd(indexed_function(f, x, k), v, eps); end; a)
+unary_nd(f, x::AbstractDict, eps)   = (a=similar(x); for(k,v) in x; a[k] = unary_nd(indexed_function(f, x, k), v, eps); end; a)
 unary_nd(f, x::AbstractArray, eps) = reshape(eltype(x)[unary_nd(indexed_function(f, x, i), v, eps) for (i,v) in enumerate(x)], size(x))
 unary_nd(f, x::Complex, eps)       = ((f(x + eps/2) - f(x - eps/2)) / eps - im*(f(x + im*eps/2) - f(x - im*eps/2)) / eps)
 unary_nd(f, x::Real, eps)          = ((f(x + eps/2) - f(x - eps/2)) / eps)
@@ -272,18 +272,18 @@ end
 
 # isequivalent uses isapprox for Number and AbstractArray{T<:Number}
 isequivalent(x::Number,y::Number; o...)=isapprox(x,y;o...)
-isequivalent{T<:Number,S<:Number}(x::AbstractArray{T},y::AbstractArray{S}; o...)=(size(x)==size(y) && isapprox(x,y;o...))
+isequivalent(x::AbstractArray{T},y::AbstractArray{S}; o...) where {T<:Number,S<:Number} = (size(x)==size(y) && isapprox(x,y;o...))
 
-# isequivalent extends to Tuple, Associative, and other Arrays, comparing elementwise
+# isequivalent extends to Tuple, AbstractDict, and other Arrays, comparing elementwise
 isequivalent(x::Tuple, y::Tuple; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
 isequivalent(x::AbstractArray, y::AbstractArray; o...)=(length(x)==length(y) && all(i->isequivalent(x[i],y[i];o...), 1:length(x)))
-isequivalent(x::Associative, y::Associative; o...)=all(k->isequivalent(get(x,k,nothing),get(y,k,nothing);o...), unique([keys(x)...,keys(y)...]))
+isequivalent(x::AbstractDict, y::AbstractDict; o...)=all(k->isequivalent(get(x,k,nothing),get(y,k,nothing);o...), unique([keys(x)...,keys(y)...]))
 
 # isequivalent treats `nothing` as equivalent to zero or zero array.
-isequivalent(x::Number,z::Void; o...)=isequivalent(z,x;o...)
-isequivalent{T<:Number}(x::AbstractArray{T},z::Void; o...)=isequivalent(z,x;o...)
-isequivalent(z::Void,x::Number; o...)=isapprox(zero(x),x;o...)
-isequivalent{T<:Number}(z::Void,x::AbstractArray{T}; rtol::Real=Base.rtoldefault(T), atol::Real=0, norm::Function=vecnorm) = (norm(x) <= atol/(1-rtol)) # Modified from: linalg/generic.jl:522
+isequivalent(x::Number,z::Nothing; o...)=isequivalent(z,x;o...)
+isequivalent(x::AbstractArray{T},z::Nothing; o...) where T<:Number = isequivalent(z,x;o...)
+isequivalent(z::Nothing,x::Number; o...)=isapprox(zero(x),x;o...)
+isequivalent(z::Nothing,x::AbstractArray{T}; rtol::Real=Base.rtoldefault(T), atol::Real=0, norm::Function=vecnorm) where T<:Number = (norm(x) <= atol/(1-rtol)) # Modified from: linalg/generic.jl:522
 
 function fixtest(f, x...)
     f = eval(f)
@@ -302,7 +302,7 @@ function fixtest(f, x...)
             if isa(e,MethodError) && e.f === f && e.args[1] === Grad{i}
                 continue        # warn("No grad $i for $f: $e")
             else
-                error("Error during $f$((gargs...)): $e")
+                error("Error during $f$((gargs...,)): $e")
             end
         end
         g === nothing && continue # zero grads
