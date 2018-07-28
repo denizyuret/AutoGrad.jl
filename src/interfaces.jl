@@ -1,4 +1,4 @@
-import Base: ==, checkbounds, copy, done, eachindex, eltype, endof, full, getindex, isassigned, isempty, isequal, isless, length, ndims, next, one, ones, pointer, setindex!, show, similar, size, start, stride, strides, sum, zero, zeros
+import Base: ==, checkbounds, copy, done, eachindex, eltype, endof, full, getindex, indexed_iterate, isassigned, isempty, isequal, isless, iterate, length, ndims, next, one, ones, pointer, setindex!, show, similar, size, start, stride, strides, sum, zero, zeros
 
 # Here we will define iteration (start,done,next) and indexing
 # (getindex,setindex!,endof) interfaces for generic Rec types.
@@ -179,8 +179,8 @@ length(b::UngetIndex)=length(b.container)
 full(b::UngetIndex)=sum_outgrads(zeroslike(b.container), b)
 
 zeroslike(a::AbstractArray{T}) where {T<:Number} = zero(a)  # TODO: can this be nothing or an empty UngetIndex?
-zeroslike(a::AbstractArray)=fill!(Array{Any}(size(a)),nothing) # TODO: can this be nothing or an empty UngetIndex?
-zeroslike(a::AbstractDict)=similar(a)
+zeroslike(a::AbstractArray)=Array{Any}(nothing,size(a)) # TODO: can this be nothing or an empty UngetIndex?
+zeroslike(a::AbstractDict)=empty(a)
 zeroslike(a::Tuple)=ntuple(i->nothing, length(a))
 zeroslike(o::UngetIndex)=zeros(o) # TODO: can this be nothing or empty UngetIndex?
 zeroslike(a::T) where {T<:Number} = T(0)   # This comes up if people use getindex on a single number
@@ -188,29 +188,20 @@ zeroslike(a::T) where {T<:Number} = T(0)   # This comes up if people use getinde
 _dbg(x::UngetIndex)="U$(id2(x))_$(_dbg(x.container))_$(_dbg(x.value))_$((x.index...,))"
 show(io::IO, n::UngetIndex)= print(io, _dbg(n))
 
-### ITERATION: TODO -- rewrite this section based on iterate and indexed_iterate of 0.7
+### ITERATION: We define iterate in terms of getindex which does the necessary tracking.
 
-# Iteration is used in `for x in a` loops and for `(x,y)=a` multiple
-# assignments.
+# Iterate is used in `for x in a` loops 
+iterate(a::Rec,i=nothing)=throw(MethodError(iterate,(a,i)))
+iterate(a::Rec{T},i=1) where {T<:AbstractArray} = i > length(a) ? nothing : (a[i],i+1)
+iterate(a::Rec{T},i=1) where {T<:Tuple}         = i > length(a) ? nothing : (a[i],i+1)
+iterate(a::Rec{T})   where {T<:AbstractDict} = (v=iterate(a.value);   v==nothing ? v : (((k,v),j)=v;(k=>a[k],j)))
+iterate(a::Rec{T},i) where {T<:AbstractDict} = (v=iterate(a.value,i); v==nothing ? v : (((k,v),j)=v;(k=>a[k],j)))
+iterate(a::Rec{T})   where {T<:Number} = (a,nothing)
+iterate(a::Rec{T},i) where {T<:Number} = nothing
 
-# start(a) => initial state
-# done(a,state) => whether state s is final
-# next(a,state) => (element, nextState)
-
-# start and done return state and bool, not differentiable.
-# start(a::Rec)=start(a.value)
-# done(a::Rec,i)=done(a.value,i)
-
-# next returns a tuple with an element and needs to be defined for each iterable.
-# Specific types need to define their own next methods for Recs:
-
-# next(a::Rec,i)=throw(MethodError(next,(a,i)))
-# next(a::Rec{T},i) where {T<:Array} = (a[i],i+1)
-# next(a::Rec{T},i) where {T<:Tuple} = (a[i],i+1)
-# next(a::Rec{T},i) where {T<:Number} = (a,true)
-# next(a::Rec{T},i) where {T<:AbstractDict} = (((k,v),j)=next(a.value,i);(k=>a[k],j))
-# This needs more work:
-# next(a::Rec{T},i) where {T<:Base.RecIterator} = (d=a.value.dict; (d.vals[i], skip_deleted(d,i+1)))
+# indexed_iterate for `(x,y)=a` multiple assignments.
+indexed_iterate(a::Rec{T},i::Int,state=1) where {T<:Tuple} = (a[i],i+1)
+indexed_iterate(a::Rec{T},i::Int,state=1) where {T<:Array} = (a[i],i+1)
 
 # Finally here are some common functions that do not return floats
 # (e.g. length) or return constant outputs (e.g. zero).

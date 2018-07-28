@@ -1,8 +1,12 @@
+# Functions defined in julia-0.7.0-beta2/base/reduce.jl:
+import Base: all, any, count, foldl, foldr, mapfoldl, mapfoldr, mapreduce, maximum, minimum, prod, reduce, sum
+# Not exported: _all, _any, _empty_reduce_error, _mapreduce, add_sum, mapfoldl_impl, mapfoldr_impl, mapreduce_empty, mapreduce_empty_iter, mapreduce_first, mapreduce_impl, mul_prod, pairwise_blocksize, reduce_empty, reduce_first
+
 reduce1arg = [
 (:sum,      :(_ones(x))),
 (:sumabs_,  :(sign.(x))),
 (:sumabs2_, :(2x)),
-(:mean,     :(_ones(x) .* convert(eltype(x), length(y) / length(x)))),
+#TODO (:mean,     :(_ones(x) .* convert(eltype(x), length(y) / length(x)))),
 (:prod,     :(y./x)),
 (:maximum,  :(y.==x)),
 (:minimum,  :(y.==x)),
@@ -15,7 +19,7 @@ minabs_(x...)=minimum(abs,x...)
 maxabs_(x...)=maximum(abs,x...)
 
 _ones(x::Rec{T}) where T<:Number = one(T) #fix #56
-_ones(x::Rec) = ones(x)
+_ones(x::Rec) = fill!(similar(x.value),1) # ones(x)
 
 for (f,g) in reduce1arg
     @eval @primitive  $f(x,i...),dy,y   (dy.*($g))
@@ -48,37 +52,4 @@ let sum_r = recorder(sum), max_r = recorder(maximum), min_r = recorder(minimum)
     minimum(::Type{Grad{2}},dy,y,f::typeof(abs),x,r...) = minabs_(Grad{1},dy,y,x,r...)
 end
 
-# TODO: other functions in reduce.jl:
-# r_promote: Not exported
-# mapfoldl_impl: Not exported
-# mapfoldl
-# foldl
-# mapfoldr_impl: Not exported
-# mapfoldr
-# foldr
-# mapreduce_seq_impl: Not exported
-# mapreduce_pairwise_impl: Not exported
-# mapreduce
-# mapreduce_impl: Not exported
-# mr_empty: Not exported
-# _mapreduce: Not exported
-# reduce
-# shortcircuits: Not exported
-# shorted: Not exported
-# sc_finish: Not exported
-# mapreduce_sc_impl: Not exported
-# mapreduce_no_sc: Not exported
-# mapreduce_sc: Not exported
-# sum_pairwise_blocksize: Not exported
-# sum_kbn
-# extrema
-# any
-# all
-# in
-# ∉
-# ∋
-# ∌
-# contains
-# count
-# call
-# countnz
+
