@@ -1,3 +1,10 @@
+import .Broadcast: broadcasted, broadcast
+broadcast_r = recorder(broadcast)
+broadcasted(f, x::Rec) = broadcast_r(f,x)
+broadcasted(f, x::Rec, y) = broadcast_r(f,x,y)
+broadcasted(f, x, y::Rec) = broadcast_r(f,x,y)
+broadcasted(f, x::Rec, y::Rec) = broadcast_r(f,x,y)
+
 ### @primitive and @zerograd macros:
 
 # I would like to make these type signatures as specific as possible.
@@ -103,15 +110,17 @@ macro primitive(f,g...)
     isa(y,Symbol) || error("Return variable '$y' not a symbol")
     b = Expr(:block)
     fn = fname(f)
-    push!(b.args, :(global $fn))
+    push!(b.args, :(global $fn, broadcast)) # e.g. global sin
     r = gensym()
-    rx = rcall(r,f)
+    rx = rcall(r,f)             # e.g. sin_r(x)
     dx = gensym()
     for fx in fsigs(f)
-        push!(b.args, :($fx = $rx))
+        push!(b.args, :($fx = $rx)) # e.g. sin(x::Rec{T}) where {T<:Number} = sin_r(x)
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)
-            push!(b.args, :($gx = $(g[i]))) # ($dx=$(g[i]); AutoGrad.@gs; $dx)))
+            push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
+            bx = bsig(fx,dy,y,i)
+            push!(b.args, :($bx = $(g[i]))) # e.g. broadcast(::Type{Grad{2}},dy,y,::typeof(sin),x::Rec) = (dy.*cos.(x))
         end
     end
     return esc(Expr(:let,:($r=recorder($fn)),b))
@@ -140,9 +149,20 @@ macro for those.  Note that `kwargs` are NOT unboxed.
 macro zerograd(f)
     b = Expr(:block)
     f.head == :(::) && (f=f.args[1])
-    for fx in fsigs(f)
-        zx = zcall(fx)
+    f.head == :call || error("'$f' not a method signature")
+    for fx in fsigs(f)          # e.g. sign(x::Rec{T}) where {T<:Number}
+        zx = zcall(fx)          # e.g. sign(x.value)
         push!(b.args, esc(:($fx = $zx)))
+        bfx = copy(fx)
+        g = bfx.args[1]
+        fname = g.args[1]
+        g.args[1] = :broadcasted
+        if g.args[2].head == :parameters; a = 3; else; a = 2; end
+        insert!(g.args, a, :(::typeof($fname)))
+        bzx = copy(zx)
+        bzx.args[1] = :broadcasted
+        insert!(bzx.args, a, fname)
+        push!(b.args, esc(:($bfx = $bzx))) # e.g. broadcasted(::typeof(sign), x::Rec{T}) where T <: Any) = broadcasted(sign, x.value)
     end
     return b
 end
@@ -278,6 +298,22 @@ function gsig(f,dy,y,i)
     return fcopy
 end
 
+# This is for the broadcast version
+# Input: (where (call f (:: x (curly Rec T))) (<: T Int))
+# Output: (where (call broadcast :(::Type{Grad{2}}) dy y :(::typeof(f)) :(x::Rec{T})) (<: T Int))
+function bsig(f,dy,y,i)
+    fcopy = copy(f)
+    g = fcopy.args[1]
+    fname = g.args[1]
+    g.args[1] = :broadcast
+    if g.args[2].head == :parameters; a = 3; else; a = 2; end
+    insert!(g.args, a, :(::Type{Grad{$(i+1)}}))
+    insert!(g.args, a+1, dy)
+    insert!(g.args, a+2, y)
+    insert!(g.args, a+3, :(::typeof($fname)))
+    return fcopy
+end
+
 
 # The way broadcasting works in Julia:
 # y = f(x...) where f is a broadcasting operation.
@@ -355,7 +391,7 @@ _dbg(x::Float32)="S"*id2(x)
 _dbg(x::Float64)="D"*id2(x)
 _dbg(x::Symbol)="$x"
 _dbg(x::Integer)="$x"
-id2(x)="$(object_id(x)%1000)"
+id2(x)="$(objectid(x)%1000)"
 ssize(x)="$(collect(size(x)))"
 
 Base.show(io::IO, n::Rec) = print(io, _dbg(n))

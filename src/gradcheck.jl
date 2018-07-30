@@ -188,9 +188,9 @@ gradcheckN(f,x...;o...)=gradcheck(applyN,collect(Any,x),f;o...)
 # Generate tests based on given ranges
 
 function addtest1(f,r=(-Inf,Inf))          # unary
-    bf = broadcast_func(f)
+#    bf = broadcast_func(f)
     addtest(f,randin(r))
-    addtest(bf,randin(r,2))
+#    addtest(bf,randin(r,2))
 end
 
 function addtest2(f,r1=(-Inf,Inf),r2=r1)   # binary

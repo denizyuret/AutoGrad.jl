@@ -1,14 +1,16 @@
+import Base: abs, abs2, isinteger, sign, signbit
+
 number1arg = [
     (:abs, :(sign.(x))),
     (:abs2, :(2x)),
 ]
 
 for (f,g) in number1arg
-    bf = broadcast_func(f)
+#    bf = broadcast_func(f)
     @eval @primitive $f(x),dy,y  (dy.*($g))
-    if bf != f
-        @eval @primitive $bf(x),dy,y  (dy.*($g))
-    end
+#    if bf != f
+#        @eval @primitive $bf(x),dy,y  (dy.*($g))
+#    end
     addtest1(f,(-Inf,Inf))
 end
 
@@ -18,11 +20,11 @@ number1zero = [
 :signbit,
 ]
 for f in number1zero
-    bf = broadcast_func(f)
+#    bf = broadcast_func(f)
     @eval @zerograd $f(x)
-    if bf != f
-        @eval @zerograd $bf(x)
-    end
+#    if bf != f
+#        @eval @zerograd $bf(x)
+#    end
 end
 
 # TODO:
