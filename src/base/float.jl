@@ -1,3 +1,5 @@
+import Base: ceil, floor, isfinite, isinf, isnan, round, trunc, div, float, +, -, *, /, \
+
 float1zero = [
 :ceil,
 :floor,
@@ -8,11 +10,11 @@ float1zero = [
 :trunc,
 ]
 for f in float1zero
-    @eval @zerograd $f(x)
-    bf = broadcast_func(f)
-    if bf != f
-        @eval @zerograd $bf(x)
-    end
+    @eval @zerograd2 $f(x)
+    # bf = broadcast_func(f)
+    # if bf != f
+    #     @eval @zerograd $bf(x)
+    # end
 end
 
 float2zero = [
@@ -20,11 +22,11 @@ float2zero = [
 #:÷,  # Same as div.
 ]
 for f in float2zero
-    @eval @zerograd $f(x1,x2)
-    bf = broadcast_func(f)
-    if bf != f
-        @eval @zerograd $bf(x1,x2)
-    end
+    @eval @zerograd2 $f(x1,x2)
+    # bf = broadcast_func(f)
+    # if bf != f
+    #     @eval @zerograd $bf(x1,x2)
+    # end
 end
 
 float1arg = [
@@ -34,12 +36,12 @@ float1arg = [
 ]
 
 for (f,g) in float1arg
-    @eval @primitive $f(x),dy,y $g
+    @eval @primitive2 $f(x),dy,y $g
     # The broadcasting versions of unary versions are not defined in broadcast.jl
-    bf = broadcast_func(f)
-    if bf != f
-        @eval @primitive $bf(x),dy,y $g
-    end
+    # bf = broadcast_func(f)
+    # if bf != f
+    #     @eval @primitive $bf(x),dy,y $g
+    # end
     addtest1(f,(-Inf,Inf))
 end
 
@@ -53,7 +55,7 @@ float2arg = [
 ]
 
 for (f,g1, g2) in float2arg
-    @eval @primitive $f(x1,x2),dy,y unbroadcast(x1,$g1) unbroadcast(x2,$g2)
+    @eval @primitive2 $f(x1,x2),dy,y unbroadcast(x1,$g1) unbroadcast(x2,$g2)
     # The broadcasting versions defined in broadcast.jl
     # bf = broadcast_func(f)
     # if bf != f
@@ -78,12 +80,12 @@ end
 # There is no Number-Array support.
 # \(x,A) is the same as /(A,x)
 
-@primitive (/)(x1,x2::Number),dy,y  (dy/x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+@primitive2 (/)(x1,x2::Number),dy,y  (dy/x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
 x = randn(); a = randn(2)
 addtestN(:/,randn(),randn())
 addtestN(:/,randn(2),randn())
 
-@primitive (\)(x2::Number,x1),dy,y  unbroadcast(x2,-dy.*x1./abs2.(x2))  (dy/x2)
+@primitive2 (\)(x2::Number,x1),dy,y  unbroadcast(x2,-dy.*x1./abs2.(x2))  (dy/x2)
 addtestN(:\,randn(),randn())
 addtestN(:\,randn(),randn(2))
 

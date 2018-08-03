@@ -182,7 +182,7 @@ end
 # gradcheck only checks the first arg, this helper will allow us to check all args
 
 applyN(x,f)=f(x...)
-addtestN(f,x...)=addtest(:applyN,collect(Any,x),eval(AutoGrad,f))
+addtestN(f,x...)=addtest(:applyN,collect(Any,x),Core.eval(AutoGrad,f))
 gradcheckN(f,x...;o...)=gradcheck(applyN,collect(Any,x),f;o...)
 
 # Generate tests based on given ranges
@@ -194,11 +194,11 @@ function addtest1(f,r=(-Inf,Inf))          # unary
 end
 
 function addtest2(f,r1=(-Inf,Inf),r2=r1)   # binary
-    bf = broadcast_func(f)
+    # bf = broadcast_func(f)
     addtestN(f,randin(r1),randin(r2))
-    addtestN(bf,randin(r1),randin(r2,2))
-    addtestN(bf,randin(r1,2),randin(r2))
-    addtestN(bf,randin(r1,2),randin(r2,2))
+    addtestN(broadcast,f,randin(r1),randin(r2,2))
+    addtestN(broadcast,f,randin(r1,2),randin(r2))
+    addtestN(broadcast,f,randin(r1,2),randin(r2,2))
 end
 
 function randin(range, dims...; eps=0.01)
@@ -208,11 +208,11 @@ function randin(range, dims...; eps=0.01)
         r = randn(dims...)
         sign.(r)*eps + r
     elseif range==(0,Inf)
-        eps-log.(rand(dims...))
+        eps .- log.(rand(dims...))
     elseif range==(1,Inf)
-        eps+1-log.(rand(dims...))
+        eps + 1 .- log.(rand(dims...))
     elseif range==(-1,Inf)
-        eps-1-log.(rand(dims...))
+        eps - 1 .-log.(rand(dims...))
     elseif range==(-1,1)
         (1-eps)*(2rand(dims...)-1)
     elseif range==(0,1)

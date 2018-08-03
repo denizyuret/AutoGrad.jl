@@ -1,3 +1,5 @@
+import Base: var, std
+
 function var(x::Rec, dims; mean=Base.mean(x, dims), corrected=true)
     s = sum(abs2, x .- mean, dims)
     a = length(x) ÷ length(s) 

@@ -1,3 +1,5 @@
+import Base: reshape, full, get, cat, vcat, hcat
+
 # vect: Not exported
 # oldstyle_vcat_warning: Not exported
 # size: interfaces.jl
@@ -45,9 +47,9 @@ addtest(:reshape,rand(2,2),(4,1))
 # _unsafe_setindex!: Not exported
 # get (getindex with a default value)
 # This can be left as a composite function, it will get its gradient from getindex if necessary.
-get{T<:AbstractArray}(A::Rec{T}, i::Integer, default) = (if checkbounds(Bool, length(A), i); A[i]; else; default; end)
-get{T<:AbstractArray}(A::Rec{T}, I::Tuple{}, default) = similar(A, typeof(default), 0)
-get{T<:AbstractArray}(A::Rec{T}, I::Dims, default)    = (if checkbounds(Bool, size(A), I...); A[I...]; else; default; end)
+get(A::Rec{T}, i::Integer, default) where {T<:AbstractArray} = (if checkbounds(Bool, length(A), i); A[i]; else; default; end)
+get(A::Rec{T}, I::Tuple{}, default) where {T<:AbstractArray} = similar(A, typeof(default), 0)
+get(A::Rec{T}, I::Dims, default) where {T<:AbstractArray}    = (if checkbounds(Bool, size(A), I...); A[I...]; else; default; end)
 # get!: Overwriting function
 # promote_eltype: Not exported
 
@@ -87,10 +89,10 @@ cat(::Type{Grad{1}},a::NA...)=nothing # ambiguity fix
 cat(::Type{Grad{1}},a::NAR...)=nothing # ambiguity fix
 cat(::Type{Grad{1}},a...)=nothing
 
-cat{N}(::Type{Grad{N}},y1::AbstractArray,y::AbstractArray,dims::AbstractArray,x::AbstractArray...)=uncat(y1,N-1,dims,x...)   # ambiguity fix
-cat{N}(::Type{Grad{N}},y1::NA,y::NA,dims::NA,x::NA...)=uncat(y1,N-1,dims,x...)   # ambiguity fix
-cat{N}(::Type{Grad{N}},y1::NAR,y::NAR,dims::NAR,x::NAR...)=uncat(y1,N-1,dims,x...)   # ambiguity fix
-cat{N}(::Type{Grad{N}},y1,y,dims,x...)=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
+cat(::Type{Grad{N}},y1::AbstractArray,y::AbstractArray,dims::AbstractArray,x::AbstractArray...) where {N}=uncat(y1,N-1,dims,x...)   # ambiguity fix
+cat(::Type{Grad{N}},y1::NA,y::NA,dims::NA,x::NA...) where {N}=uncat(y1,N-1,dims,x...)   # ambiguity fix
+cat(::Type{Grad{N}},y1::NAR,y::NAR,dims::NAR,x::NAR...) where {N}=uncat(y1,N-1,dims,x...)   # ambiguity fix
+cat(::Type{Grad{N}},y1,y,dims,x...) where {N}=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
 prom_(X...) = Base.promote_eltypeof(X...)
 
 # For the gradient, we need to extract the n'th block from dy which
@@ -144,8 +146,8 @@ end
 @primitive  uncat1(x2,y1,n...),y3  uncat(y3,n...)
 
 # In Julia6+ dims can be Val{N} which breaks uncat:
-uncat{N}(y1,n,dims::Type{Val{N}},x...)=uncat(y1,n,N,x...)
-uncat1{N}(x2,y1,n,dims::Type{Val{N}},x...)=uncat1(x2,y1,n,N,x...)
+uncat(y1,n,dims::Type{Val{N}},x...) where {N}=uncat(y1,n,N,x...)
+uncat1(x2,y1,n,dims::Type{Val{N}},x...) where {N}=uncat1(x2,y1,n,N,x...)
 
 # Here is a graphic that may explain the variable name choice where xi
 # stands for the i'th order gradient:
@@ -222,7 +224,7 @@ hcat(x::Rec...) = cat(2, x...)
 # kernel call overhead.  To make it fast with KnetArrays we need a
 # single GPU kernel call which does all the copying.
 
-gradarg{N}(::Type{Grad{N}})=N
+gradarg(::Type{Grad{N}}) where {N}=N
 
 function cat1d(g::DataType,y1,y,x...) # g = Grad{N}
     argnum = gradarg(g)

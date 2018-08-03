@@ -106,7 +106,7 @@ using Base.Cartesian
     N = length(I)
     quote
         ### We need to handle bool arrays and colons here
-        @nexprs $N d->(I_d = I[d]; if isa(I_d,AbstractArray{Bool}); I_d=find(I_d); elseif isa(I_d,Colon); I_d=1:size(A,d); end)
+        @nexprs $N d->(I_d = I[d]; if isa(I_d,AbstractArray{Bool}); I_d=findall(I_d); elseif isa(I_d,Colon); I_d=1:size(A,d); end)
         ### Using nothing for zero array fails this check
         # idxlens = @ncall $N index_lengths A I
         # @ncall $N setindex_shape_check X (d->idxlens[d])

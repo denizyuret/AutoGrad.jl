@@ -1,3 +1,5 @@
+import Base: transpose, ctranspose
+
 # conj!: Overwriting operation
 # -
 # ~

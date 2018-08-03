@@ -1,2 +1,2 @@
-using Base.Test
+using Test
 using AutoGrad

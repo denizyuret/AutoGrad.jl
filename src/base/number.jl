@@ -7,7 +7,7 @@ number1arg = [
 
 for (f,g) in number1arg
 #    bf = broadcast_func(f)
-    @eval @primitive $f(x),dy,y  (dy.*($g))
+    @eval @primitive2 $f(x),dy,y  (dy.*($g))
 #    if bf != f
 #        @eval @primitive $bf(x),dy,y  (dy.*($g))
 #    end
@@ -21,7 +21,7 @@ number1zero = [
 ]
 for f in number1zero
 #    bf = broadcast_func(f)
-    @eval @zerograd $f(x)
+    @eval @zerograd2 $f(x)
 #    if bf != f
 #        @eval @zerograd $bf(x)
 #    end

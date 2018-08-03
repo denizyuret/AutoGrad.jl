@@ -23,20 +23,20 @@ export @primitive, @zerograd, recorder, Rec, Grad  # the last three are required
 datapath = joinpath(dirname(@__FILE__),"..","data")
 
 include("core.jl")
-# include("unfuse.jl")
+# include("unfuse.jl")  # to be deleted
 include("gradcheck.jl")
 include("util.jl")
 include("interfaces.jl")
-# include("base/reduce.jl")
+#include("base/reduce.jl")  # figure out sumabs
 include("base/number.jl")
-# include("base/float.jl")
-# include("base/broadcast.jl")
-# include("base/math.jl")
-# include("base/abstractarray.jl")
-# include("base/abstractarraymath.jl")
-# include("base/arraymath.jl")
-# include("base/statistics.jl")
-# include("linalg/matmul.jl")
+include("base/float.jl")
+# include("base/broadcast.jl")  # remove duplicates
+include("base/math.jl")
+include("base/abstractarray.jl")
+include("base/abstractarraymath.jl")
+include("base/arraymath.jl")
+# include("base/statistics.jl") # deprecated var, std, import Statistics
+include("linalg/matmul.jl")  # dot moved to LinearAlgebra
 # include("linalg/dense.jl")
 # include("linalg/generic.jl")
 # include("special/trig.jl")

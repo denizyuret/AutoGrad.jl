@@ -1,3 +1,5 @@
+import Base: +, -, *, /, \, ^, %, ==, !=, <, <=, >, >=
+
 # broadcast2arg:
 # These functions use broadcasting to handle arrays of different sizes.
 # Unless otherwise specified they support:
@@ -5,15 +7,15 @@
 # where N:Number, A,B arrays of broadcast compatible sizes.
 
 broadcast2arg = [
-(:.+, :dy, :dy),                    # extra (A,)
-(:.*, :(dy.*x2), :(dy.*x1)),                # extra (A,)
-(:.-, :dy, :(-dy)),
-#:.% => (:dy,:(dy.*(-trunc(x1./x2)))),  # BUG: WARNING: (:check_grads,(:sum,:.%),:args,([-1.6685861285973334,2.349598738753782],[0.5880954718832765,-0.0010728600840855926]),:exact,([1.0,1.0],[2.0,2190.0]),:numeric,([1.0000000000021103,-9.728600840858691],[1.9999999999997797,-4.863172375468294])), WARNING: (:check_grads,(:sum,:.%),:args,([0.20579984208295538,-0.5521335915808314],[0.14504947039368943,-5.795215813098871e-5]),:exact,([1.0,1.0],[-1.0,-9527.0]),:numeric,([0.9999999999998899,-0.15904316261985962],[-0.9999999999998899,0.5895451080050601]))
-(:./, :(dy./x2), :(-dy.*x1./abs2.(x2))),
-(:.\, :(-dy.*x2./abs2.(x1)), :(dy./x1)),
-(:.^, :(dxndx(x1,x2,dy)), :(dy.*y.*log.(x1))), # domain: x1 >= 0 (unless we use complex args)
-#:.<< => :todo,                   # domain: Integers, left bit shift; operators,arraymath,broadcast
-#:.>> => :todo,                   # domain: Integers, right bit shift
+(:+, :dy, :dy),                    # extra (A,)
+(:*, :(dy.*x2), :(dy.*x1)),                # extra (A,)
+(:-, :dy, :(-dy)),
+#:% => (:dy,:(dy.*(-trunc(x1./x2)))),  # BUG: WARNING: (:check_grads,(:sum,:%),:args,([-1.6685861285973334,2.349598738753782],[0.5880954718832765,-0.0010728600840855926]),:exact,([1.0,1.0],[2.0,2190.0]),:numeric,([1.0000000000021103,-9.728600840858691],[1.9999999999997797,-4.863172375468294])), WARNING: (:check_grads,(:sum,:.%),:args,([0.20579984208295538,-0.5521335915808314],[0.14504947039368943,-5.795215813098871e-5]),:exact,([1.0,1.0],[-1.0,-9527.0]),:numeric,([0.9999999999998899,-0.15904316261985962],[-0.9999999999998899,0.5895451080050601]))
+(:/, :(dy./x2), :(-dy.*x1./abs2.(x2))),
+(:\, :(-dy.*x2./abs2.(x1)), :(dy./x1)),
+(:^, :(dxndx(x1,x2,dy)), :(dy.*y.*log.(x1))), # domain: x1 >= 0 (unless we use complex args)
+#:<< => :todo,                   # domain: Integers, left bit shift; operators,arraymath,broadcast
+#:>> => :todo,                   # domain: Integers, right bit shift
 ]
 
 function addtest_broadcast(f,r1,r2=r1)
@@ -28,10 +30,11 @@ function addtest_broadcast(f,r1,r2=r1)
 end
 
 for (f,g1,g2) in broadcast2arg
-    bf = broadcast_func(f)
-    @eval @primitive $bf(x1,x2),dy,y  unbroadcast(x1,$g1)  unbroadcast(x2,$g2)
-    r = (f == (:.^) ? (0,Inf) : (-Inf,Inf))
-    addtest_broadcast(bf,r)
+    # bf = broadcast_func(f)
+    # @eval @primitive $bf(x1,x2),dy,y  unbroadcast(x1,$g1)  unbroadcast(x2,$g2)
+    @eval @primitive2 $f(x1,x2),dy,y  unbroadcast(x1,$g1)  unbroadcast(x2,$g2)
+    r = (f == (:^) ? (0,Inf) : (-Inf,Inf))
+    addtest_broadcast(f,r)
 end
 
 function dxndx(x1,x2,dy)
@@ -48,19 +51,20 @@ function dxndx(x1,x2,dy)
 end
 
 broadcast2cmp = [
-    :.==,
-    :.!=,
-    :.<,
-    :.<=,
-    :.>,
-    :.>=,
+    :(==),
+    :(!=),
+    :(<),
+    :(<=),
+    :(>),
+    :(>=),
 ]                 
 
 for f in broadcast2cmp
-    bf = broadcast_func(f)
-    @eval begin
-        @zerograd $bf(x1,x2)
-    end
+    @eval @zerograd2 $f(x1,x2)
+    # bf = broadcast_func(f)
+    # @eval begin
+    #     @zerograd $bf(x1,x2)
+    # end
 end
 
 

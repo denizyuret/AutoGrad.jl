@@ -13,14 +13,18 @@ broadcasted(f, x::Rec, y::Rec) = broadcast_r(f,x,y)
 # f{T<:Number,A<:AbstractArray}(x::Rec{A{T}})
 # 20180725: TODO: This may have changed in Julia 0.7
 
+# TODO: fix primitive documentation.
+
 """
 
-    @primitive fx g1 g2...
+    @primitive  fx g1 g2...
+    @primitive2 fx g1 g2...
 
 Define a new primitive operation for AutoGrad and (optionally) specify
 its gradients.  Non-differentiable functions such as `sign`, and
 non-numeric functions such as `size` should be defined using the
-@zerograd macro instead.
+@zerograd macro instead. `@primitive2` should be used for broadcasting
+functions like `abs` or `+`.
 
 # Examples
 
@@ -93,21 +97,25 @@ boxed/unboxed argument combinations.
 
 """
 macro primitive(f,g...)
-    isa(f,Expr) || error("'$f' not a method signature")
-    if f.head == :tuple # Using f(x),dy,y to indicate return variable for gradients
-        if length(f.args) == 3
-            (f,dy,y) = f.args
-        elseif length(f.args) == 2
-            (f,dy) = f.args; y = gensym()
-        else
-            error("The first arg '$f' should have the format f(x),dy,y")
+    (f,dy,y) = fparse(f)
+    b = Expr(:block)
+    fn = fname(f)
+    push!(b.args, :(global $fn)) # e.g. global sin
+    r = gensym()
+    rx = rcall(r,f)             # e.g. sin_r(x)
+    dx = gensym()
+    for fx in fsigs(f)
+        push!(b.args, :($fx = $rx)) # e.g. sin(x::Rec{T}) where {T<:Number} = sin_r(x)
+        for i=1:length(g)
+            gx = gsig(fx,dy,y,i)
+            push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
         end
-    else
-        dy = gensym(); y = gensym()
     end
-    f.head == :call || error("'$f' not a method signature")
-    isa(dy,Symbol) || error("Output gradient '$dy' not a symbol")
-    isa(y,Symbol) || error("Return variable '$y' not a symbol")
+    return esc(Expr(:let,:($r=recorder($fn)),b))
+end
+
+macro primitive2(f,g...)
+    (f,dy,y) = fparse(f)
     b = Expr(:block)
     fn = fname(f)
     push!(b.args, :(global $fn, broadcast)) # e.g. global sin
@@ -126,6 +134,7 @@ macro primitive(f,g...)
     return esc(Expr(:let,:($r=recorder($fn)),b))
 end
 
+
 """
 
     @zerograd f(args...; kwargs...)
@@ -134,7 +143,8 @@ Define `f` as an AutoGrad primitive operation with zero gradient.
     
 # Example:
 
-    @zerograd floor(x::Float32)
+    @zerograd  floor(x::Float32)
+    @zerograd2 floor(x::Float32)
 
 `@zerograd` allows `f` to handle boxed `Rec` inputs by unboxing them
 like a `@primitive`, but unlike `@primitive` it does not record its
@@ -143,29 +153,52 @@ actions or return a boxed `Rec` result.  Some functions, like
 or constant outputs.  These need to handle `Rec` inputs, but do not
 need to record anything and can return regular values.  Their output
 can be treated like a constant in the program.  Use the `@zerograd`
-macro for those.  Note that `kwargs` are NOT unboxed.
+macro for those.  Use the `@zerograd2` variant for broadcasting
+functions. Note that `kwargs` are NOT unboxed.
 
 """
 macro zerograd(f)
-    b = Expr(:block)
     f.head == :(::) && (f=f.args[1])
     f.head == :call || error("'$f' not a method signature")
+    b = Expr(:block)
     for fx in fsigs(f)          # e.g. sign(x::Rec{T}) where {T<:Number}
         zx = zcall(fx)          # e.g. sign(x.value)
         push!(b.args, esc(:($fx = $zx)))
-        bfx = copy(fx)
-        g = bfx.args[1]
-        fname = g.args[1]
-        g.args[1] = :broadcasted
-        if g.args[2].head == :parameters; a = 3; else; a = 2; end
-        insert!(g.args, a, :(::typeof($fname)))
-        bzx = copy(zx)
-        bzx.args[1] = :broadcasted
-        insert!(bzx.args, a, fname)
+    end
+    return b
+end
+
+macro zerograd2(f)
+    f.head == :(::) && (f=f.args[1])
+    f.head == :call || error("'$f' not a method signature")
+    b = Expr(:block)
+    for fx in fsigs(f)          # e.g. sign(x::Rec{T}) where {T<:Number}
+        zx = zcall(fx)          # e.g. sign(x.value)
+        push!(b.args, esc(:($fx = $zx)))
+        (bfx,bzx) = bzcall(fx,zx)
         push!(b.args, esc(:($bfx = $bzx))) # e.g. broadcasted(::typeof(sign), x::Rec{T}) where T <: Any) = broadcasted(sign, x.value)
     end
     return b
 end
+
+function fparse(f)
+    isa(f,Expr) || error("'$f' not a method signature")
+    if f.head == :tuple # Using f(x),dy,y to indicate return variable for gradients
+        if length(f.args) == 3
+            (f,dy,y) = f.args
+        elseif length(f.args) == 2
+            (f,dy) = f.args; y = gensym()
+        else
+            error("The first arg '$f' should have the format f(x),dy,y")
+        end
+    else
+        dy = gensym(); y = gensym()
+    end
+    f.head == :call || error("'$f' not a method signature")
+    isa(dy,Symbol) || error("Output gradient '$dy' not a symbol")
+    isa(y,Symbol) || error("Return variable '$y' not a symbol")
+    return (f,dy,y)
+end    
 
 # Input is of the form: (where (call f (:: x (curly Rec T))) (<: T Int))
 function zcall(f)
@@ -193,6 +226,19 @@ function zcall(f)
     end
     return notypes(z)
 end
+
+function bzcall(fx,zx)
+    bfx = copy(fx)
+    g = bfx.args[1]
+    fname = g.args[1]
+    g.args[1] = :broadcasted
+    if g.args[2].head == :parameters; a = 3; else; a = 2; end
+    insert!(g.args, a, :(::typeof($fname)))
+    bzx = copy(zx)
+    bzx.args[1] = :broadcasted
+    insert!(bzx.args, a, fname)
+    return (bfx,bzx)
+end    
 
 # get name out of function declaration
 function fname(f)
