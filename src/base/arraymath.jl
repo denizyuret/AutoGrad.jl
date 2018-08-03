@@ -1,4 +1,4 @@
-import Base: transpose, ctranspose
+import Base: transpose, ctranspose, adjoint
 
 # conj!: Overwriting operation
 # -
@@ -38,9 +38,11 @@ import Base: transpose, ctranspose
 # transpose
 @primitive transpose(x),dy  transpose(dy)
 addtest(:transpose,rand(2,2))
-# ctranspose
-@primitive ctranspose(x),dy ctranspose(dy)
-addtest(:ctranspose,rand(2,2))
+# ctranspose is deprecated using adjoint instead
+# @primitive ctranspose(x),dy ctranspose(dy)
+# addtest(:ctranspose,rand(2,2))
+@primitive adjoint(x),dy adjoint(dy)
+addtest(:adjoint,rand(2,2))
 # _cumsum_type: Not exported
 # cumsum
 # cumsum!

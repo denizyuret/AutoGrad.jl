@@ -1,4 +1,4 @@
-import Base: ==, checkbounds, copy, done, eachindex, eltype, endof, full, getindex, indexed_iterate, isassigned, isempty, isequal, isless, iterate, length, ndims, next, one, ones, pointer, setindex!, show, similar, size, start, stride, strides, sum, zero, zeros
+import Base: ==, checkbounds, copy, done, eachindex, eltype, endof, full, getindex, indexed_iterate, isassigned, isempty, isequal, isless, iterate, length, ndims, next, one, ones, pointer, setindex!, show, similar, size, start, stride, strides, sum, zero, zeros, lastindex
 
 # Here we will define iteration (start,done,next) and indexing
 # (getindex,setindex!,endof) interfaces for generic Rec types.
@@ -270,3 +270,6 @@ addtest(:copy, rand(2))
 
 # issue #18
 size(a::Rec, d1::Integer, d2::Integer, dx::Vararg{Integer}) = size(getval(a), d1, d2, dx...)
+
+# a[end] requires lastindex:
+@zerograd lastindex(x)

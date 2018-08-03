@@ -1,4 +1,4 @@
-import Base: cbrt, deg2rad, exp, exp10, exp2, expm1, log, log10, log1p, log2, rad2deg, significand, sqrt, atan2, hypot, max, min, log, ^, clamp, ldexp, mod2pi, exponent
+import Base: cbrt, deg2rad, exp, exp10, exp2, expm1, log, log10, log1p, log2, rad2deg, significand, sqrt, atan, hypot, max, min, log, ^, clamp, ldexp, mod2pi, exponent
 
 # These are functions defined in base/math.jl.  They apply elementwise
 # to array arguments.  This is implemented in operators.jl using the
@@ -46,7 +46,7 @@ end
 # gradient definitions.
 
 math2arg = [
-(:atan2, quote x2./(abs2.(x1)+abs2.(x2)) end, quote -x1./(abs2.(x1)+abs2.(x2)) end),
+(:atan, quote x2./(abs2.(x1)+abs2.(x2)) end, quote -x1./(abs2.(x1)+abs2.(x2)) end),
 (:hypot, quote x1./y end, quote x2./y end),
 (:max, quote y.==x1 end, quote y.==x2 end),
 (:min, quote y.==x1 end, quote y.==x2 end),

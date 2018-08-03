@@ -7,6 +7,6 @@
 include("interfaces.jl")
 include("indexing.jl")
 include("rosenbrock.jl")
-include("highorder.jl")
-include("neuralnet.jl")
-include("primitives.jl")
+include("highorder.jl")         # fails because of undefined sin
+include("neuralnet.jl")         # problem with sum
+include("primitives.jl")        # cannot convert ungetindex2 to scalar function, applyN is broken with broadcast

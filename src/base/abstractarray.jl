@@ -77,26 +77,32 @@ get(A::Rec{T}, I::Dims, default) where {T<:AbstractArray}    = (if checkbounds(B
 const NA = Union{Number,AbstractArray}
 const NAR = Union{Number,AbstractArray,Rec}
 
-# Base has cat(dims,x...) defined, first specialize this:
-cat(dims, X::NA...)=Base.cat_t(dims, prom_(X...), X...)
+# Base has cat(x...; dims) defined, first specialize this:
+cat(X::NA...; dims)=Base._cat(dims, X...) 
+# Base.cat_t(dims, prom_(X...), X...)
+# prom_(X...) = Base.promote_eltypeof(X...)
 
 # Then define the method that catches at least one Rec:
 cat_r = recorder(cat)
-cat(dims, X::NAR...)=cat_r(dims, X...)
+cat(X::NAR...; dims)=cat_r(X...; dims=dims)
 
-cat(::Type{Grad{1}},a::AbstractArray...)=nothing # julia4 ambiguity fix
-cat(::Type{Grad{1}},a::NA...)=nothing # ambiguity fix
-cat(::Type{Grad{1}},a::NAR...)=nothing # ambiguity fix
-cat(::Type{Grad{1}},a...)=nothing
+# First argument no longer dims
+# cat(::Type{Grad{1}},a::AbstractArray...)=nothing # julia4 ambiguity fix
+# cat(::Type{Grad{1}},a::NA...)=nothing # ambiguity fix
+# cat(::Type{Grad{1}},a::NAR...)=nothing # ambiguity fix
+# cat(::Type{Grad{1}},a...)=nothing
 
-cat(::Type{Grad{N}},y1::AbstractArray,y::AbstractArray,dims::AbstractArray,x::AbstractArray...) where {N}=uncat(y1,N-1,dims,x...)   # ambiguity fix
-cat(::Type{Grad{N}},y1::NA,y::NA,dims::NA,x::NA...) where {N}=uncat(y1,N-1,dims,x...)   # ambiguity fix
-cat(::Type{Grad{N}},y1::NAR,y::NAR,dims::NAR,x::NAR...) where {N}=uncat(y1,N-1,dims,x...)   # ambiguity fix
-cat(::Type{Grad{N}},y1,y,dims,x...) where {N}=uncat(y1,N-1,dims,x...)   # N-1 because first arg is catdims
-prom_(X...) = Base.promote_eltypeof(X...)
+cat(::Type{Grad{N}},y1::AbstractArray,y::AbstractArray,x::AbstractArray...; dims) where {N}=uncat(y1,N,dims,x...)   # ambiguity fix
+cat(::Type{Grad{N}},y1::NA,y::NA,x::NA...; dims) where {N}=uncat(y1,N,dims,x...)   # ambiguity fix
+cat(::Type{Grad{N}},y1::NAR,y::NAR,x::NAR...; dims) where {N}=uncat(y1,N,dims,x...)   # ambiguity fix
+cat(::Type{Grad{N}},y1,y,x...; dims) where {N}=uncat(y1,N,dims,x...)
+
+# In Julia6+ dims can be Val{N} which breaks uncat:
+uncat(y1,n,dims::Val{N},x...) where {N}=uncat(y1,n,N,x...)
+uncat1(x2,y1,n,dims::Val{N},x...) where {N}=uncat1(x2,y1,n,N,x...)
 
 # For the gradient, we need to extract the n'th block from dy which
-# has the same shape as y=cat(dims,x...).  Note that the inputs x[i]
+# has the same shape as y=cat(x...;dims).  Note that the inputs x[i]
 # may have fewer dimensions than dy, or even be scalars.  In those
 # cases Julia assumes the missing dimensions are 1.  We need to
 # reshape dx to the same size as x.
@@ -142,12 +148,8 @@ function uncat1(x2,y1,n,dims,x...)
     return y2
 end
 
-@primitive  uncat(y1,n...),x2  uncat1(x2,y1,n...)
-@primitive  uncat1(x2,y1,n...),y3  uncat(y3,n...)
-
-# In Julia6+ dims can be Val{N} which breaks uncat:
-uncat(y1,n,dims::Type{Val{N}},x...) where {N}=uncat(y1,n,N,x...)
-uncat1(x2,y1,n,dims::Type{Val{N}},x...) where {N}=uncat1(x2,y1,n,N,x...)
+@primitive  uncat(y1,n,dims,x...),x2  uncat1(x2,y1,n,dims,x...)
+@primitive  uncat1(x2,y1,n,dims,x...),y3  uncat(y3,n,dims,x...)
 
 # Here is a graphic that may explain the variable name choice where xi
 # stands for the i'th order gradient:
@@ -160,8 +162,8 @@ uncat1(x2,y1,n,dims::Type{Val{N}},x...) where {N}=uncat1(x2,y1,n,N,x...)
 #               ↓
 # x3 ← uncat  ← y3
 
-cat1(x...)=cat(1,x...)
-cat2(x...)=cat(2,x...)
+cat1(x...)=cat(x...; dims=Val(1))
+cat2(x...)=cat(x...; dims=Val(2))
 addtestN(:cat1, 1., 2.)
 addtestN(:cat1, 1., [2.,3.])
 addtestN(:cat1, [1.,2.], 3.)
@@ -177,8 +179,8 @@ addtestN(:cat2, [1. 2.], [3. 4.])
 # generic methods that prevent the cat call when all arguments are
 # boxed.  This should fix it:
 
-vcat(x::Rec...) = cat(1, x...)
-hcat(x::Rec...) = cat(2, x...)
+vcat(x::Rec...) = cat(x...; dims=Val(1))
+hcat(x::Rec...) = cat(x...; dims=Val(2))
 
 # vcat(a::Rec,b::Rec,c...)=cat(1,a,b,c...)
 # vcat(a,b::Rec,c...)=cat(1,a,b,c...)

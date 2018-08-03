@@ -261,7 +261,8 @@ function rcall(r,f)
     if isa(r2,Expr) && r2.head == :parameters
         for i in 1:length(r2.args)
             k = r2.args[i]
-            if !isa(k,Expr); error("Bad kwarg '$k'")
+            if isa(k,Symbol); r2.args[i] = Expr(:kw,k,k)
+            elseif !isa(k,Expr); error("Bad kwarg '$k'")
             elseif k.head == :(...); continue
             elseif k.head != :kw; error("Bad kwarg '$k'")
             elseif !isa(k.args[1],Symbol); error("Bad kwarg '$k'")
@@ -382,7 +383,7 @@ function unbroadcast(x, dx)
             push!(d,i)
         end
         length(d)==1 && (d=d[1])
-        return reshape(sum(dx, d), size(x))
+        return reshape(sum(dx, dims=d), size(x))
     end
 end
 
@@ -403,7 +404,7 @@ end
 sumvalues(x)=sum(x)
 sumvalues(x::AbstractDict)=sum(values(x))
 @primitive sumvalues(x::AbstractDict),ds fillvalues(ds,x)
-fillvalues(v,x)=(y=similar(x);for k in keys(x); y[k]=v; end; y)
+fillvalues(v,x)=(y=empty(x);for k in keys(x); y[k]=v; end; y)
 @primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
 addtest(:sumvalues, Dict(1=>1.,2=>2.))
 addtest(:fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))

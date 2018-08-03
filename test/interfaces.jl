@@ -44,14 +44,14 @@ include("header.jl")
     end
 
     @testset "size" begin
-        f0(x) = (p=size(x); p[1]*sum(x.^2))
+        f0(x)=(p=size(x); p[1]*sum(abs2,x))
         @test grad(f0)(ones(3)) == fill(6, 3)
 
-        f1(x)=(p=size(x, 1); p*sum(x.^2))
+        f1(x)=(p=size(x, 1); p*sum(abs2,x))
         @test grad(f1)(ones(3, 3)) == fill(6, 3, 3)
 
         # issue #18
-        f2(x)=(p=size(x, 1, 2); p[1]*sum(x.^2))
+        f2(x)=(p=(size(x, 1), size(x, 2)); p[1]*sum(abs2,x))
         @test grad(f2)(ones(3, 3)) == fill(6, 3, 3)
     end
 

@@ -39,7 +39,7 @@ function gradcheck(f, w, x...; kwargs=[], o...)
     d = g(w, x...; kwargs...)
     if isa(w, Number)
         gc_number(d, f, w, x...; kwargs=kwargs, o...)
-    elseif isbits(eltype(w))
+    elseif isbitstype(eltype(w))
         gc_array(w, d, f, w, x...; kwargs=kwargs, o...)
     else
         k = gc_indices(w)
@@ -57,7 +57,7 @@ function gc_number(d, f, w, x...; delta=gc_dx(w),rtol=gc_dx(w),atol=gc_dx(w),ver
     nd = (f2-f1) / (w2-w1)
     di = (d===nothing ? zero(nd) : d)
     if !isapprox(di, nd; rtol=rtol, atol=atol)
-        if verbose; warn("d=$d nd=$nd"); end
+        if verbose; @warn("d=$d nd=$nd"); end
         return false
     else
         if verbose && (d*nd!=0); println("gcheck: d=$d nd=$nd"); end
@@ -70,7 +70,7 @@ function gc_index(w, d, i, f, w0, x...; o...)
     try; di = d[i]; catch; end
     if isa(w[i], Number)
         gc_array(w, d, f, w0, x...; icheck=i, o...)
-    elseif isbits(eltype(w[i]))
+    elseif isbitstype(eltype(w[i]))
         gc_array(w[i], di, f, w0, x...; o...)
     else
         k = gc_indices(w[i])
@@ -111,7 +111,7 @@ function gc_array(w, d, f, worig, x...; gcheck=10, icheck=0, kwargs=[],
         nd = (f2-f1) / (w2-w1)
         di = (d===nothing ? zero(nd) : d[i])
         if !isapprox(di, nd; rtol=rtol, atol=atol)
-            if verbose; warn("d=$di nd=$nd"); end
+            if verbose; @warn("d=$di nd=$nd"); end
             pass = false
         else
             if verbose && (di*nd!=0); println("gcheck: d=$di nd=$nd"); end
@@ -172,7 +172,7 @@ let tests=[]
                 x = fx[2:end]
                 gradcheck(f,x...) || throw(:fail)
             catch e
-                warn((fx...,"$e"))
+                @warn((fx...,"$e"))
             end
         end
     end
@@ -182,7 +182,7 @@ end
 # gradcheck only checks the first arg, this helper will allow us to check all args
 
 applyN(x,f)=f(x...)
-addtestN(f,x...)=addtest(:applyN,collect(Any,x),Core.eval(AutoGrad,f))
+addtestN(f,x...)=addtest(:applyN,map(y->Core.eval(AutoGrad,y), collect(Any,x)),Core.eval(AutoGrad,f))
 gradcheckN(f,x...;o...)=gradcheck(applyN,collect(Any,x),f;o...)
 
 # Generate tests based on given ranges
@@ -242,7 +242,7 @@ function check_grads(fun, args...; eps=EPS, rtol=RTOL, atol=ATOL, fname=fun)
     numeric = nd(fun, args...; eps=eps)
     #@dbg 2 (:check_grads,fname,:exact,exact,:numeric,numeric)
     same = isequivalent(exact, numeric; rtol=rtol, atol=atol)
-    #same || warn((:check_grads,fname,:args,args,:exact,exact,:numeric,numeric))
+    #same || @warn((:check_grads,fname,:args,args,:exact,exact,:numeric,numeric))
     return same
 end
 
@@ -253,7 +253,7 @@ function nd(f, args...; eps=EPS)
 end
 
 unary_nd(f, x::Tuple, eps)         = ntuple(i->unary_nd(indexed_function(f, x, i), x[i], eps), length(x))
-unary_nd(f, x::AbstractDict, eps)   = (a=similar(x); for(k,v) in x; a[k] = unary_nd(indexed_function(f, x, k), v, eps); end; a)
+unary_nd(f, x::AbstractDict, eps)  = (a=empty(x); for(k,v) in x; a[k] = unary_nd(indexed_function(f, x, k), v, eps); end; a)
 unary_nd(f, x::AbstractArray, eps) = reshape(eltype(x)[unary_nd(indexed_function(f, x, i), v, eps) for (i,v) in enumerate(x)], size(x))
 unary_nd(f, x::Complex, eps)       = ((f(x + eps/2) - f(x - eps/2)) / eps - im*(f(x + im*eps/2) - f(x - im*eps/2)) / eps)
 unary_nd(f, x::Real, eps)          = ((f(x + eps/2) - f(x - eps/2)) / eps)
@@ -300,7 +300,7 @@ function fixtest(f, x...)
             g = f(gargs...)
         catch e
             if isa(e,MethodError) && e.f === f && e.args[1] === Grad{i}
-                continue        # warn("No grad $i for $f: $e")
+                continue        # @warn("No grad $i for $f: $e")
             else
                 error("Error during $f$((gargs...,)): $e")
             end
