@@ -316,3 +316,25 @@ function fixtest(f, x...)
     isbits(y) || (f2=f; f=(x...)->toscalar(f2(x...)))
     return (f,fargs...)
 end
+
+function toscalar(xv; rng=MersenneTwister(0))
+    x = getval(xv)
+    isa(x,Number) && return xv
+    isa(x,UngetIndex) && (x = full(x))
+    idx = isa(x,Tuple) ? (1:length(x)) : eachindex(x)
+    s = 0
+    for i in idx
+        s += xv[i] * rand(rng)
+    end
+    return s
+end
+
+# sumvalues sums values of dictionaries, otherwise acts like sum:
+
+sumvalues(x)=sum(x)
+sumvalues(x::AbstractDict)=sum(values(x))
+@primitive sumvalues(x::AbstractDict),ds fillvalues(ds,x)
+fillvalues(v,x)=(y=empty(x);for k in keys(x); y[k]=v; end; y)
+@primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
+addtest(:sumvalues, Dict(1=>1.,2=>2.))
+addtest(:fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))

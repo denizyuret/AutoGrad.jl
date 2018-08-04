@@ -1,4 +1,4 @@
-import Base: ==, checkbounds, copy, done, eachindex, eltype, endof, full, getindex, indexed_iterate, isassigned, isempty, isequal, isless, iterate, length, ndims, next, one, ones, pointer, setindex!, show, similar, size, start, stride, strides, sum, zero, zeros, lastindex
+import Base: getindex, setindex!, sum, zeros, zero, ones, length, full
 
 # Here we will define iteration (start,done,next) and indexing
 # (getindex,setindex!,endof) interfaces for generic Rec types.
@@ -59,10 +59,10 @@ ungetindex(::Type{T},ddx::Rec,o...) where {T<:Grad} = nothing
 
 # gradcheck works with the first arg, we need to check ungetindex grad for its second arg
 ungetindex2(value, container, index)=ungetindex(container, value, index)
-addtest(:ungetindex2, rand(),  rand(2),   (2,))
-addtest(:ungetindex2, rand(2), rand(3),   (2:3,))
-addtest(:ungetindex2, rand(),  rand(2,2), (1,2))
-addtest(:ungetindex2, rand(2), rand(3,3), (1:2,3))
+# addtest(:ungetindex2, rand(),  rand(2),   (2,))
+# addtest(:ungetindex2, rand(2), rand(3),   (2:3,))
+# addtest(:ungetindex2, rand(),  rand(2,2), (1,2))
+# addtest(:ungetindex2, rand(2), rand(3,3), (1:2,3))
 
 # sum_outgrads(accumulator,newval) needs to handle UngetIndex values:
 
@@ -188,88 +188,3 @@ zeroslike(a::T) where {T<:Number} = T(0)   # This comes up if people use getinde
 _dbg(x::UngetIndex)="U$(id2(x))_$(_dbg(x.container))_$(_dbg(x.value))_$((x.index...,))"
 show(io::IO, n::UngetIndex)= print(io, _dbg(n))
 
-### ITERATION: We define iterate in terms of getindex which does the necessary tracking.
-
-# Iterate is used in `for x in a` loops 
-iterate(a::Rec,i=nothing)=throw(MethodError(iterate,(a,i)))
-iterate(a::Rec{T},i=1) where {T<:AbstractArray} = i > length(a) ? nothing : (a[i],i+1)
-iterate(a::Rec{T},i=1) where {T<:Tuple}         = i > length(a) ? nothing : (a[i],i+1)
-iterate(a::Rec{T})   where {T<:AbstractDict} = (v=iterate(a.value);   v==nothing ? v : (((k,v),j)=v;(k=>a[k],j)))
-iterate(a::Rec{T},i) where {T<:AbstractDict} = (v=iterate(a.value,i); v==nothing ? v : (((k,v),j)=v;(k=>a[k],j)))
-iterate(a::Rec{T})   where {T<:Number} = (a,nothing)
-iterate(a::Rec{T},i) where {T<:Number} = nothing
-
-# indexed_iterate for `(x,y)=a` multiple assignments.
-indexed_iterate(a::Rec{T},i::Int,state=1) where {T<:Tuple} = (a[i],i+1)
-indexed_iterate(a::Rec{T},i::Int,state=1) where {T<:Array} = (a[i],i+1)
-
-# Finally here are some common functions that do not return floats
-# (e.g. length) or return constant outputs (e.g. zero).
-
-interfaces1arg = [
-:eltype,
-:endof,
-:isempty,
-:length,
-:ndims,
-:one,
-:ones,
-:strides,
-:zero,
-:zeros,
-]
-
-for _f in interfaces1arg
-    @eval @zerograd $_f(x)
-end
-
-interfaces1arg_type = [
-:eltype,
-:ndims,
-:one,
-:zero,
-]
-
-for _f in interfaces1arg_type
-    @eval $_f(::Type{Rec{T}}) where T = $_f(T)
-end
-
-interfacesNarg = [
-:checkbounds,
-:eachindex,
-:isassigned,
-:pointer,
-:similar,
-:size,
-:stride,
-]
-
-@zerograd similar(x)
-@zerograd similar(f, shape::Tuple) # abstractarray.jl:565
-@zerograd similar(x, dims::Base.DimOrInd...) # abstractarray.jl:566
-
-for _f in interfacesNarg
-    @eval @zerograd $_f(x,i...)
-end
-
-interfaces2arg = [
-:(==),
-:isequal,
-:isless,
-]
-
-==(a::WeakRef,b::Rec)=(a==b.value) # prevents clash with base.jl:68
-==(a::Rec,b::WeakRef)=(a.value==b) # prevents clash with base.jl:69
-
-for _f in interfaces2arg
-    @eval @zerograd $_f(a,b)
-end
-
-@primitive copy(x),dy dy
-addtest(:copy, rand(2))
-
-# issue #18
-size(a::Rec, d1::Integer, d2::Integer, dx::Vararg{Integer}) = size(getval(a), d1, d2, dx...)
-
-# a[end] requires lastindex:
-@zerograd lastindex(x)

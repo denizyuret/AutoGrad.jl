@@ -1,9 +1,4 @@
 import .Broadcast: broadcasted, broadcast
-broadcast_r = recorder(broadcast)
-broadcasted(f, x::Rec) = broadcast_r(f,x)
-broadcasted(f, x::Rec, y) = broadcast_r(f,x,y)
-broadcasted(f, x, y::Rec) = broadcast_r(f,x,y)
-broadcasted(f, x::Rec, y::Rec) = broadcast_r(f,x,y)
 
 ### @primitive and @zerograd macros:
 
@@ -18,13 +13,11 @@ broadcasted(f, x::Rec, y::Rec) = broadcast_r(f,x,y)
 """
 
     @primitive  fx g1 g2...
-    @primitive2 fx g1 g2...
 
 Define a new primitive operation for AutoGrad and (optionally) specify
 its gradients.  Non-differentiable functions such as `sign`, and
 non-numeric functions such as `size` should be defined using the
-@zerograd macro instead. `@primitive2` should be used for broadcasting
-functions like `abs` or `+`.
+@zerograd macro instead.
 
 # Examples
 
@@ -100,24 +93,6 @@ macro primitive(f,g...)
     (f,dy,y) = fparse(f)
     b = Expr(:block)
     fn = fname(f)
-    push!(b.args, :(global $fn)) # e.g. global sin
-    r = gensym()
-    rx = rcall(r,f)             # e.g. sin_r(x)
-    dx = gensym()
-    for fx in fsigs(f)
-        push!(b.args, :($fx = $rx)) # e.g. sin(x::Rec{T}) where {T<:Number} = sin_r(x)
-        for i=1:length(g)
-            gx = gsig(fx,dy,y,i)
-            push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
-        end
-    end
-    return esc(Expr(:let,:($r=recorder($fn)),b))
-end
-
-macro primitive2(f,g...)
-    (f,dy,y) = fparse(f)
-    b = Expr(:block)
-    fn = fname(f)
     push!(b.args, :(global $fn, broadcast)) # e.g. global sin
     r = gensym()
     rx = rcall(r,f)             # e.g. sin_r(x)
@@ -129,6 +104,25 @@ macro primitive2(f,g...)
             push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
             bx = bsig(fx,dy,y,i)
             push!(b.args, :($bx = $(g[i]))) # e.g. broadcast(::Type{Grad{2}},dy,y,::typeof(sin),x::Rec) = (dy.*cos.(x))
+        end
+    end
+    return esc(Expr(:let,:($r=recorder($fn)),b))
+end
+
+# Do we need the version without broadcasting?
+macro primitive1(f,g...)
+    (f,dy,y) = fparse(f)
+    b = Expr(:block)
+    fn = fname(f)
+    push!(b.args, :(global $fn)) # e.g. global sin
+    r = gensym()
+    rx = rcall(r,f)             # e.g. sin_r(x)
+    dx = gensym()
+    for fx in fsigs(f)
+        push!(b.args, :($fx = $rx)) # e.g. sin(x::Rec{T}) where {T<:Number} = sin_r(x)
+        for i=1:length(g)
+            gx = gsig(fx,dy,y,i)
+            push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
         end
     end
     return esc(Expr(:let,:($r=recorder($fn)),b))
@@ -164,19 +158,20 @@ macro zerograd(f)
     for fx in fsigs(f)          # e.g. sign(x::Rec{T}) where {T<:Number}
         zx = zcall(fx)          # e.g. sign(x.value)
         push!(b.args, esc(:($fx = $zx)))
+        (bfx,bzx) = bzcall(fx,zx)
+        push!(b.args, esc(:($bfx = $bzx))) # e.g. broadcasted(::typeof(sign), x::Rec{T}) where T <: Any) = broadcasted(sign, x.value)
     end
     return b
 end
 
-macro zerograd2(f)
+# Do we need the version without broadcasting?
+macro zerograd1(f)
     f.head == :(::) && (f=f.args[1])
     f.head == :call || error("'$f' not a method signature")
     b = Expr(:block)
     for fx in fsigs(f)          # e.g. sign(x::Rec{T}) where {T<:Number}
         zx = zcall(fx)          # e.g. sign(x.value)
         push!(b.args, esc(:($fx = $zx)))
-        (bfx,bzx) = bzcall(fx,zx)
-        push!(b.args, esc(:($bfx = $bzx))) # e.g. broadcasted(::typeof(sign), x::Rec{T}) where T <: Any) = broadcasted(sign, x.value)
     end
     return b
 end
@@ -359,101 +354,5 @@ function bsig(f,dy,y,i)
     insert!(g.args, a+2, y)
     insert!(g.args, a+3, :(::typeof($fname)))
     return fcopy
-end
-
-
-# The way broadcasting works in Julia:
-# y = f(x...) where f is a broadcasting operation.
-# size(y) = broadcast_shape(x...)
-# ndims(y) = max ndims(x)
-# size(y,i) = max size(x,i)
-# size(x,i) = 1 or size(y,i) for all x and i<=ndims(x)
-# if ndims(x) < ndims(y) the extra dimensions of x are treated as 1
-
-function unbroadcast(x, dx)
-    if size(x)==size(dx)
-        return dx
-    elseif isa(getval(x),Number)
-        return sum(dx)
-    else
-        d = []
-        for i=1:ndims(dx)
-            size(x,i) == size(dx,i) > 1 && continue
-            size(x,i) != 1 && throw(DimensionMismatch())
-            push!(d,i)
-        end
-        length(d)==1 && (d=d[1])
-        return reshape(sum(dx, dims=d), size(x))
-    end
-end
-
-function toscalar(xv; rng=MersenneTwister(0))
-    x = getval(xv)
-    isa(x,Number) && return xv
-    isa(x,UngetIndex) && (x = full(x))
-    idx = isa(x,Tuple) ? (1:length(x)) : eachindex(x)
-    s = 0
-    for i in idx
-        s += xv[i] * rand(rng)
-    end
-    return s
-end
-
-# sumvalues sums values of dictionaries, otherwise acts like sum:
-
-sumvalues(x)=sum(x)
-sumvalues(x::AbstractDict)=sum(values(x))
-@primitive sumvalues(x::AbstractDict),ds fillvalues(ds,x)
-fillvalues(v,x)=(y=empty(x);for k in keys(x); y[k]=v; end; y)
-@primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
-addtest(:sumvalues, Dict(1=>1.,2=>2.))
-addtest(:fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
-
-# This needs more work:
-# @primitive values(x),dy Dict(map((a,b)->(a=>b), keys(x), dy))
-
-# It gets tiresome to write `Type{Grad{1}}` after a while, here are
-# some convenient aliases:
-
-# Update: these are not used much, if needed define julia6 compatible.
-# typealias D1 Type{Grad{1}}
-# typealias D2 Type{Grad{2}}
-# if !isdefined(:Dn)
-# typealias Dn{N} Type{Grad{N}}
-# end
-
-# Pretty print for debugging:
-_dbg(x)=summary(x) # extend to define short printable representations
-_dbg(x::Tuple)=string(map(_dbg,x)...)
-_dbg(x::Node)=_dbg(x.rec.value)*"N"
-_dbg(x::Rec)=_dbg(x.value)*"R"
-_dbg(x::Tape)="N"*ssize(x)
-_dbg(x::AbstractArray)=_dbg(eltype(x))*ssize(x)*id2(x)
-_dbg(::Type{Any})="A"
-_dbg(::Type{Float32})="S"
-_dbg(::Type{Float64})="D"
-_dbg(t::Type)="$t"
-_dbg(x::Dict)="H"*id2(x)
-_dbg(x::Float32)="S"*id2(x)
-_dbg(x::Float64)="D"*id2(x)
-_dbg(x::Symbol)="$x"
-_dbg(x::Integer)="$x"
-id2(x)="$(objectid(x)%1000)"
-ssize(x)="$(collect(size(x)))"
-
-Base.show(io::IO, n::Rec) = print(io, _dbg(n))
-Base.show(io::IO, n::Node) = print(io, _dbg(n))
-Base.show(io::IO, n::Tape) = print(io, _dbg(n))
-
-function dumptape(t::Tape)
-    for i = 1:length(t)
-        n = t[i]
-        r = n.rec
-        p = ntuple(length(n.parents)) do j
-            isassigned(n.parents,j) ? findfirst(t,n.parents[j]) : 0
-        end
-        f = r.func
-        println("$i. $f$p")
-    end
 end
 

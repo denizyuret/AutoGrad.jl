@@ -151,7 +151,7 @@ function rfun(args...; kwargs...)
         p = ntuple(length(n.parents)) do j
             if isassigned(n.parents,j)
                 findfirst(tp,n.parents[j])
-            elseif isa(argvals[j],Number) || isa(argvals[j],Symbol) || isa(argvals[j],Range)
+            elseif isa(argvals[j],Number) || isa(argvals[j],Symbol) || isa(argvals[j],AbstractRange)
                 argvals[j]
             else
                 0
