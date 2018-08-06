@@ -1,65 +1,83 @@
-# julia/base/exports.jl
-import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, acotd, acoth, acsc, acscd, acsch, asec, asecd, asech, asin, asind, asinh, atan, atand, atanh, big, cbrt, ceil, checkbounds, clamp, copy, cos, cosc, cosd, cosh, cospi, cot, cotd, coth, csc, cscd, csch, deg2rad, div, eachindex, eltype, eps, exp, exp10, exp2, expm1, exponent, float, floor, isassigned, isempty, isequal, isfinite, isinf, isless, isnan, lastindex, length, log, log10, log1p, log2, ndims, one, ones, rad2deg, reshape, round, sec, secd, sech, significand, similar, sin, sinc, sind, sinh, sinpi, size, sqrt, stride, strides, tan, tand, tanh, trunc, zero, zeros
-
 # coverage
-# ./interfaces.jl
-# ./base/abstractarray.jl
-# ./base/abstractarraymath.jl
-# ./base/arraymath.jl
-# ./base/broadcast.jl
-# ./base/float.jl
-# ./base/math.jl
-# ./base/number.jl
-# ./base/reduce.jl
-# ./base/statistics.jl
+# ./util.jl		--done
+# ./interfaces.jl	--done
+# ./base/abstractarray.jl --> cat.jl, done
+# ./base/abstractarraymath.jl --done
+# ./base/arraymath.jl	--done
+# ./base/broadcast.jl	--done
+# ./base/float.jl	--done
+# ./base/math.jl	--done
+# ./base/number.jl	--done
+# ./base/reduce.jl	--done
+# ./base/statistics.jl	--done
 # ./linalg/dense.jl
 # ./linalg/generic.jl
 # ./linalg/matmul.jl
-# ./special/bessel.jl
-# ./special/erf.jl
-# ./special/gamma.jl
-# ./special/trig.jl
+# ./special/bessel.jl	--done
+# ./special/erf.jl      --done
+# ./special/gamma.jl    --done
+# ./special/trig.jl	--done
 
 
-# Operators
-#     !,
-#     !=,
-#     ≠,
-#     !==,
-#     ≡,
-#     ≢,
-#     xor,
-#     ⊻,
-#     %,
-#     ÷,
-#     &,
-#     *,
+# Used deps/imports.pl to generate the next line
+import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, acos, acosd, acosh, acot, acotd, acoth, acsc, acscd, acsch, adjoint, all, any, asec, asecd, asech, asin, asind, asinh, atan, atand, atanh, big, cbrt, ceil, checkbounds, clamp, copy, cos, cosc, cosd, cosh, cospi, cot, cotd, coth, count, csc, cscd, csch, deg2rad, div, eachindex, eltype, eps, exp, exp10, exp2, expm1, exponent, float, floor, hypot, isassigned, isempty, isequal, isfinite, isinf, isinteger, isless, isnan, lastindex, ldexp, length, log, log10, log1p, log2, max, maximum, min, minimum, mod2pi, ndims, one, ones, permutedims, prod, rad2deg, rem, reshape, round, sec, secd, sech, sign, signbit, significand, similar, sin, sinc, sind, sinh, sinpi, size, sqrt, stride, strides, sum, tan, tand, tanh, transpose, trunc, vec, zero, zeros
+
+# The following list copied from relevant portions of julia/base/exports.jl
+
+### Operators
+# !   Bool function
+@zerograd !=(x1,x2)
+# ≠   Same as !=
+@zerograd !==(x1,x2)
+# ≡   Same as ===, Core builtin function, cannot add methods
+# ≢   Same as !==
+# xor Int function
+# ⊻   Same as xor
+# %   Same as rem
+# ÷   Same as div
+# &   Int function
+@primitive *(x),dy  dy
+@primitive1 broadcast(f::typeof(*),x1,x2),dy  nothing  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+@primitive1 *(x1::Number,x2::Number),dy                unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+@primitive1 *(x1::Number,x2),dy                        unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+@primitive1 *(x1,x2::Number),dy                        unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+@primitive1 *(x1,x2),dy  (dy*x2')  (x1'*dy)
 @primitive +(x),dy  dy
 @primitive +(x1,x2),dy  unbroadcast(x1,dy)  unbroadcast(x2,dy)
 @primitive -(x),dy  -dy
 @primitive -(x1,x2),dy  unbroadcast(x1,dy)  unbroadcast(x2,-dy)
-@primitive /(x1,x2::Number),dy,y  (dy/x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
-#     //,
+@primitive1 broadcast(f::typeof(/),x1,x2),dy  nothing  unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+@primitive1 /(x1::Number,x2::Number),dy                unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+@primitive1 /(x1::Number,x2),dy                        unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+@primitive1 /(x1,x2::Number),dy                        unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+# @primitive1 /(x1,x2),dy # TODO for array arguments without broadcast
+# //  Int function
 @zerograd <(x1,x2)
-#     <:,
-#     <<,
+# <:  Type function
+# <<  Int function
 @zerograd <=(x1,x2)
-#     ≤,
+# ≤   Same as <=
 @zerograd ==(x1,x2)
 @zerograd >(x1,x2)
-#     >:,
+# >:  Type function
 @zerograd >=(x1,x2)
-#     ≥,
-#     >>,
-#     >>>,
-@primitive \(x2::Number,x1),dy,y  unbroadcast(x2,-dy.*x1./abs2.(x2))  (dy/x2)
-#     ^,
-#     |,
-#     |>,
-#     ~,
-#     :,
-#     =>,
-#     ∘,
+# ≥   Same as >=
+# >>  Int function
+# >>> Int function
+@primitive1 broadcast(f::typeof(\),x1,x2),dy  nothing  unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
+@primitive1 \(x1::Number,x2::Number),dy                unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
+@primitive1 \(x1::Number,x2),dy                        unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
+@primitive1 \(x1,x2::Number),dy                        unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
+# @primitive1 \(x1,x2),dy # TODO for array arguments without broadcast
+@primitive ^(x1,x2),dy,y  unbroadcast(x1,dxndx(x1,x2,dy))  unbroadcast(x2,dy.*y.*log.(x1))
+@primitive ^(x1,x2::Integer),dy,y  unbroadcast(x1,dxndx(x1,x2,dy))  unbroadcast(x2,dy.*y.*log.(x1)) # ambiguity fix
+dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2x1.*dy; else; dy.*x2.*x1.^(x2-1); end) # optimize common cases
+# |   Int function
+# |>  Function chaining
+# ~   Int function
+# :   Range operator
+# =>  Pair constructor
+# ∘   Function composition
 
 ### scalar math
 # @evalpoly(z,c...): Evaluate the polynomial \sum_k c[k] z^{k-1}.
@@ -82,6 +100,7 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 @primitive asind(x),dy (dy.*((180 / pi) ./ sqrt.(1 - abs2.(x))))
 @primitive asinh(x),dy (dy.*(1 ./ sqrt.(1 + abs2.(x))))
 @primitive atan(x),dy (dy.*(1 ./ (1 + abs2.(x))))
+@primitive atan(x1,x2),dy,y  unbroadcast(x1,dy.*(x2./(abs2.(x1)+abs2.(x2))))  unbroadcast(x2,dy.*(-x1./(abs2.(x1)+abs2.(x2))))
 @primitive atand(x),dy (dy.*((180 / pi) ./ (1 + abs2.(x))))
 @primitive atanh(x),dy (dy.*(1 ./ (1 - abs2.(x))))
 @primitive big(x),dy oftype(x,dy)
@@ -133,6 +152,7 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     gcd,
 #     gcdx,
 #     hypot,
+@primitive hypot(x1,x2),dy,y  unbroadcast(x1,dy.*(x1./y))  unbroadcast(x2,dy.*(x2./y))
 #     imag,
 #     inv,
 #     invmod,
@@ -140,7 +160,7 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     iseven,
 @zerograd isfinite(x)
 @zerograd isinf(x)
-#     isinteger,
+@zerograd isinteger(x)
 @zerograd isnan(x)
 #     isodd,
 #     ispow2,
@@ -150,10 +170,11 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     iszero,
 #     isone,
 #     lcm,
-#     ldexp,
+@primitive ldexp(x,n),dy  (dy.*(2 .^ n))
 #     leading_ones,
 #     leading_zeros,
 @primitive log(x),dy (dy.*(1 ./ x))
+@primitive log(x1,x2),dy,y  unbroadcast(x1,dy.*(-log.(x2)./(x1.*abs2.(log.(x1)))))  unbroadcast(x2,dy.*(1 ./ (x2.*log.(x1))))
 @primitive log10(x),dy (dy.*(1 ./ (log(10) .* x)))
 @primitive log1p(x),dy (dy.*(1 ./ (1 + x)))
 @primitive log2(x),dy (dy.*(1 ./ (log(2) .* x)))
@@ -161,7 +182,7 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     mod,
 #     mod1,
 #     modf,
-#     mod2pi,
+@primitive mod2pi(x),dy dy
 #     muladd,
 #     nextfloat,
 #     nextpow,
@@ -181,14 +202,14 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     realmin,
 #     reim,
 #     reinterpret,
-#     rem,
+@primitive rem(x1,x2),dy,y  unbroadcast(x1,dy)  unbroadcast(x2,-dy.*div.(x1,x2))
 #     rem2pi,
 @zerograd round(x)
 @primitive sec(x),dy,y (dy.*(y .* tan.(x)))
 @primitive secd(x),dy,y (dy.*(((y .* tand.(x)) * pi) / 180))
 @primitive sech(x),dy,y (dy.*(-y .* tanh.(x)))
-#     sign,
-#     signbit,
+@zerograd sign(x)
+@zerograd signbit(x)
 #     signed,
 @primitive significand(x),dy (dy.*(0.5 .^ exponent.(x)))
 @primitive sin(x),dy (dy.*(cos.(x)))
@@ -219,7 +240,7 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     axes,
 #     broadcast!,
 #     broadcast,
-#     cat,
+# cat  Handled in cat.jl
 @zerograd checkbounds(x,i...)
 #     checkindex,
 #     circcopy!,
@@ -241,7 +262,7 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     fill!,
 #     fill,
 #     first,
-#     hcat,
+# hcat  Handled in cat.jl
 #     hvcat,
 #     indexin,
 #     argmax,
@@ -253,12 +274,14 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     issorted,
 #     last,
 #     mapslices,
-#     max,
+@primitive max(x1,x2),dy,y  unbroadcast(x1,dy.*(y.==x1))  unbroadcast(x2,dy.*(y.==x2))
 #     maximum!,
-#     maximum,
-#     min,
+@primitive maximum(x;d...),dy,y  (dy.*(y.==x))
+@primitive maximum(f::typeof(abs),x;d...),dy,y  nothing  (dy.*(y.==abs.(x)).*sign.(x))
+@primitive min(x1,x2),dy,y  unbroadcast(x1,dy.*(y.==x1))  unbroadcast(x2,dy.*(y.==x2))
 #     minimum!,
-#     minimum,
+@primitive minimum(x;d...),dy,y  (dy.*(y.==x))
+@primitive minimum(f::typeof(abs),x;d...),dy,y  nothing  (dy.*(y.==abs.(x)).*sign.(x))
 #     minmax,
 @zerograd ndims(x)
 @zerograd ones(x)
@@ -269,10 +292,10 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     partialsortperm,
 #     partialsortperm!,
 #     permute!,
-#     permutedims,
+@primitive permutedims(x,d...),dy  permutedims(dy,invperm(d...))
 #     permutedims!,
 #     prod!,
-#     prod,
+@primitive prod(x),dy,y  (dy.*(y./x))  # TODO: prod with abs, abs2
 #     promote_shape,
 #     range,
 @primitive reshape(x,i...),dy  reshape(dy,size(x))
@@ -296,60 +319,32 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 @zerograd stride(x,i...)
 @zerograd strides(x)
 #     sum!,
-#     sum,
+@primitive sum(x;d...),dy  (dy.*one.(x))
+@primitive sum(f::typeof(abs),x;d...),dy   nothing  (dy.*sign.(x))
+@primitive sum(f::typeof(abs2),x;d...),dy  nothing  (dy.*(2x))
 #     to_indices,
-#     vcat,
-#     vec,
+# vcat  Handled in cat.jl
+@primitive vec(x),dy  reshape(dy,size(x))
 #     view,
 @zerograd zeros(x)
 
-# search, find, match and related functions
-#     eachmatch,
-#     endswith,
-#     findall,
-#     findfirst,
-#     findlast,
-#     findmax,
-#     findmin,
-#     findmin!,
-#     findmax!,
-#     findnext,
-#     findprev,
-#     match,
-#     occursin,
-#     searchsorted,
-#     searchsortedfirst,
-#     searchsortedlast,
-#     startswith,
-
-# linear algebra
-#     adjoint,
-#     transpose,
+# linear algebra: Move these to LinearAlgebra?
+@primitive adjoint(x),dy    adjoint(dy)
+@primitive transpose(x),dy  transpose(dy)
 #     kron,
-
-# bitarrays
-#     falses,
-#     trues,
-
-# dequeues
-#     append!,
-#     insert!,
-#     pop!,
-#     prepend!,
-#     push!,
-#     resize!,
-#     popfirst!,
-#     pushfirst!,
 
 # collections
 #     all!,
-#     all,
+@zerograd all(a;dims=:)
+@zerograd all(f,a;dims=:)
 #     allunique,
 #     any!,
-#     any,
+@zerograd any(a;dims=:)
+@zerograd any(f,a;dims=:)
 #     firstindex,
 #     collect,
-#     count,
+@zerograd count(a;dims=:)
+@zerograd count(f,a;dims=:)
 #     delete!,
 #     deleteat!,
 @zerograd eltype(x)
@@ -361,9 +356,9 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     foldl,
 #     foldr,
 #     foreach,
-#     get,
+# get  Handled in getindex.jl
 #     get!,
-#     getindex,
+# getindex  Handled in getindex.jl
 #     getkey,
 #     haskey,
 #     in,
@@ -411,14 +406,13 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     ∩,
 #     ∪,
 
-# iteration
-#     done,
-#     next,
-#     start,
-#     iterate,
-
-#     enumerate,  # re-exported from Iterators
-#     zip,
+### iteration
+# done  deprecated
+# next  deprecated
+# start deprecated
+# iterate    Handled in iterate.jl
+# enumerate  Implemented with iterate
+# zip        Implemented with iterate
 
 ### object identity and equality
 @primitive copy(x),dy dy
@@ -432,8 +426,3 @@ import Base: \, +, -, /, <, <=, ==, >, >=, abs, abs2, acos, acosd, acosh, acot, 
 #     ifelse,
 #     objectid,
 #     sizeof,
-
-# implemented in Random module
-#     rand,
-#     randn,
-

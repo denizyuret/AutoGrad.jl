@@ -5,18 +5,18 @@ include("header.jl")
     @testset "Array" begin
         a = rand(3,3)
         for i in (:, 1, 1:2, 1:2:3, [1,2], [2,2], [])
-            # @show i
+            #@show i
             @test gradcheck(getindex, a, i)
             for j in (:, 1, 1:2, 1:2:3, [1,2], [2,2], [])
-                # @show i,j
+                #@show i,j
                 @test gradcheck(getindex, a, i, j)
             end
         end
         j = [true,false,true]
         for i in (:, 1, 1:2, 1:2:3, [1,2], [2,2], [])
-            # @show i,j
+            #@show i,j
             @test gradcheck(getindex, a, i, j)
-            # @show j,i
+            #@show j,i
             @test gradcheck(getindex, a, j, i)
         end
         @test gradcheck(getindex, a, [1 2;1 2])
@@ -30,7 +30,7 @@ include("header.jl")
         f(a,i)=(ai=a[i];s=0;for j=1:length(ai); s+=j*ai[j]; end; s)
         g = grad(f)
         for i in (1,1:2,1:2:3,[1,2],[2,2],[],[true,false,true])
-            # @show i
+            #@show i
             # @test gradcheck(getindex, t, i) # TODO: gradcheck with tuples broken so we compare array vs tuple
             @test g(t,i)==g(a,i)==nothing || g(t,i) == tuple(g(a,i)...)
         end
@@ -39,11 +39,13 @@ include("header.jl")
     @testset "Dict" begin
         g = grad(getindex)
         d = Dict(1=>rand(), 2=>rand(), 3=> rand())
+        #@show d
         # @test gradcheck(getindex, d, 1) # TODO: gradcheck with dict broken
         @test collect(g(d,2)) == Any[(2=>1.0)]
     end
 
     @testset "size" begin
+        #@show size
         f0(x)=(p=size(x); p[1]*sum(abs2,x))
         @test grad(f0)(ones(3)) == fill(6, 3)
 
@@ -55,12 +57,14 @@ include("header.jl")
         @test grad(f2)(ones(3, 3)) == fill(6, 3, 3)
     end
 
+    #= why do we need this?
     @testset "1arg_type" begin
         @test ndims(Rec{Vector{Int}}) == ndims(Vector{Int})
         @test eltype(Rec{Vector{Int}}) == eltype(Vector{Int})
         @test one(Rec{Int}) === one(Int)
         @test zero(Rec{Int}) === zero(Int)
     end
+    =#
 end
 
 nothing

@@ -1,3 +1,22 @@
+2018-08-05  Deniz Yuret  <dyuret@ku.edu.tr>
+
+	* TODO:
+	- primitive tests
+	- linalg
+	- unit tests for each src file
+	- separate gradcheck and debug.jl
+	- separate math.jl?
+	- require specialfunctions?
+	- test knet
+	- scan code, finish todos and optimize
+	- try memoization
+	- speed test
+	- test highorder
+	- fix docs and comments and examples
+	- tracked array interface
+	- fix issues
+	- separate j6 and j7 releases
+
 2017-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* DONE:

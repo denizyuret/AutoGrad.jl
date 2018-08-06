@@ -1,7 +1,7 @@
-import Base: getindex, setindex!, sum, zeros, zero, ones, length, full
+import Base: getindex, setindex!, sum, zeros, zero, ones, length, full, get
 
-# Here we will define iteration (start,done,next) and indexing
-# (getindex,setindex!,endof) interfaces for generic Rec types.
+# Here we will define indexing (getindex,setindex!,firstindex,lastindex) 
+# interface for generic Rec types.
 
 # Julia handles access to AbstractArray, AbstractDict, and Tuple
 # subtypes using getindex:
@@ -11,7 +11,7 @@ import Base: getindex, setindex!, sum, zeros, zero, ones, length, full
 
 # We do not allow overwriting, so setindex! for Recs not allowed:
 
-setindex!(x::Rec,v,i...)=error("Overwriting operations currently not supported.")
+setindex!(x::Rec,v,I...)=error("Overwriting operations currently not supported.")
 
 # We handle the containers by overloading getindex:
 
@@ -22,11 +22,12 @@ getindex(::Type{T},o...) where {T<:Grad} = nothing # Only the first arg has grad
 # This object represents what you would get with
 # setindex!(similar(container), value, index...)
 # If there are repeated indices, the corresponding values should be summed.
+# e.g. index could be an Int array
 
 # TODO: we could have values/indices instead of value/index and use UngetIndex as a more efficient accumulator.
-# TODO: use full much more rarely and keep things as UngetIndex.
-# TODO: implement KnetArray version of addindex!
-# TODO: figure out julia4 problem with Array{CartesianIndex}
+# TODO: use full much more rarely and keep things as UngetIndex. -- note: full is deprecated.
+# TODO: implement KnetArray version of addindex! ???
+# TODO: figure out julia4 problem with Array{CartesianIndex} -- j4 no longer supported.
 
 struct UngetIndex; container; value; index; end
 
@@ -58,7 +59,7 @@ ungetindex(::Type{T},o...) where {T<:Grad} = nothing
 ungetindex(::Type{T},ddx::Rec,o...) where {T<:Grad} = nothing
 
 # gradcheck works with the first arg, we need to check ungetindex grad for its second arg
-ungetindex2(value, container, index)=ungetindex(container, value, index)
+# ungetindex2(value, container, index)=ungetindex(container, value, index)
 # addtest(:ungetindex2, rand(),  rand(2),   (2,))
 # addtest(:ungetindex2, rand(2), rand(3),   (2:3,))
 # addtest(:ungetindex2, rand(),  rand(2,2), (1,2))
@@ -82,7 +83,7 @@ function sum_outgrads(a::Tuple,b::UngetIndex)
     else
         cb = b.value
     end
-    tuple(sum_outgrads_array(ca, cb, b.index...)...)
+    tuple(sum_outgrads_array(ca, cb, to_indices(ca,b.index)...)...)
 end
 
 # Dict has no multiple/repeated index problem, so simple setindex should work.
@@ -93,46 +94,41 @@ end
 
 function sum_outgrads(a::AbstractArray,b::UngetIndex)
     # println((size(a),size(b.container),size(b.value),b.index))
-    sum_outgrads_array(a, b.value, b.index...)
+    sum_outgrads_array(a, b.value, to_indices(a,b.index)...)
 end
 
-# We need the following two functions to deal with repeated indices.
+# We need the following function to deal with repeated indices.
+# Based on base/multidimensional.jl:636 _unsafe_setindex!
+# Instead of last value overriding in case of repeated indices, we must sum.
 
-# Based on base/multidimensional.jl:420 _unsafe_batchsetindex!
-# using Base: index_lengths, setindex_shape_check, decolon # these are not portable!
-using Base.Cartesian
+using Base: _iterable, unalias, index_lengths, setindex_shape_check
+using Base.Cartesian            # for @nexprs etc.
+# To stop warning caused by _iterable:
+_iterable2(v, I...)=Iterators.repeated(v)
+_iterable2(X::AbstractArray, I...) = X
 
-@generated function sum_outgrads_array(A::AbstractArray, X, I::Union{Real,AbstractArray,Colon}...)
+@generated function sum_outgrads_array(A::AbstractArray, x, I::Union{Real,AbstractArray}...)
     N = length(I)
     quote
-        ### We need to handle bool arrays and colons here
-        @nexprs $N d->(I_d = I[d]; if isa(I_d,AbstractArray{Bool}); I_d=findall(I_d); elseif isa(I_d,Colon); I_d=1:size(A,d); end)
-        ### Using nothing for zero array fails this check
-        # idxlens = @ncall $N index_lengths A I
-        # @ncall $N setindex_shape_check X (d->idxlens[d])
-        ### julia4 does not have decolon
-        # J = @ncall $N decolon A I
-        # @nexprs $N d->(J_d = J[d])
-        Xs = start(X)
+        x′ = unalias(A, _iterable2(x, I...))
+        @nexprs $N d->(I_d = unalias(A, I[d]))
+        idxlens = @ncall $N index_lengths I
+        @ncall $N setindex_shape_check x′ (d->idxlens[d])
+        Xy = iterate(x′)
         @inbounds @nloops $N i d->I_d begin
-            v, Xs = next(X, Xs)
-            u = @ncall $N getindex A i
-            w = sum_outgrads(u,v)
-            @ncall $N setindex! A w i
+            # This is never reached, but serves as an assumption for
+            # the optimizer that it does not need to emit error paths
+            Xy === nothing && break
+            (val, state) = Xy
+
+            ai = @ncall $N getindex A i # <-- different from _unsafe_setindex!
+            val = sum_outgrads(ai, val) # <-- different from _unsafe_setindex!
+            
+            @ncall $N setindex! A val i
+            Xy = iterate(x′, state)
         end
         A
     end
-end
-
-function sum_outgrads_array(A::AbstractArray, X, I::AbstractArray)
-    Xs = start(X)
-    @inbounds for i in I
-        v, Xs = next(X, Xs)
-        u = getindex(A, i)
-        w = sum_outgrads(u,v)
-        setindex!(A,w,i)
-    end
-    A
 end
 
 # The following methods can assume there are no repeated indices:
@@ -188,3 +184,8 @@ zeroslike(a::T) where {T<:Number} = T(0)   # This comes up if people use getinde
 _dbg(x::UngetIndex)="U$(id2(x))_$(_dbg(x.container))_$(_dbg(x.value))_$((x.index...,))"
 show(io::IO, n::UngetIndex)= print(io, _dbg(n))
 
+# get (getindex with a default value)
+# This can be left as a composite function, it will get its gradient from getindex if necessary.
+get(A::Rec{T}, i::Integer, default) where {T<:AbstractArray} = (if checkbounds(Bool, length(A), i); A[i]; else; default; end)
+get(A::Rec{T}, I::Tuple{}, default) where {T<:AbstractArray} = similar(A, typeof(default), 0)
+get(A::Rec{T}, I::Dims, default) where {T<:AbstractArray}    = (if checkbounds(Bool, size(A), I...); A[I...]; else; default; end)

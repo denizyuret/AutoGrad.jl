@@ -1,5 +1,6 @@
 # __precompile__() # is now the default
 module AutoGrad
+using Requires, LinearAlgebra, Statistics
 
 # To see debug output of AutoGrad internals, set DBGFLAGS to
 # non-zero. Each bit of DBGFLAGS can be used to show a subset of dbg
@@ -25,11 +26,18 @@ datapath = joinpath(dirname(@__FILE__),"..","data")
 include("core.jl")
 include("broadcast.jl")
 include("macros.jl")
-include("primitives.jl")
+include("base.jl")
+include("statistics.jl")
 include("getindex.jl")
 include("iterate.jl")
+include("cat.jl")
 include("gradcheck.jl")
 include("debug.jl")
+
+function __init__()
+    @require SpecialFunctions="276daf66-3868-5448-9aa4-cd146d93841b" include("specialfunctions.jl")
+end
+
 
 # #include("base/reduce.jl")  # figure out sumabs
 # include("base/number.jl")

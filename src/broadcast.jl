@@ -26,7 +26,7 @@ broadcasted(f, x::Rec, y::Rec) = broadcast_r(f,x,y)
 
 Bring dx to x's size via unbroadcasting (reduction). This is needed
 when defining gradients of multi-argument broadcasting functions where
-the arguments are of different sizes.
+the arguments and the result may be of different sizes.
 
 """
 function unbroadcast(x, dx)
@@ -34,6 +34,8 @@ function unbroadcast(x, dx)
         return dx
     elseif isa(getval(x),Number)
         return sum(dx)
+    elseif isa(getval(dx),Number)
+        return fill!(similar(getval(x)),dx)
     else
         d = []
         for i=1:ndims(dx)
