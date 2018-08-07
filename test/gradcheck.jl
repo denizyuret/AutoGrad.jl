@@ -1,3 +1,5 @@
+using AutoGrad
+
 # TODO: merge gradcheck and check_grads.
 # gradcheck iterates over the elements of the first arg.
 # check_grads constructs numerical gradient of all args then compares.
@@ -336,5 +338,7 @@ sumvalues(x::AbstractDict)=sum(values(x))
 @primitive sumvalues(x::AbstractDict),ds fillvalues(ds,x)
 fillvalues(v,x)=(y=empty(x);for k in keys(x); y[k]=v; end; y)
 @primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
-addtest(:sumvalues, Dict(1=>1.,2=>2.))
-addtest(:fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
+# addtest(:sumvalues, Dict(1=>1.,2=>2.))
+# addtest(:fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
+
+nothing

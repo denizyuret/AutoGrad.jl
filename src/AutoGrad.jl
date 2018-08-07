@@ -27,18 +27,20 @@ include("core.jl")
 include("broadcast.jl")
 include("macros.jl")
 include("base.jl")
+include("math.jl")
 include("statistics.jl")
+include("linearalgebra.jl")
 include("getindex.jl")
 include("iterate.jl")
 include("cat.jl")
-include("gradcheck.jl")
-include("debug.jl")
 
 function __init__()
     @require SpecialFunctions="276daf66-3868-5448-9aa4-cd146d93841b" include("specialfunctions.jl")
 end
 
 
+#include("gradcheck.jl")
+#include("debug.jl")
 # #include("base/reduce.jl")  # figure out sumabs
 # include("base/number.jl")
 # include("base/float.jl")
