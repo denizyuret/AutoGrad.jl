@@ -1,4 +1,4 @@
-include("header.jl")
+include("gradcheck.jl")
 
 @testset "rosenbrock" begin
     # info("Test rosenbrock with map...")

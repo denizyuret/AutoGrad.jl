@@ -1,4 +1,4 @@
-include("header.jl")
+include("gradcheck.jl")
 
 @testset "primitives" begin
     for t in AutoGrad.alltests()

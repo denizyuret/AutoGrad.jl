@@ -1,6 +1,5 @@
-using Test, AutoGrad
-
 include("gradcheck.jl")
+
 mathcheck(f,t=identity)=(g(x)=f.(x); gradcheck(f,t(randn())) && gradcheck(g,t.(randn(2))))
 
 @testset "math" begin

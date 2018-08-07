@@ -1,4 +1,4 @@
-using AutoGrad
+using AutoGrad, Test
 
 # TODO: merge gradcheck and check_grads.
 # gradcheck iterates over the elements of the first arg.
