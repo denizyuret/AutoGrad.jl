@@ -1,4 +1,4 @@
-import Base: getindex, setindex!, sum, zeros, zero, ones, length, full, get
+import Base: getindex, setindex!, sum, zeros, zero, ones, length, get
 
 # Here we will define indexing (getindex,setindex!,firstindex,lastindex) 
 # interface for generic Rec types.
@@ -98,22 +98,19 @@ function sum_outgrads(a::AbstractArray,b::UngetIndex)
 end
 
 # We need the following function to deal with repeated indices.
-# Based on base/multidimensional.jl:636 _unsafe_setindex!
+# Based on base/multidimensional.jl:634 _unsafe_setindex!
 # Instead of last value overriding in case of repeated indices, we must sum.
 
-using Base: _iterable, unalias, index_lengths, setindex_shape_check
-using Base.Cartesian            # for @nexprs etc.
-# To stop warning caused by _iterable:
-_iterable2(v, I...)=Iterators.repeated(v)
-_iterable2(X::AbstractArray, I...) = X
+using Base: unalias, index_lengths, setindex_shape_check
+using Base.Cartesian # for @nexprs etc.
 
 @generated function sum_outgrads_array(A::AbstractArray, x, I::Union{Real,AbstractArray}...)
     N = length(I)
     quote
-        x′ = unalias(A, _iterable2(x, I...))
+        x′ = unalias(A, x)
         @nexprs $N d->(I_d = unalias(A, I[d]))
         idxlens = @ncall $N index_lengths I
-        @ncall $N setindex_shape_check x′ (d->idxlens[d])
+        # @ncall $N setindex_shape_check x′ (d->idxlens[d]) # <-- different from _unsafe_setindex!
         Xy = iterate(x′)
         @inbounds @nloops $N i d->I_d begin
             # This is never reached, but serves as an assumption for
@@ -123,7 +120,7 @@ _iterable2(X::AbstractArray, I...) = X
 
             ai = @ncall $N getindex A i # <-- different from _unsafe_setindex!
             val = sum_outgrads(ai, val) # <-- different from _unsafe_setindex!
-            
+
             @ncall $N setindex! A val i
             Xy = iterate(x′, state)
         end

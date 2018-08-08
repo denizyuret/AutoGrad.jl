@@ -1,11 +1,11 @@
-import LinearAlgebra: *, adjoint, chol, det, diag, diagm, dot, inv, logabsdet, logdet, lq, norm, qr, svd, tr, transpose, tril, triu
+import LinearAlgebra: *, adjoint, det, diag, diagm, dot, inv, logabsdet, logdet, lq, norm, qr, svd, tr, transpose, tril, triu
 
 # julia/stdlib/v0.7/LinearAlgebra/src/LinearAlgebra.jl Functions:
 # axpy!
 # axpby!
 # bunchkaufman
 # bunchkaufman!
-@primitive chol(x),dy,y   chol_back(y, dy)
+# @primitive chol(x),dy,y   chol_back(y, dy) # `chol(A::AbstractMatrix)` is deprecated, use `(cholesky(A)).U` instead.
 # cholesky
 # cholesky!
 # cond
