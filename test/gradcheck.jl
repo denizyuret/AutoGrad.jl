@@ -333,6 +333,7 @@ end
 
 # sumvalues sums values of dictionaries, otherwise acts like sum:
 
+import .Broadcast: broadcasted, broadcast # TODO: this should not be required for using @primitive
 sumvalues(x)=sum(x)
 sumvalues(x::AbstractDict)=sum(values(x))
 @primitive sumvalues(x::AbstractDict),ds fillvalues(ds,x)
@@ -340,5 +341,15 @@ fillvalues(v,x)=(y=empty(x);for k in keys(x); y[k]=v; end; y)
 @primitive fillvalues(v,x),dxv sumvalues(dxv) nothing
 # addtest(:sumvalues, Dict(1=>1.,2=>2.))
 # addtest(:fillvalues, 0., Dict(1=>1.,2=>2.,3=>3.))
+
+"Test a numeric function with randn scalars and randn arrays, possibly transforming the input to match the domain"
+function randcheck(f,t1=identity,ts...; xargs=())
+    f1(xs)=f(xs..., xargs...)
+    f2(xs)=f.(xs..., xargs...)
+    ts = [t1,ts...]
+    x1 = map(t->t(randn()), ts)
+    x2 = map(t->t.(randn(2)), ts)
+    gradcheck(f1, x1) && gradcheck(f2, x2)
+end
 
 nothing

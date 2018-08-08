@@ -22,6 +22,7 @@
 	- require specialfunctions?
 	- test knet
 	- scan code, finish todos and optimize
+	- go from f(Grad{n}) to grad(f,n,...)?
 	- try memoization
 	- speed test
 	- test highorder
@@ -29,6 +30,7 @@
 	- tracked array interface
 	- fix issues
 	- separate j6 and j7 releases
+	- @primitive and @zerograd need broadcast and broadcasted to be	imported, use own names? import in macro?
 
 2017-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
 

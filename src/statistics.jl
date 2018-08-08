@@ -1,37 +1,30 @@
-import Statistics: var, std
+# Completed: 6/13
+
+import Statistics: mean, var, std
 
 # TODO:
 # cor
 # cov
-# mean
-# mean!
+# mean done
+# mean! overwrites.
 # median
-# median!
+# median! overwrites.
 # middle
 # quantile
-# quantile!
-# std
+# quantile! overwrites.
+# std done.
 # stdm
-# var
+# var done.
 # varm
 
-function var(x::Rec, dims; mean=Base.mean(x, dims), corrected=true)
-    s = sum(abs2, x .- mean, dims)
+@primitive mean(x;d...),dy  (dy.*one.(x).*(length(dy)/length(x)))
+@primitive mean(f::typeof(abs),x;d...),dy   nothing  (dy.*sign.(x).*(length(dy)/length(x)))
+@primitive mean(f::typeof(abs2),x;d...),dy  nothing  (dy.*(2x).*(length(dy)/length(x)))
+
+function var(x::Rec; dims=:, mean=mean(x, dims=dims), corrected=true)
+    s = sum(abs2, x .- mean, dims=dims)
     a = length(x) ÷ length(s) 
     corrected ? s ./ (a-1) : s ./ a  
 end
 
-function var(x::Rec; mean=Base.mean(x), corrected=true)
-    s = sum(abs2, x .- mean)
-    a = length(x) ÷ length(s) 
-    corrected ? s / (a-1) : s / a  
-end
-
-# addtest(:var, rand(2,3))
-# addtest(:var, rand(2,3), 1)
-# addtest(:var, rand(2,3), (1,2))
-
 std(x::Rec, args...; kws...) = sqrt.(var(x, args...; kws...))
-# addtest(:std, rand(2,3))
-# addtest(:std, rand(2,3), 1)
-# addtest(:std, rand(2,3), (1,2))

@@ -59,7 +59,6 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2x1.*dy; el
 # ∘   Function composition
 
 ### scalar math (some of this is in math.jl)
-# @evalpoly(z,c...): Evaluate the polynomial \sum_k c[k] z^{k-1}.
 @primitive abs(x),dy (dy.*sign.(x))
 @primitive abs2(x),dy (dy.*(2x))
 # angle(z): Compute the phase angle in radians of a complex number z.
@@ -188,11 +187,9 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2x1.*dy; el
 # issorted,
 # last,
 # mapslices,
-@primitive max(x1,x2),dy,y  unbroadcast(x1,dy.*(y.==x1))  unbroadcast(x2,dy.*(y.==x2))
 # maximum!,
 @primitive maximum(x;d...),dy,y  (dy.*(y.==x))
 @primitive maximum(f::typeof(abs),x;d...),dy,y  nothing  (dy.*(y.==abs.(x)).*sign.(x))
-@primitive min(x1,x2),dy,y  unbroadcast(x1,dy.*(y.==x1))  unbroadcast(x2,dy.*(y.==x2))
 # minimum!,
 @primitive minimum(x;d...),dy,y  (dy.*(y.==x))
 @primitive minimum(f::typeof(abs),x;d...),dy,y  nothing  (dy.*(y.==abs.(x)).*sign.(x))
