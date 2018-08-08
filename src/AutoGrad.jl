@@ -1,6 +1,6 @@
 # __precompile__() # is now the default
 module AutoGrad
-using Requires, LinearAlgebra, Statistics
+using LinearAlgebra, Statistics, SpecialFunctions
 
 # To see debug output of AutoGrad internals, set DBGFLAGS to
 # non-zero. Each bit of DBGFLAGS can be used to show a subset of dbg
@@ -18,9 +18,8 @@ else
     macro prof(label,ex); esc(ex); end
 end
 
-#TODO importall Base  # defining getindex, sin, etc.
-export grad, gradloss, check_grads, gradcheck, gradcheckN, getval
-export @primitive, @zerograd, @primitive2, @zerograd2, recorder, Rec, Grad  # the last three are required for the macros to work
+export grad, gradloss, getval
+export @primitive, @zerograd, @primitive1, @zerograd1, recorder, Rec, Grad  # the last three are required for the macros to work
 datapath = joinpath(dirname(@__FILE__),"..","data")
 
 include("core.jl")
@@ -30,35 +29,9 @@ include("base.jl")
 include("math.jl")
 include("statistics.jl")
 include("linearalgebra.jl")
+include("specialfunctions.jl")
 include("getindex.jl")
 include("iterate.jl")
 include("cat.jl")
-
-function __init__()
-    @require SpecialFunctions="276daf66-3868-5448-9aa4-cd146d93841b" include("specialfunctions.jl")
-end
-
-
-#include("gradcheck.jl")
-#include("debug.jl")
-# #include("base/reduce.jl")  # figure out sumabs
-# include("base/number.jl")
-# include("base/float.jl")
-# # include("base/broadcast.jl")  # remove duplicates
-# include("base/math.jl")
-# include("base/abstractarray.jl")
-# include("base/abstractarraymath.jl")
-# include("base/arraymath.jl")
-# # include("base/statistics.jl") # deprecated var, std, import Statistics
-# include("linalg/matmul.jl")  # dot moved to LinearAlgebra
-# include("linalg/dense.jl")
-# include("linalg/generic.jl")
-# include("special/trig.jl")
-# if Pkg.installed("SpecialFunctions") != nothing
-#     eval(Expr(:using,:SpecialFunctions))
-#     include("special/bessel.jl")
-#     include("special/erf.jl")
-#     include("special/gamma.jl")
-# end
 
 end # module
