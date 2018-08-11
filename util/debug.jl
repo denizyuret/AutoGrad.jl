@@ -33,3 +33,6 @@ function dumptape(t::Tape)
     end
 end
 
+_dbg(x::UngetIndex)="U$(id2(x))_$(_dbg(x.container))_$(_dbg(x.value))_$((x.index...,))"
+show(io::IO, n::UngetIndex)= print(io, _dbg(n))
+

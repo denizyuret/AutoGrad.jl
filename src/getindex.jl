@@ -178,9 +178,6 @@ zeroslike(a::Tuple)=ntuple(i->nothing, length(a))
 zeroslike(o::UngetIndex)=zeros(o) # TODO: can this be nothing or empty UngetIndex?
 zeroslike(a::T) where {T<:Number} = T(0)   # This comes up if people use getindex on a single number
 
-_dbg(x::UngetIndex)="U$(id2(x))_$(_dbg(x.container))_$(_dbg(x.value))_$((x.index...,))"
-show(io::IO, n::UngetIndex)= print(io, _dbg(n))
-
 # get (getindex with a default value)
 # This can be left as a composite function, it will get its gradient from getindex if necessary.
 get(A::Rec{T}, i::Integer, default) where {T<:AbstractArray} = (if checkbounds(Bool, length(A), i); A[i]; else; default; end)
