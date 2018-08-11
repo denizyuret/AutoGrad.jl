@@ -1,16 +1,3 @@
-2018-08-06  Deniz Yuret  <dyuret@ku.edu.tr>
-
-	* 
-┌ Warning: broadcast will default to iterating over its arguments in the future. Wrap arguments of
-│ type `x::Rec{Float64}` with `Ref(x)` to ensure they broadcast as "scalar" elements.
-│   caller = ip:0x0
-└ @ Core :-1
-┌ Warning: broadcast will default to iterating over its arguments in the future. Wrap arguments of
-│ type `x::Rec{Array{Float64,1}}` with `Ref(x)` to ensure they broadcast as "scalar" elements.
-│   caller = backward_pass(::Rec{Array{Float64,1}}, ::Rec{Float64}, ::Array{AutoGrad.Node,1}) at core.jl:239
-└ @ AutoGrad ~/.julia/dev/AutoGrad/src/core.jl:239
-
-
 2018-08-05  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
@@ -31,6 +18,7 @@
 	- fix issues
 	- separate j6 and j7 releases
 	- @primitive and @zerograd need broadcast and broadcasted to be	imported, use own names? import in macro?
+	- separate KnetArray, move all to KnetML.
 
 2017-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
 

@@ -20,7 +20,7 @@ end
 
 export grad, gradloss, getval
 export @primitive, @zerograd, @primitive1, @zerograd1, recorder, Rec, Grad  # the last three are required for the macros to work
-datapath = joinpath(dirname(@__FILE__),"..","data")
+dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
 
 include("core.jl")
 include("broadcast.jl")

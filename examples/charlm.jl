@@ -166,7 +166,7 @@ end
 
 function loaddata(datasrc, batch_size, char_limit=0)
     if datasrc == nothing
-        datasrc = joinpath(AutoGrad.datapath, "pg100.txt")
+        datasrc = AutoGrad.dir("data","pg100.txt")
     end
     if !isfile(datasrc)
         url = "http://www.gutenberg.org/cache/epub/100/pg100.txt"

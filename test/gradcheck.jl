@@ -150,7 +150,7 @@ function gc_scalar(f)
                 return sum(y)  # TODO: revert this back to y.*a once julia6 compat issues resolved?
             end
         catch e
-            Base.warn_once("Cannot convert `$f` to a scalar function: $e")
+            @warn "Cannot convert `$f` to a scalar function: $e" maxlog=1
             return 0
         end
     end

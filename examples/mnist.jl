@@ -87,7 +87,7 @@ function loaddata()
     info("Loading done...")
 end
 
-function gzload(file; path=joinpath(AutoGrad.datapath,file), url="http://yann.lecun.com/exdb/mnist/$file")
+function gzload(file; path=AutoGrad.dir("data",file), url="http://yann.lecun.com/exdb/mnist/$file")
     isfile(path) || download(url, path)
     f = gzopen(path)
     a = @compat read(f)
