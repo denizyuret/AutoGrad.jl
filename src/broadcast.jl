@@ -5,13 +5,19 @@
 # - keep a dictionary of zerograd functions.
 # - need some way to define gradients, and some way to define zero gradients
 
-import .Broadcast: broadcasted
-broadcast_r = recorder(broadcast)
+import Base.Broadcast: broadcasted
+broadcast_r = recorder(broadcasted)
 broadcasted(f, x::Rec) = broadcast_r(f,x)
 broadcasted(f, x::Rec, y...) = broadcast_r(f,x,y...) # useful for clamp
 broadcasted(f, x::Rec, y) = broadcast_r(f,x,y)
 broadcasted(f, x, y::Rec) = broadcast_r(f,x,y)
 broadcasted(f, x::Rec, y::Rec) = broadcast_r(f,x,y)
+
+# This fixes sum(x.*x,dims=1) giving MethodError: no method matching sum(::Base.Broadcast.Broadcasted; dims=1)
+import Base.Broadcast: materialize
+materialize_r = recorder(materialize)
+materialize(x::Rec) = materialize_r(x)
+materialize(::Type{Grad{1}},dy,y,x::Rec) = dy
 
 # The way broadcasting works in Julia:
 # y = f(x...) where f is a broadcasting operation.
@@ -48,3 +54,7 @@ function unbroadcast(x, dx)
     end
 end
 
+# This fixes unbroadcasted when x isa Broadcasted
+using Base.Broadcast: Broadcasted
+import Base: size
+size(x::Broadcasted,i...)=length.(axes(x,i...))

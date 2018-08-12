@@ -1,5 +1,6 @@
 # Use `perl ../deps/imports.pl base.jl` to generate the next line
-import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, all, any, big, broadcast, ceil, checkbounds, copy, count, div, eachindex, eltype, eps, float, floor, isassigned, isempty, isequal, isfinite, isinf, isinteger, isless, isnan, lastindex, length, max, maximum, min, minimum, ndims, one, ones, permutedims, prod, rem, reshape, round, sign, signbit, similar, size, stride, strides, sum, trunc, typemax, typemin, unsafe_trunc, vec, widemul, zero, zeros
+import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, all, any, axes, big, ceil, checkbounds, copy, count, div, eachindex, eltype, eps, float, floor, isassigned, isempty, isequal, isfinite, isinf, isinteger, isless, isnan, lastindex, length, max, maximum, min, minimum, ndims, one, ones, permutedims, prod, rem, reshape, round, sign, signbit, similar, size, stride, strides, sum, trunc, typemax, typemin, unsafe_trunc, vec, widemul, zero, zeros
+import Base.Broadcast: broadcasted
 
 # The following list copied from relevant portions of julia/base/exports.jl
 
@@ -16,7 +17,7 @@ import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, all, any, b
 # ÷   Same as div
 # &   Int function
 @primitive *(x),dy  dy
-@primitive1 broadcast(f::typeof(*),x1,x2),dy  nothing  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+@primitive1 broadcasted(f::typeof(*),x1,x2),dy  nothing  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
 @primitive1 *(x1::Number,x2::Number),dy                unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
 @primitive1 *(x1::Number,x2),dy                        unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
 @primitive1 *(x1,x2::Number),dy                        unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
@@ -25,7 +26,7 @@ import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, all, any, b
 @primitive +(x1,x2),dy  unbroadcast(x1,dy)  unbroadcast(x2,dy)
 @primitive -(x),dy  -dy
 @primitive -(x1,x2),dy  unbroadcast(x1,dy)  unbroadcast(x2,-dy)
-@primitive1 broadcast(f::typeof(/),x1,x2),dy  nothing  unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+@primitive1 broadcasted(f::typeof(/),x1,x2),dy  nothing  unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
 @primitive1 /(x1::Number,x2::Number),dy                unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
 @primitive1 /(x1::Number,x2),dy                        unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
 @primitive1 /(x1,x2::Number),dy                        unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
@@ -43,7 +44,7 @@ import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, all, any, b
 # ≥   Same as >=
 # >>  Int function
 # >>> Int function
-@primitive1 broadcast(f::typeof(\),x1,x2),dy  nothing  unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
+@primitive1 broadcasted(f::typeof(\),x1,x2),dy  nothing  unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
 @primitive1 \(x1::Number,x2::Number),dy                unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
 @primitive1 \(x1::Number,x2),dy                        unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
 @primitive1 \(x1,x2::Number),dy                        unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
@@ -150,7 +151,7 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2x1.*dy; el
 # ≉  This is equivalent to !isapprox(x,y) (see isapprox).
 
 ### arrays
-# axes,
+@zerograd axes(x,i...)
 # broadcast!,
 # broadcast  Handled in broadcast.jl
 # cat  Handled in cat.jl

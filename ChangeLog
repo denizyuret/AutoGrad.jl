@@ -1,6 +1,7 @@
 2018-08-05  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:
+	- Overriding broadcasted vs broadcast?  Measure memory and speed. Figure out Knet functions vs AutoGrad functions. What methods are defined?
 	- primitive tests
 	- linalg
 	- unit tests for each src file
@@ -19,6 +20,7 @@
 	- separate j6 and j7 releases
 	- @primitive and @zerograd need broadcast and broadcasted to be	imported, use own names? import in macro?
 	- separate KnetArray, move all to KnetML.
+	- optimize sum_outgrads.
 
 2017-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
 

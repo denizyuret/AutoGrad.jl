@@ -1,5 +1,3 @@
-import .Broadcast: broadcasted, broadcast
-
 ### @primitive and @zerograd macros:
 
 # I would like to make these type signatures as specific as possible.
@@ -93,7 +91,7 @@ macro primitive(f,g...)
     (f,dy,y) = fparse(f)
     b = Expr(:block)
     fn = fname(f)
-    push!(b.args, :(global $fn, broadcast)) # e.g. global sin
+    push!(b.args, :(global $fn)) # e.g. global sin
     r = gensym()
     rx = rcall(r,f)             # e.g. sin_r(x)
     dx = gensym()
@@ -103,7 +101,7 @@ macro primitive(f,g...)
             gx = gsig(fx,dy,y,i)
             push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
             bx = bsig(fx,dy,y,i)
-            push!(b.args, :($bx = $(g[i]))) # e.g. broadcast(::Type{Grad{2}},dy,y,::typeof(sin),x::Rec) = (dy.*cos.(x))
+            push!(b.args, :($bx = $(g[i]))) # e.g. broadcasted(::Type{Grad{2}},dy,y,::typeof(sin),x::Rec) = (dy.*cos.(x))
         end
     end
     return esc(Expr(:let,:($r=recorder($fn)),b))
@@ -226,7 +224,7 @@ function bzcall(fx,zx)
     bfx = copy(fx)
     g = bfx.args[1]
     fname = g.args[1]
-    g.args[1] = :broadcasted
+    g.args[1] = :(Base.Broadcast.broadcasted)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::typeof($fname)))
     bzx = copy(zx)
@@ -342,12 +340,12 @@ end
 
 # This is for the broadcast version
 # Input: (where (call f (:: x (curly Rec T))) (<: T Int))
-# Output: (where (call broadcast :(::Type{Grad{2}}) dy y :(::typeof(f)) :(x::Rec{T})) (<: T Int))
+# Output: (where (call broadcasted :(::Type{Grad{2}}) dy y :(::typeof(f)) :(x::Rec{T})) (<: T Int))
 function bsig(f,dy,y,i)
     fcopy = copy(f)
     g = fcopy.args[1]
     fname = g.args[1]
-    g.args[1] = :broadcast
+    g.args[1] = :(Base.Broadcast.broadcasted)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::Type{Grad{$(i+1)}}))
     insert!(g.args, a+1, dy)

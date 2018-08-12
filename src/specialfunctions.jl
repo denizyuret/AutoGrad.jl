@@ -27,12 +27,12 @@ import SpecialFunctions: airy, airyai, airyaiprime, airyaiprimex, airyaix, airyb
 # besselyx
 # beta
 # cosint
-@primitive dawson(x),dy,y (dy.*((-2y) .* x .+ 1))
+@primitive dawson(x),dy,y (dy.*((-2 .* y) .* x .+ 1))
 @primitive digamma(x),dy,y (dy.*(trigamma.(x)))
 @primitive erf(x),dy,y (dy.*(exp.(-(abs2.(x))) .* convert(eltype(x), 2 / √π)))
 @primitive erfc(x),dy,y (dy.*(-(exp.(-(abs2.(x)))) .* convert(eltype(x), 2 / √π)))
 @primitive erfcinv(x),dy,y (dy.*(-(exp.(abs2.(y))) .* convert(eltype(x), √π / 2)))
-@primitive erfcx(x),dy,y (dy.*((2y) .* x .- convert(eltype(x), 2 / √π)))
+@primitive erfcx(x),dy,y (dy.*((2 .* y) .* x .- convert(eltype(x), 2 / √π)))
 @primitive erfi(x),dy,y (dy.*(exp.(abs2.(x)) .* convert(eltype(x), 2 / √π)))
 @primitive erfinv(x),dy,y (dy.*(exp.(abs2.(y)) .* convert(eltype(x), √π / 2)))
 # eta
