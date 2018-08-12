@@ -50,7 +50,7 @@ import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, all, any, b
 # @primitive1 \(x1,x2),dy # TODO for array arguments without broadcast
 @primitive ^(x1,x2),dy,y  unbroadcast(x1,dxndx(x1,x2,dy))  unbroadcast(x2,dy.*y.*log.(x1))
 @primitive ^(x1,x2::Integer),dy,y  unbroadcast(x1,dxndx(x1,x2,dy))  unbroadcast(x2,dy.*y.*log.(x1)) # ambiguity fix
-dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2x1.*dy; else; dy.*x2.*x1.^(x2-1); end) # optimize common cases
+dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2x1.*dy; else; dy.*x2.*x1.^(x2 .- 1); end) # optimize common cases
 # |   Int function
 # |>  Function chaining
 # ~   Int function

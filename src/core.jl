@@ -470,7 +470,7 @@ struct Grad{N}; end
 sum_outgrads(a::Number, b::Number)=a+b
 sum_outgrads(a::Tuple, b::Tuple)=tuple([sum_outgrads(x,y) for (x,y) in zip(a,b)]...)
 sum_outgrads(a::AbstractDict, b::AbstractDict) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=sum_outgrads(v,get(z,k,nothing)); end; z)
-sum_outgrads(a::AbstractArray{T},b::AbstractArray{T}) where T = (if isbits(T); (a+b); else; T[sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
+sum_outgrads(a::AbstractArray{T},b::AbstractArray{T}) where T = (if isbitstype(T); (a+b); else; T[sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
 # sum_outgrads needs to be a primitive for higher order gradients:
 let sum_outgrads_r = recorder(sum_outgrads); global sum_outgrads
     sum_outgrads(a::Rec,b::Rec)=sum_outgrads_r(a,b)
