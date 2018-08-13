@@ -1,4 +1,4 @@
-include("gradcheck.jl")
+include("header.jl")
 @testset "highorder" begin
     # info("Test higher order gradients...")
     g1 = grad(sin); @test g1(1)==cos(1)

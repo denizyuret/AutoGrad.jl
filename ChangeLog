@@ -20,7 +20,12 @@
 	- separate j6 and j7 releases
 	- @primitive and @zerograd need broadcast and broadcasted to be	imported, use own names? import in macro?
 	- separate KnetArray, move all to KnetML.
-	- optimize sum_outgrads.
+	- optimize sum_outgrads, reduce memory use.
+
+	* Proposal: reduce compilation, do not construct functions at runtime.
+	- record(f,x...) instead of recorder(f)(x...)
+	- back(f,x...) instead of f(Grad,x...), need argnum
+	- grad(f,x...) instead of grad(f)(x...), need argnum
 
 2017-03-12  Deniz Yuret  <dyuret@ku.edu.tr>
 

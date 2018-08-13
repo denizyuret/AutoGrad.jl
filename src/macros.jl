@@ -101,7 +101,7 @@ macro primitive(f,g...)
             gx = gsig(fx,dy,y,i)
             push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
             bx = bsig(fx,dy,y,i)
-            push!(b.args, :($bx = $(g[i]))) # e.g. broadcasted(::Type{Grad{2}},dy,y,::typeof(sin),x::Rec) = (dy.*cos.(x))
+            push!(b.args, :($bx = $(g[i]))) # e.g. broadcast(::Type{Grad{2}},dy,y,::typeof(sin),x::Rec) = (dy.*cos.(x))
         end
     end
     return esc(Expr(:let,:($r=recorder($fn)),b))
@@ -157,7 +157,7 @@ macro zerograd(f)
         zx = zcall(fx)          # e.g. sign(x.value)
         push!(b.args, esc(:($fx = $zx)))
         (bfx,bzx) = bzcall(fx,zx)
-        push!(b.args, esc(:($bfx = $bzx))) # e.g. broadcasted(::typeof(sign), x::Rec{T}) where T <: Any) = broadcasted(sign, x.value)
+        push!(b.args, esc(:($bfx = $bzx))) # e.g. broadcast(::typeof(sign), x::Rec{T}) where T <: Any) = broadcast(sign, x.value)
     end
     return b
 end
@@ -340,12 +340,12 @@ end
 
 # This is for the broadcast version
 # Input: (where (call f (:: x (curly Rec T))) (<: T Int))
-# Output: (where (call broadcasted :(::Type{Grad{2}}) dy y :(::typeof(f)) :(x::Rec{T})) (<: T Int))
+# Output: (where (call broadcast :(::Type{Grad{2}}) dy y :(::typeof(f)) :(x::Rec{T})) (<: T Int))
 function bsig(f,dy,y,i)
     fcopy = copy(f)
     g = fcopy.args[1]
     fname = g.args[1]
-    g.args[1] = :(Base.Broadcast.broadcasted)
+    g.args[1] = :(Base.Broadcast.broadcast)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::Type{Grad{$(i+1)}}))
     insert!(g.args, a+1, dy)

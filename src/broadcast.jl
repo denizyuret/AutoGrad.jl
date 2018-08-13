@@ -1,3 +1,33 @@
+#### The way broadcasting works in Julia (from base/broadcast.jl):
+# 
+### Dot notation is lazy, explicit broadcast is not:
+# (a .+ b .* c) => materialize(broadcasted(+, a, broadcasted(*, b, c)))
+# sin.(cos.(x)) => materialize(broadcasted(sin, broadcasted(cos, x)))
+# broadcast(sin, broadcast(cos, x)) => materialize(broadcasted(sin, materialize(broadcasted(cos, x))))
+# 
+### broadcasted creates a Broadcasted structure unless overriden:
+# broadcasted(f,x...) => (xx = broadcastable.(x); broadcasted(combine_styles(xx...),f,xx...))
+# broadcasted(::{S<:BroadcastStyle}, f, args...) = Broadcasted{S}(f, args)
+#
+### Broadcasted is a 4 parameters struct with 3 members:
+# Broadcasted{Style}(f::F, args::Args, axes::Axes=nothing) =
+# Broadcasted{Style, Axes, F, Args}(f, args, axes)
+#
+### materialize calculates the actual result using copy:
+# materialize(bc::Broadcasted) = copy(instantiate(bc))
+# materialize(x) = x
+#
+### instantiate: adds or checks the Axes component:
+# instantiate(bc::Broadcasted{S}) = Broadcasted{S}(bc.f, bc.args, combine_axes(bc.args...))
+# instantiate(x) = x
+# 
+### copy: allocates result container and fills it using copyto!
+# copy(bc::Broadcasted) = copyto!(similar(bc, etype), bc)
+# similar(bc::Broadcasted, ::Type{T}) = similar(Array{T}, axes(bc))
+#
+### copyto!: is responsible for calculating the final result
+
+
 # This should stop broadcast from fusing Recs:
 
 # Alternatives:
@@ -6,7 +36,7 @@
 # - need some way to define gradients, and some way to define zero gradients
 
 import Base.Broadcast: broadcasted
-broadcast_r = recorder(broadcasted)
+broadcast_r = recorder(broadcast)
 broadcasted(f, x::Rec) = broadcast_r(f,x)
 broadcasted(f, x::Rec, y...) = broadcast_r(f,x,y...) # useful for clamp
 broadcasted(f, x::Rec, y) = broadcast_r(f,x,y)

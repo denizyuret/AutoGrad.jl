@@ -1,4 +1,4 @@
-include("gradcheck.jl")
+include("header.jl")
 
 # info("Test neural net...")
 n0(w,x,y)=sum(abs2,((w[3]*max.(0,w[1]*x.+w[2]).+w[4])-y))
