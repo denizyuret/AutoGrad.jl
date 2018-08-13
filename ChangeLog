@@ -21,6 +21,7 @@
 	- @primitive and @zerograd need broadcast and broadcasted to be	imported, use own names? import in macro?
 	- separate KnetArray, move all to KnetML.
 	- optimize sum_outgrads, reduce memory use.
+	- ::Rec .^ ::Int does not work!
 
 	* Proposal: reduce compilation, do not construct functions at runtime.
 	- record(f,x...) instead of recorder(f)(x...)
