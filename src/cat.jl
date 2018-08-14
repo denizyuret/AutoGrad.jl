@@ -90,7 +90,7 @@ function uncat1(x2,y1,n,dims,x...)
             push!(idx,1:size(y1,d))
         end
     end
-    y2 = zeros(y1)
+    y2 = zero(y1)
     y2[idx...] = x2
     return y2
 end

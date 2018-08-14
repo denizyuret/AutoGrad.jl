@@ -33,6 +33,6 @@ include("specialfunctions.jl")
 include("getindex.jl")
 include("iterate.jl")
 include("cat.jl")
-include("../test/gradcheck.jl"); export gradcheck, randcheck, check_grads, gradcheckN # TODO: remove this before release
+# include("../test/gradcheck.jl"); export gradcheck, randcheck, check_grads, gradcheckN # TODO: remove this before release
 
 end # module

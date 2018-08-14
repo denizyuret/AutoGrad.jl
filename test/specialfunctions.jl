@@ -25,8 +25,8 @@ using SpecialFunctions
     # besselk
     # besselkx
     # bessely
-    @test randcheck(bessely0,abs) # @primitive bessely0(x),dy (dy.*(-(bessely1.(x))))
-    @test randcheck(bessely1,abs) # @primitive bessely1(x),dy (dy.*((bessely0.(x) - bessely.(2,x)) / 2))
+    @test randcheck(bessely0,val_gt_0) # @primitive bessely0(x),dy (dy.*(-(bessely1.(x))))
+    @test randcheck(bessely1,val_gt_0) # @primitive bessely1(x),dy (dy.*((bessely0.(x) - bessely.(2,x)) / 2))
     # besselyx
     # beta
     # cosint
@@ -34,10 +34,10 @@ using SpecialFunctions
     @test randcheck(digamma) # @primitive digamma(x),dy,y (dy.*(trigamma.(x)))
     @test randcheck(erf) # @primitive erf(x),dy,y (dy.*(exp.(-(abs2.(x))) * convert(eltype(x), 2 / √π)))
     @test randcheck(erfc) # @primitive erfc(x),dy,y (dy.*(-(exp.(-(abs2.(x)))) * convert(eltype(x), 2 / √π)))
-    @test randcheck(erfcinv,erfc) # @primitive erfcinv(x),dy,y (dy.*(-(exp.(abs2.(y))) * convert(eltype(x), √π / 2)))
+    @test randcheck(erfcinv,val_lt_2) # @primitive erfcinv(x),dy,y (dy.*(-(exp.(abs2.(y))) * convert(eltype(x), √π / 2)))
     @test randcheck(erfcx) # @primitive erfcx(x),dy,y (dy.*((2y) .* x - convert(eltype(x), 2 / √π)))
     @test randcheck(erfi) # @primitive erfi(x),dy,y (dy.*(exp.(abs2.(x)) * convert(eltype(x), 2 / √π)))
-    @test randcheck(erfinv,erf) # @primitive erfinv(x),dy,y (dy.*(exp.(abs2.(y)) * convert(eltype(x), √π / 2)))
+    @test randcheck(erfinv,abs_lt_1) # @primitive erfinv(x),dy,y (dy.*(exp.(abs2.(y)) * convert(eltype(x), √π / 2)))
     # eta
     @test randcheck(gamma) # @primitive gamma(x),dy,y (dy.*(y .* digamma.(x)))
     # hankelh1

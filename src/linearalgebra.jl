@@ -183,8 +183,8 @@ end
 function qr_back(y, dy)
     Q, R = y
     dQ, dR = dy
-    dR == nothing && (dR = zeros(R))
-    dQ == nothing && (dQ = zeros(Q))
+    dR == nothing && (dR = zero(R))
+    dQ == nothing && (dQ = zero(Q))
     dR = triu(dR)
     M = Symmetric(R*dR' - dQ'*Q, :L)
     S = (dQ + Q*M)*inv(R)'
@@ -199,8 +199,8 @@ end
 function lq_back(y, dy)
     L, Q = y
     dL, dQ = dy
-    dL == nothing && (dL = zeros(L))
-    dQ == nothing && (dQ = zeros(Q))
+    dL == nothing && (dL = zero(L))
+    dQ == nothing && (dQ = zero(Q))
     dL = tril(dL)
     M = Symmetric(L'dL - dQ*Q', :L)
     S = inv(L)' *(dQ + M*Q)
@@ -223,7 +223,7 @@ function normback(x,p,dy,y)
     elseif p == Inf
         dy * sign.(x) .* (abs.(x) .== y)
     elseif p == 0
-        zeros(x)
+        zero(x)
     elseif p == -Inf
         dy * sign.(x) .* (abs.(x) .== y)
     else
@@ -254,7 +254,7 @@ function svd_back(x, y, dy)
     F = s'.^2 .- s.^2 
     F = 1 ./ (F + eye(F)) - eye(F) #avoid infinities on the diagonal
 
-    dx = zeros(x)
+    dx = zero(x)
     S = diagm(s)
     if ds != nothing
         dx += U*diagm(ds)*V' 

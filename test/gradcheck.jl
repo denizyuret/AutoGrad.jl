@@ -352,4 +352,13 @@ function randcheck(f,t1=identity,ts...; xargs=())
     gradcheck(f1, x1) && gradcheck(f2, x2)
 end
 
+ϵ = 0.01
+abs_gt_0(x)=(x < -ϵ ? x : x < 0 ? -ϵ : x < ϵ ? ϵ : x)
+abs_lt_1(x)=rand()*(2-2ϵ)-(1-ϵ)
+abs_gt_1(x)=1/abs_lt_1(x)
+val_lt_1(x)=clamp(rand(),ϵ,1-ϵ)
+val_lt_2(x)=clamp(2*rand(),ϵ,2-ϵ)
+val_gt_1(x)=1/val_lt_1(x)
+val_gt_0(x)=clamp(abs(x),ϵ,Inf)
+
 nothing

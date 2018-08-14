@@ -22,6 +22,7 @@
 	- separate KnetArray, move all to KnetML.
 	- optimize sum_outgrads, reduce memory use.
 	- ::Rec .^ ::Int does not work!
+	- search for TODOs
 
 	* Proposal: reduce compilation, do not construct functions at runtime.
 	- record(f,x...) instead of recorder(f)(x...)

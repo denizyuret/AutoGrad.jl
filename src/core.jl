@@ -455,7 +455,7 @@ struct Grad{N}; end
 #     let local sum_r = recorder(sum)
 #         global sum
 #         sum{T<:Array}(a::Rec{T},i::Int)=sum_r(a,i)
-#         sum{T<:Array}(::Type{Grad{1}},dy,y,a::Rec{T},i::Int)=dy.+zeros(a)
+#         sum{T<:Array}(::Type{Grad{1}},dy,y,a::Rec{T},i::Int)=dy.+zero(a)
 #     end
 
 # 6.5 Undifferentiable wrt boxed arguments

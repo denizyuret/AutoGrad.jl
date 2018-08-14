@@ -165,7 +165,7 @@ end
 
 sum(b::UngetIndex)=sum(b.value)
 getindex(b::UngetIndex,i...)=getindex(full(b),i...) # TODO: solve without full(b)?
-zeros(b::UngetIndex)=zeros(b.container)             # TODO: solve without b.container?
+#zeros(b::UngetIndex)=zeros(b.container)             # TODO: solve without b.container?
 zero(b::UngetIndex)=zero(b.container)               # TODO: solve without b.container?
 ones(b::UngetIndex)=ones(b.container)
 length(b::UngetIndex)=length(b.container)
@@ -175,7 +175,7 @@ zeroslike(a::AbstractArray{T}) where {T<:Number} = zero(a)  # TODO: can this be 
 zeroslike(a::AbstractArray)=Array{Any}(nothing,size(a)) # TODO: can this be nothing or an empty UngetIndex?
 zeroslike(a::AbstractDict)=empty(a)
 zeroslike(a::Tuple)=ntuple(i->nothing, length(a))
-zeroslike(o::UngetIndex)=zeros(o) # TODO: can this be nothing or empty UngetIndex?
+zeroslike(o::UngetIndex)=zero(o) # TODO: can this be nothing or empty UngetIndex?
 zeroslike(a::T) where {T<:Number} = T(0)   # This comes up if people use getindex on a single number
 
 # get (getindex with a default value)
