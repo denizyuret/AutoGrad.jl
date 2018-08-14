@@ -5,24 +5,23 @@
 	- primitive tests
 	- linalg
 	- unit tests for each src file
-	- separate gradcheck and debug.jl
-	- separate math.jl?
-	- require specialfunctions?
-	- test knet
+	+ separate gradcheck and debug.jl
+	+ separate math.jl?
+	+ require specialfunctions?
+	+ test knet
 	- scan code, finish todos and optimize
 	- go from f(Grad{n}) to grad(f,n,...)?
 	- try memoization
 	- speed test
-	- test highorder
+	- test highorder: Innes has a PR?
+	- pull requests and issues
 	- fix docs and comments and examples
 	- tracked array interface
 	- fix issues
-	- separate j6 and j7 releases
-	- @primitive and @zerograd need broadcast and broadcasted to be	imported, use own names? import in macro?
-	- separate KnetArray, move all to KnetML.
+	+ separate j6 and j7 releases
+	+ @primitive and @zerograd need broadcast and broadcasted to be	imported, use own names? import in macro?
 	- optimize sum_outgrads, reduce memory use.
 	- ::Rec .^ ::Int does not work!
-	- search for TODOs
 
 	* Proposal: reduce compilation, do not construct functions at runtime.
 	- record(f,x...) instead of recorder(f)(x...)
