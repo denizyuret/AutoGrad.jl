@@ -77,6 +77,11 @@ function forward_pass(fun, args, kwargs, argnum)
     tape = Tape()
     arg_wrt = args[argnum]
     if isa(arg_wrt,Rec)
+        # @MikeInnes: This fixes a silent bug where
+        # grad(x -> x*grad(y -> x+y)(x))(5.0) == 2
+        # grad(x -> x*grad(y -> x+y)(1x))(5.0) == 1
+        # (the correct answer is 1).
+        arg_wrt = identity(arg_wrt)
         Node(arg_wrt, tape)
         start_box = arg_wrt
     else
