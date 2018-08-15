@@ -1,5 +1,5 @@
 # Use `perl ../deps/imports.pl base.jl` to generate the next line
-import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, all, any, axes, big, broadcasted, ceil, checkbounds, copy, count, div, eachindex, eltype, eps, float, floor, identity, isassigned, isempty, isequal, isfinite, isinf, isinteger, isless, isnan, lastindex, length, maximum, minimum, ndims, one, ones, permutedims, prod, rem, reshape, round, sign, signbit, similar, size, stride, strides, sum, trunc, typemax, typemin, unsafe_trunc, vec, widemul, zero
+import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, all, any, axes, big, ceil, checkbounds, copy, count, div, eachindex, eltype, eps, float, floor, identity, isassigned, isempty, isequal, isfinite, isinf, isinteger, isless, isnan, lastindex, length, maximum, minimum, ndims, one, ones, permutedims, prod, rem, reshape, round, sign, signbit, similar, size, stride, strides, sum, trunc, typemax, typemin, unsafe_trunc, vec, widemul, zero
 import Base.Broadcast: broadcasted
 
 # The following list copied from relevant portions of julia/base/exports.jl
