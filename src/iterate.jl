@@ -1,4 +1,4 @@
-import Base: iterate, indexed_iterate
+import Base: iterate, indexed_iterate, values
 
 ### ITERATION: We define iterate in terms of getindex which does the necessary tracking.
 
@@ -15,3 +15,4 @@ iterate(a::Rec{T},i) where {T<:Number} = nothing
 indexed_iterate(a::Rec{T},i::Int,state=1) where {T<:Tuple} = (a[i],i+1)
 indexed_iterate(a::Rec{T},i::Int,state=1) where {T<:Array} = (a[i],i+1)
 
+values(a::Rec{T})  where {T<:AbstractDict} = (a[k] for k in keys(a.value))

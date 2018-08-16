@@ -13,7 +13,7 @@
 #include("linearalgebra.jl")
 @time include("specialfunctions.jl")
 @time include("getindex.jl")
-#include("iterate.jl")
+@time include("iterate.jl")
 #include("cat.jl")
 @time include("rosenbrock.jl")
 @time include("highorder.jl") 
