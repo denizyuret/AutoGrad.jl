@@ -110,6 +110,13 @@ include("header.jl")
 
     end
 
+    @testset "view" begin
+        a = rand(3,3)    
+        g1 = grad(x->sum(x[1:2,1:2].^2.5))
+        g2 = grad(x->sum(view(x,1:2,1:2).^2.5))
+        @test g1(a) == g2(a)
+    end
+
 end
 
 nothing
