@@ -1,4 +1,5 @@
-import Base: getindex, setindex!, sum, zeros, zero, ones, length, get, view
+import Base: getindex, setindex!, sum, zeros, zero, ones, length, get, 
+             view, selectdim
 
 # Here we will define indexing (getindex,setindex!,firstindex,lastindex) 
 # interface for generic Rec types.
@@ -18,9 +19,10 @@ setindex!(x::Rec,v,I...)=error("Overwriting operations currently not supported."
 @primitive  getindex(x,i...),dxi,xi  ungetindex(x,dxi,i)
 getindex(::Type{T},o...) where {T<:Grad} = nothing # Only the first arg has gradient
 
-# use ungetindex machinery also for view
+# use ungetindex machinery also for view and selectdim
 @primitive  view(x::AbstractArray,i...),dxi,xi  ungetindex(x,dxi,i)
 # view(::Type{T}, x::AbstractArray, o...) where {T<:Grad} = nothing # Only the first arg has gradient
+@inline selectdim(A::Rec{<:AbstractArray}, d::Integer, i) = Base._selectdim(A, d, i, Base.setindex(map(Base.Slice, axes(A)), i, d))
 
 # For efficiency we use the following sparse container
 # This object represents what you would get with

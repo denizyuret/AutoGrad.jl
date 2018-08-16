@@ -115,6 +115,11 @@ include("header.jl")
         g1 = grad(x->sum(x[1:2,1:2].^2.5))
         g2 = grad(x->sum(view(x,1:2,1:2).^2.5))
         @test g1(a) == g2(a)
+
+        g1 = grad(x->sum(x[:,1:2].^2.0))
+        g2 = grad(x->sum(view(x,:,1:2).^2.0))
+        g3 = grad(x->sum(selectdim(x,2,1:2).^2.0))
+        @test g1(a) == g2(a) == g3(a)
     end
 
 end
