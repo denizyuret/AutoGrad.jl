@@ -271,7 +271,9 @@ for _f in interfaces2arg
     @eval @zerograd $_f(a,b)
 end
 
+@primitive identity(x),dy dy
 @primitive copy(x),dy dy
+addtest(:identity, rand(2))
 addtest(:copy, rand(2))
 
 # issue #18

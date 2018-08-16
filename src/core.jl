@@ -77,6 +77,7 @@ function forward_pass(fun, args, kwargs, argnum)
     tape = Tape()
     arg_wrt = args[argnum]
     if isa(arg_wrt,Rec)
+        arg_wrt = identity(arg_wrt) # PR #75
         Node(arg_wrt, tape)
         start_box = arg_wrt
     else
@@ -236,7 +237,8 @@ function backward_pass(start_box, end_box, tape)
         for i=1:length(n.parents)
             isassigned(n.parents,i) || continue
             @prof "GRAD" p = n.parents[i]
-            @prof "back$i.$(r.func)" og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...) # 4887
+            #@prof "back$i.$(r.func)" og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...) # 4887
+            @prof "back$i.$(r.func)" og = r.func(Grad{i},n.outgrad,r,r.args...;r.kwargs...) # Fix for highorder e.g. exp
             @dbg 1 (Symbol("sumi"),i,p.outgrad,og)
             @prof "sumg$i.$(r.func)" p.outgrad = sum_outgrads(p.outgrad, og) # 1141
             @dbg 1 (Symbol("sumo"),i,p.outgrad,og)
