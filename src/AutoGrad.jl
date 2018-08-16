@@ -1,22 +1,14 @@
-# __precompile__() # is now the default
 module AutoGrad
 using LinearAlgebra, Statistics, SpecialFunctions
 
-# To see debug output of AutoGrad internals, set DBGFLAGS to
-# non-zero. Each bit of DBGFLAGS can be used to show a subset of dbg
-# messages indicated by the `bit` argument to the `dbg` macro.
-const DBGFLAGS = 0
-macro dbg(bit,x); if (1<<bit) & DBGFLAGS != 0; esc(:(println(_dbg($x)))); end; end;
+# Uncomment include("../util/debug.jl") and the following macro line to see debug output
+# macro dbg(x); esc(:(println(_dbg($x)))); end;
+macro dbg(x); end
 
-# To perform profiling of AutoGrad internals, set PROFILING to
-# true. Make sure to Pkg.add("TimerOutputs").
-const PROFILING = false
-if PROFILING
-    eval(Expr(:using,:TimerOutputs))
-    macro prof(label,ex); :(@timeit $(esc(label)) $(esc(ex))); end
-else
-    macro prof(label,ex); esc(ex); end
-end
+# To perform profiling of AutoGrad internals, uncomment the following lines. Make sure to Pkg.add("TimerOutputs").
+# using TimerOutputs
+# macro prof(label,ex); :(@timeit $(esc(label)) $(esc(ex))); end
+macro prof(label,ex); esc(ex); end
 
 export grad, gradloss, getval
 export @primitive, @zerograd, @primitive1, @zerograd1, recorder, Rec, Grad  # the last three are required for the macros to work
@@ -33,6 +25,9 @@ include("specialfunctions.jl")
 include("getindex.jl")
 include("iterate.jl")
 include("cat.jl")
-# include("../test/gradcheck.jl"); export gradcheck, randcheck, check_grads, gradcheckN # TODO: remove this before release
+
+# Uncomment these for debugging:
+# include("../util/debug.jl")
+# include("../test/gradcheck.jl"); export gradcheck, randcheck, check_grads, gradcheckN
 
 end # module

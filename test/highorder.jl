@@ -14,6 +14,15 @@ include("header.jl")
     # PR #75
     @test grad(x -> x*grad(y -> x+y)(x))(5.0) == 1
     @test grad(x -> x*grad(y -> x+y)(1x))(5.0) == 1
+
+    # Issue #44
+    @test exp(1) == grad(exp)(1) == grad(grad(exp))(1)
+    f(x) = exp(x*x)
+    @test f(1) ≈ grad(f)(1) / 2 ≈ grad(grad(f))(1) / 6
+
+    # Issue #62
+    @test grad(tanh)(1) == 1 - tanh(1)^2
+    @test grad(grad(tanh))(1) == -2*tanh(1)*(1-tanh(1)^2)
 end
 
 nothing

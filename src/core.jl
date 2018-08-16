@@ -34,12 +34,15 @@ Tuple, or Dict.
 
 """
 function grad(fun::Function, argnum::Int=1)
-    #@dbg 1 (:grad,fun,argnum)
+    @dbg ("[grad",fun,argnum)
     function gradfun(args...; kwargs...)
+        @dbg ("[gfun",fun,args...,kwargs...)
         @prof "FORW" fp = forward_pass(fun, args, kwargs, argnum)
         @prof "BACK" bp = backward_pass(fp...)
+        @dbg ("]gfun",fun,args...,kwargs...,'→',bp)
         return bp
     end
+    @dbg ("]grad",fun,argnum,'→',gradfun)
     return gradfun
 end
 
@@ -52,7 +55,6 @@ Another version of `grad` where the generated function returns a
 
 """
 function gradloss(fun::Function, argnum::Int=1)
-    #@dbg 1 (:grad,fun,argnum)
     function gradfun(args...; kwargs...)
         fwd = forward_pass(fun, args, kwargs, argnum)
         val = fwd[2]
@@ -73,7 +75,7 @@ end
 # 2.6 the output of f (end_box) could be a boxed Rec or a regular value (if it does not depend on x)
 
 function forward_pass(fun, args, kwargs, argnum)
-    @dbg 1 (:forw, argnum, fun, args..., kwargs...)
+    @dbg ("[fwd$argnum", fun, args..., kwargs...)
     tape = Tape()
     arg_wrt = args[argnum]
     if isa(arg_wrt,Rec)
@@ -82,15 +84,17 @@ function forward_pass(fun, args, kwargs, argnum)
         # grad(x -> x*grad(y -> x+y)(1x))(5.0) == 1
         # (the correct answer is 1).
         arg_wrt = identity(arg_wrt)
-        Node(arg_wrt, tape)
+        Node(arg_wrt, tape) # pushes the existing Rec into new Tape, giving it a new outgrad.
         start_box = arg_wrt
     else
         start_box = Rec(arg_wrt,tape)
     end
     args = Any[args...] # to make args writeable
     args[argnum] = start_box
-    @dbg 1 (:fcall, fun, args..., kwargs...)
+    @dbg ("[call", fun, args..., kwargs...)
     end_box = fun(args...; kwargs...) # 4458
+    @dbg ("]call", fun, args..., kwargs..., '→', end_box)
+    @dbg ("]fwd$argnum", '→', start_box, end_box, tape)
     return start_box, end_box, tape
 end
 
@@ -123,7 +127,7 @@ r = get(fdict,f,0)
 r != 0 && return r
 
 function rfun(args...; kwargs...)
-    #@dbg 1 (:call, f, args..., kwargs...)
+    @dbg ("[rfun", f, args..., kwargs...)
 @prof "forw.$f" begin
     argvals = unbox(args)       # 31
     result = f(argvals...; kwargs...) # 4959
@@ -152,10 +156,10 @@ function rfun(args...; kwargs...)
         @assert length(result.tapes) == length(result.nodes) == 1
         tp = result.tapes[1]
         n = result.nodes[1]
-        i = findfirst(tp,n)
+        i = findeq(tp,n)
         p = ntuple(length(n.parents)) do j
             if isassigned(n.parents,j)
-                findfirst(tp,n.parents[j])
+                findeq(tp,n.parents[j])
             elseif isa(argvals[j],Number) || isa(argvals[j],Symbol) || isa(argvals[j],AbstractRange)
                 argvals[j]
             else
@@ -164,7 +168,7 @@ function rfun(args...; kwargs...)
         end
         println("$i. $f$p")
     end
-    @dbg 1 (:call, f, :y, result, :x, args..., (isempty(kwargs) ? () : (:kw, kwargs...))...)
+    @dbg ("]rfun", f, args..., kwargs..., '→', result)
 end # prof begin
     return result
 end # function rfun
@@ -207,14 +211,14 @@ end
 # the gradient wrt the start_box.
 
 function backward_pass(start_box, end_box, tape)
-    @dbg 1 (:back,:start,start_box,:end,end_box) # ,:tape,tape,tape...)
+    @dbg ("[back",start_box,end_box,tape)
 
 # 4.2 If end_box is not a Rec on the given tape, we return zero
 # df/fx if x is a bits type, `nothing` otherwise.  end_box may not
 # be a Rec if the output of f does not depend on x.
 
     if !isa(end_box, Rec) || 0==(tapeidx=findeq(end_box.tapes, tape))
-        @dbg 1 "Output seems independent of input. Returning zero gradient."
+        @dbg "Output seems independent of input. Returning zero gradient."
         if isa(start_box,Number); return zero(start_box); else; return nothing; end
     end
 
@@ -237,15 +241,18 @@ function backward_pass(start_box, end_box, tape)
     for n in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
         if n.outgrad === nothing; continue; end
         @prof "NODE" r = n.rec
-        @dbg 1 (:back,r.func,:dy,n.outgrad,:y,r.value,:x,r.args...,(isempty(r.kwargs) ? () : (:kw,r.kwargs...))...)
+        @dbg ("[node", r.func, r.args..., r.kwargs..., '→', r, '←', n.outgrad)
         for i=1:length(n.parents)
             isassigned(n.parents,i) || continue
             @prof "GRAD" p = n.parents[i]
-            @prof "back$i.$(r.func)" og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...) # 4887
-            @dbg 1 (Symbol("sumi"),i,p.outgrad,og)
+            #The following was buggy, we need r here not r.value to make higher order gradients work!
+            #@prof "back$i.$(r.func)" og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...) # 4887
+            @prof "back$i.$(r.func)" og = r.func(Grad{i},n.outgrad,r,r.args...;r.kwargs...)
+            @dbg ("[sum$i",p.rec,'=',p.outgrad,"+",og)
             @prof "sumg$i.$(r.func)" p.outgrad = sum_outgrads(p.outgrad, og) # 1141
-            @dbg 1 (Symbol("sumo"),i,p.outgrad,og)
+            @dbg ("]sum$i",p.rec,'=',p.outgrad)
         end
+        @dbg ("]node", r.func, r.args..., r.kwargs..., '→', r, '←', n.outgrad)
     end
 
 # 4.5 tape[1].outgrad is returned.  How do we know this is the
@@ -259,6 +266,7 @@ function backward_pass(start_box, end_box, tape)
 # end_box, their outgrad will remain empty, thus only the necessary
 # gradients are computed.
 
+    @dbg ("]back",start_box,end_box,tape,'→',tape[1].outgrad)
     return tape[1].outgrad
 end
 
