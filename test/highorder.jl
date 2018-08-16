@@ -10,6 +10,10 @@ include("header.jl")
     g7 = grad(g6);  @test g7(1)==-cos(1)
     g8 = grad(g7);  @test g8(1)==sin(1)
     g9 = grad(g8);  @test g9(1)==cos(1)
+
+    # PR #75
+    @test grad(x -> x*grad(y -> x+y)(x))(5.0) == 1
+    @test grad(x -> x*grad(y -> x+y)(1x))(5.0) == 1
 end
 
 nothing
