@@ -151,10 +151,10 @@ Ozan Arkan Can and Emre Yolcu for helpful contributions.
 The suggested citation for AutoGrad is:
 
 ```
-@misc{autograd,
+@inproceedings{knet2016mlsys,
   author={Yuret, Deniz},
-  title={Autograd: an automatic differentiation package for Julia},
+  title={Knet: beginning deep learning with 100 lines of Julia},
   year={2016},
-  howpublished={\url{https://github.com/denizyuret/AutoGrad.jl}}
+  booktitle={Machine Learning Systems Workshop at NIPS 2016}
 }
 ```
