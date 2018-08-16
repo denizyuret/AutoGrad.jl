@@ -20,7 +20,7 @@ getindex(::Type{T},o...) where {T<:Grad} = nothing # Only the first arg has grad
 
 # use ungetindex machinery also for view
 @primitive  view(x::AbstractArray,i...),dxi,xi  ungetindex(x,dxi,i)
-view(::Type{T}, x::AbstractArray, o...) where {T<:Grad} = nothing # Only the first arg has gradient
+# view(::Type{T}, x::AbstractArray, o...) where {T<:Grad} = nothing # Only the first arg has gradient
 
 # For efficiency we use the following sparse container
 # This object represents what you would get with
