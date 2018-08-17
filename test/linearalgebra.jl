@@ -33,20 +33,20 @@ using LinearAlgebra
 
     @test gradcheck(adjoint,w)
     @test gradcheck(det,wsquare)
-    #@test gradcheck(diag,w)
-    #@test gradcheckN(diagm1,udg,dg,ldg)
+    @test gradcheck(diag,w) #fails
+    @test gradcheckN(diagm1,udg,dg,ldg) #fails
     @test gradcheckN(dot,udg,ldg)
     @test gradcheckN(dot,w,copy(w))
     @test gradcheck(inv,wsquare)
-    #@test gradcheck(krontest,w,copy(w))
+    @test gradcheck(krontest,w,copy(w)) #fails
     @test gradcheck(logabsdet,wsquare)
     @test gradcheck(logdet,wsquare)
     @test gradcheck(norm,w,1)
     @test gradcheck(norm,w,2)
     @test gradcheck(norm,w,Inf)
-   #@test gradcheck(qrtest,w) #iterator error
-   #@test gradcheck(lqtest,w) #iterator error
-   #@test gradcheck(svdtest,w) #iterator error
+    @test gradcheck(qrtest,w) #iterator error
+    @test gradcheck(lqtest,w) #iterator error
+    @test gradcheck(svdtest,w) #iterator error
     @test gradcheck(tr,wsquare)
     @test gradcheck(transpose,w)
     @test gradcheck(tril,w)
