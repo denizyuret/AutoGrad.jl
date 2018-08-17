@@ -27,6 +27,6 @@ include("header.jl")
     @test gradcheck(itr2,w)
     @test gradcheck(itr1,w[1])
     @test gradcheck(itr2,w[1])
-    #@test gradcheck(itr3,wdict) #fails
+    @test gradcheck(itr3,wdict) #fails
 
 end
