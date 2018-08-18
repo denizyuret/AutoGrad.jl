@@ -11,33 +11,24 @@ import Base: cat, vcat, hcat
 # construct block diagonal matrices and their higher-dimensional
 # analogues by simultaneously increasing several dimensions for every
 # new input array and putting zero blocks elsewhere. For example,
-# cat([1,2], matrices...) builds a block diagonal matrix, i.e. a block
-# matrix with matrices[1], matrices[2], ... as diagonal blocks and
-# matching zero blocks away from the diagonal.
+# cat(matrices...; dims=(1,2)) builds a block diagonal matrix, i.e. a
+# block matrix with matrices[1], matrices[2], ... as diagonal blocks
+# and matching zero blocks away from the diagonal.
 
-# After dims, cat can take 0 or more arguments of any type.  In order
-# to catch the cases where at least one arg is Rec, we need to
-# override the generic Base.cat(d,x...). This will call the recording
-# cat_r if a Rec is found, and the original cat_t from the Base
-# definition if not.
+# cat can take 0 or more arguments of any type.  In order to catch the
+# cases where at least one arg is Rec, we need to override the generic
+# Base.cat(d,x...). This will call the recording cat_r if a Rec is
+# found, and the original _cat from the Base definition if not.
 
 const NA = Union{Number,AbstractArray}
 const NAR = Union{Number,AbstractArray,Rec}
 
 # Base has cat(x...; dims) defined, first specialize this:
 cat(X::NA...; dims)=Base._cat(dims, X...) 
-# Base.cat_t(dims, prom_(X...), X...)
-# prom_(X...) = Base.promote_eltypeof(X...)
 
 # Then define the method that catches at least one Rec:
 cat_r = recorder(cat)
 cat(X::NAR...; dims)=cat_r(X...; dims=dims)
-
-# First argument no longer dims
-# cat(::Type{Grad{1}},a::AbstractArray...)=nothing # julia4 ambiguity fix
-# cat(::Type{Grad{1}},a::NA...)=nothing # ambiguity fix
-# cat(::Type{Grad{1}},a::NAR...)=nothing # ambiguity fix
-# cat(::Type{Grad{1}},a...)=nothing
 
 cat(::Type{Grad{N}},y1::AbstractArray,y::AbstractArray,x::AbstractArray...; dims) where {N}=uncat(y1,N,dims,x...)   # ambiguity fix
 cat(::Type{Grad{N}},y1::NA,y::NA,x::NA...; dims) where {N}=uncat(y1,N,dims,x...)   # ambiguity fix

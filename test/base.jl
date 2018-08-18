@@ -19,7 +19,7 @@ using Statistics, LinearAlgebra
     minabs(x) = minimum(abs,x)
     maxabs(x) = maximum(abs,x)
     sumabs(x) = sum(abs,x) 
-    sumabs2(x) = sum(abs,x) 
+    sumabs2(x) = sum(abs2,x) 
 
     @testset "product" begin
         @test gradcheckN(*,x1d...)
