@@ -10,8 +10,18 @@ notifications:
   email: false
 git:
   depth: 9999999
+after_success:
+  - julia -e 'using Pkg, AutoGrad; cd(joinpath(dirname(pathof(AutoGrad)), "..")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder()); Coveralls.submit(process_folder())'
 
 
+## Update the documentation
+# after_success:
+#  - julia -e 'using Pkg; Pkg.add("Documenter")'
+#  - julia -e 'ENV["DOCUMENTER_DEBUG"] = "true"; using Pkg, AutoGrad; include(joinpath(dirname(pathof(AutoGrad)), "..", "docs", "make.jl"))'
+
+## Commands run by travis:
+# $ julia --color=yes -e "if VERSION < v\"0.7.0-DEV.5183\"; Pkg.clone(pwd()); Pkg.build(\"${JL_PKG}\"); else using Pkg; Pkg.build(); end"
+# $ julia --check-bounds=yes --color=yes -e "if VERSION < v\"0.7.0-DEV.5183\"; Pkg.test(\"${JL_PKG}\", coverage=true); else using Pkg; Pkg.test(coverage=true); end"
 
 ## https://docs.travis-ci.com/user/languages/julia
 

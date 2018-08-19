@@ -1,14 +1,12 @@
 # AutoGrad
 
-[![Build Status](https://travis-ci.org/denizyuret/AutoGrad.jl.svg?branch=master)](https://travis-ci.org/denizyuret/AutoGrad.jl)
-[![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_0.4.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
-[![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_0.5.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
 [![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_0.6.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
-<!-- 
-TODO: https://github.com/JuliaCI/Coverage.jl
-[![Coverage Status](https://coveralls.io/repos/denizyuret/AutoGrad.jl/badge.svg)](https://coveralls.io/r/denizyuret/AutoGrad.jl)
-[![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_0.3.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
--->
+[![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_0.7.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
+[![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_1.0.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
+
+[![Build Status](https://travis-ci.org/denizyuret/AutoGrad.jl.svg?branch=master)](https://travis-ci.org/denizyuret/AutoGrad.jl)
+[![coveralls](https://coveralls.io/repos/github/denizyuret/AutoGrad.jl/badge.svg?branch=master)](https://coveralls.io/github/denizyuret/AutoGrad.jl?branch=master)
+[![codecov](https://codecov.io/gh/denizyuret/AutoGrad.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/denizyuret/AutoGrad.jl)
 
 AutoGrad.jl is an automatic differentiation package for Julia.  It is
 based on the popular Python
@@ -29,7 +27,7 @@ for a description of how the code works in detail.
 
 You can install AutoGrad in Julia using:
 ```
-julia> Pkg.add("AutoGrad")
+julia> using Pkg; Pkg.add("AutoGrad")
 ```
 
 In order to use it in your code start with:
@@ -48,13 +46,13 @@ using AutoGrad
 function loss(w)
     global xtrn,ytrn
     ypred = w[1]*xtrn .+ w[2]
-    sum(abs2(ypred - ytrn)) / size(ypred,2)
+    sum(abs2, ypred - ytrn) / size(ypred,2)
 end
 
 function train(w; lr=.1, epochs=20)
-    gradfun = grad(loss)
+    lossgrad = grad(loss)
     for epoch=1:epochs
-        g = gradfun(w)
+        g = lossgrad(w)
         for i in 1:length(w)
             w[i] -= lr * g[i]
         end
@@ -72,7 +70,7 @@ implemented in regular Julia.
 
 The `train` function takes initial parameters and returns optimized
 parameters.  `grad` is the only AutoGrad function used: it creates a
-function `gradfun` that takes the same arguments as `loss`, but
+function `lossgrad` that takes the same arguments as `loss`, but
 returns the gradient instead.  The returned gradient will have the
 same type and shape as the input argument.  The `for` loop implements
 gradient descent, where we calculate the gradient and subtract a
@@ -91,14 +89,14 @@ known gradients.  You can add your own primitives with gradients as
 described in detail in
 [core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
 or using the `@primitive` and `@zerograd` macros in
-[util.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/util.jl)
+[macros.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/macros.jl)
 Here is an example:
 
 ```
-@primitive hypot(x1::Number,x2::Number),dy,y  (dy*x1/y)  (dy*x2/y)
+@primitive hypot(x1,x2),dy,y  (dy.*x1./y)  (dy.*x2./y)
 ```
 
-The `@primitive` macro marks the `hypot(::Number,::Number)` method as
+The `@primitive` macro marks the `hypot(::Any,::Any)` method as
 a new primitive and the next two expressions define gradient functions
 wrt the first and second argument.  The gradient expressions can refer
 to the parameters `(x1,x2)`, the return variable `y` and its gradient
@@ -107,37 +105,39 @@ declaration.
 
 Note that Julia supports multiple-dispatch, i.e. a function may have
 multiple methods each supporting different argument types.  For
-example `hypot(x1::Array,x2::Array)` is another hypot method.  In
+example `hypot(x1::Number,x2::Number)` and
+`hypot(x1::Array,x2::Array)` are two different hypot methods.  In
 AutoGrad.jl each method can independently be defined as a primitive
-and can have its own specific gradient.
+and can have its own specific gradient. Generally AutoGrad defines
+gradients without using argument types to keep the rules generic.
 
 ## Code structure
 
 [core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
 implements the main functionality and acts as the main documentation
 source.
-[util.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/util.jl)
+[macros.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/macros.jl)
 has some support functions to define and test new primitives.
-[interfaces.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/interfaces.jl)
-sets up support for common data structures including Arrays, Tuples,
+[getindex.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/getindex.jl),
+[iterate.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/iterate.jl) and
+[cat.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/cat.jl)
+set up support for common data structures including Arrays, Tuples,
 and Dictionaries.  The numerical gradients are defined in files such
-as `base/math.jl`, `special/trig.jl` that mirror the organization
-under `julia/base`.
+as `base.jl` and `math.jl`.
 
 ## Current status and future work
 
-The gradient coverage is spotty, I am still adding more gradients to
-cover the Julia base.  Next steps are to make models faster by
-providing support for GPU operations and overwriting functions (to
-avoid memory allocation).  I should also find out about the efficiency
-of closures and untyped functions in Julia which are used extensively
-in the code.
+The gradient coverage and unit testing are spotty, I am still adding
+more gradients and tests to cover the Julia base. Documentation needs
+to be improved. Overwriting functions (e.g. `setindex!`) are not
+supported. Efficiency could be improved by reducing runtime
+compilation, memoization, and support for static computation.
 
 ## Acknowledgments and references
 
 AutoGrad.jl was written by [Deniz
-Yuret](http://www.denizyuret.com). Large parts of the code are
-directly ported from the Python
+Yuret](http://www.denizyuret.com). Parts of the code were
+initially ported from the Python
 [autograd](https://github.com/HIPS/autograd) package.  I'd like to
 thank autograd author Dougal Maclaurin for his support.  See [(Baydin
 et al. 2015)](https://arxiv.org/abs/1502.05767) for a general review
