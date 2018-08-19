@@ -1,8 +1,10 @@
 # AutoGrad
 
+<!--
 [![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_0.6.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
 [![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_0.7.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
 [![AutoGrad](http://pkg.julialang.org/badges/AutoGrad_1.0.svg)](http://pkg.julialang.org/?pkg=AutoGrad)
+-->
 
 [![Build Status](https://travis-ci.org/denizyuret/AutoGrad.jl.svg?branch=master)](https://travis-ci.org/denizyuret/AutoGrad.jl)
 [![coveralls](https://coveralls.io/repos/github/denizyuret/AutoGrad.jl/badge.svg?branch=master)](https://coveralls.io/github/denizyuret/AutoGrad.jl?branch=master)

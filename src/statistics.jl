@@ -17,9 +17,9 @@ import Statistics: mean, var, std
 # var done.
 # varm
 
-@primitive mean(x;d...),dy  (dy.*one.(x).*(length(dy)/length(x)))
-@primitive mean(f::typeof(abs),x;d...),dy   nothing  (dy.*sign.(x).*(length(dy)/length(x)))
-@primitive mean(f::typeof(abs2),x;d...),dy  nothing  (dy.*(2x).*(length(dy)/length(x)))
+@primitive mean(x;d...),dy  (dy.*one.(x).*length(dy)./length(x))
+@primitive mean(f::typeof(abs),x;d...),dy   nothing  (dy.*sign.(x).*length(dy)./length(x))
+@primitive mean(f::typeof(abs2),x;d...),dy  nothing  (dy.*(2x).*length(dy)./length(x))
 
 function var(x::Rec; dims=:, mean=mean(x, dims=dims), corrected=true)
     s = sum(abs2, x .- mean, dims=dims)

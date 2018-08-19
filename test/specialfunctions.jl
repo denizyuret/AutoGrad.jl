@@ -51,6 +51,6 @@ using SpecialFunctions
     @test randcheck(lgamma) # @primitive lgamma(x),dy,y (dy.*(digamma.(x)))
     # @test randcheck(polygamma) # @primitive polygamma(x1,x2),dy,y  nothing  unbroadcast(x2,dy.*polygamma(x1+1,x2))
     # sinint
-    @test randcheck(trigamma) # @primitive trigamma(x),dy,y (dy.*(polygamma.(2,x)))
+    @test randcheck(trigamma,val_gt_0) # @primitive trigamma(x),dy,y (dy.*(polygamma.(2,x)))
     # zeta
 end
