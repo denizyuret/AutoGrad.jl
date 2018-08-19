@@ -15,12 +15,6 @@ using Statistics, LinearAlgebra
     bd(x...) = broadcast(/,x...)
     bp(x...) = broadcast(^,x...)
 
-
-    minabs(x) = minimum(abs,x)
-    maxabs(x) = maximum(abs,x)
-    sumabs(x) = sum(abs,x) 
-    sumabs2(x) = sum(abs2,x) 
-
     @testset "product" begin
         @test gradcheckN(*,x1d...)
         @test gradcheckN(*,x1d[1],x2d[2])
@@ -72,15 +66,15 @@ using Statistics, LinearAlgebra
     @test gradcheck(big,x1d[1])
     @test gradcheck(float,1)
     @test gradcheck(maximum,x4d[1])
-    @test gradcheck(maxabs,x4d[1])
+    @test gradcheck(x->maximum(abs,x),x4d[1])
     @test gradcheck(minimum,x4d[1])
-    @test gradcheck(minabs,x4d[1])
+    @test gradcheck(x->minimum(abs,x),x4d[1])
     @test gradcheck(permutedims,x4d[1],(3,4,2,1))
     @test_broken gradcheck(prod,x1d) #TODO: gradcheck tuple support so collect not necessary in next line
     @test gradcheck(prod,collect(x1d))
     @test gradcheck(sum,x4d[1])
-    @test gradcheck(sumabs,x4d[1])
-    @test gradcheck(sumabs2,x4d[1])
+    @test gradcheck(x->sum(abs,x),x4d[1])
+    @test gradcheck(x->sum(abs2,x),x4d[1])
     @test gradcheck(vec,x4d[1])
     @test gradcheck(copy,x4d[1])
 end
