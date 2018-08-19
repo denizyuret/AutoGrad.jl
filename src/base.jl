@@ -1,5 +1,5 @@
 # Use `perl ../deps/imports.pl base.jl` to generate the next line
-import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, all, any, axes, big, ceil, checkbounds, copy, count, div, eachindex, eltype, eps, float, floor, identity, isassigned, isempty, isequal, isfinite, isinf, isinteger, isless, isnan, lastindex, length, maximum, minimum, ndims, one, ones, permutedims, prod, rem, reshape, round, sign, signbit, similar, size, stride, strides, sum, trunc, typemax, typemin, unsafe_trunc, vec, widemul, zero
+import Base: !=, !==, *, +, -, /, <, <=, ==, >, >=, \, ^, abs, abs2, all, any, axes, big, ceil, checkbounds, copy, count, div, eachindex, eltype, eps, float, floor, identity, isassigned, isempty, isequal, isfinite, isinf, isinteger, isless, isnan, lastindex, length, maximum, minimum, ndims, oftype, one, ones, permutedims, prod, rem, reshape, round, sign, signbit, similar, size, stride, strides, sum, trunc, typemax, typemin, unsafe_trunc, values, vec, widemul, zero
 import Base.Broadcast: broadcasted
 
 # The following list copied from relevant portions of julia/base/exports.jl
@@ -297,7 +297,7 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* 
 # union,
 # unique!,
 # unique,
-# values,
+values(a::Rec{T})  where {T<:AbstractDict} = (a[k] for k in keys(a.value))
 # valtype,
 # ∈,
 # ∉,
@@ -332,3 +332,28 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* 
 # ifelse,
 # objectid,
 # sizeof,
+
+### types
+# convert,
+# getproperty,
+# setproperty!,
+# fieldoffset,
+# fieldname,
+# fieldnames,
+# fieldcount,
+# propertynames,
+# isabstracttype,
+# isbitstype,
+# isprimitivetype,
+# isstructtype,
+# isconcretetype,
+# isdispatchtuple,
+@primitive oftype(t,x),dy nothing oftype(x,dy)
+# promote,
+# promote_rule,
+# promote_type,
+# instances,
+# supertype,
+# typeintersect,
+# typejoin,
+# widen,

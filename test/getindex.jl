@@ -31,7 +31,7 @@ include("header.jl")
         g = grad(f)
         for i in (1,1:2,1:2:3,[1,2],[2,2],[],[true,false,true])
             #@show i
-            # @test gradcheck(getindex, t, i) # TODO: gradcheck with tuples broken so we compare array vs tuple
+            @test_skip gradcheck(getindex, t, i) # TODO: gradcheck with tuples broken so we compare array vs tuple
             @test g(t,i)==g(a,i)==nothing || g(t,i) == tuple(g(a,i)...)
         end
     end
@@ -40,7 +40,7 @@ include("header.jl")
         g = grad(getindex)
         d = Dict(1=>rand(), 2=>rand(), 3=> rand())
         #@show d
-        # @test gradcheck(getindex, d, 1) # TODO: gradcheck with dict broken
+        @test_skip gradcheck(getindex, d, 1) # TODO: gradcheck with dict broken
         @test collect(g(d,2)) == Any[(2=>1.0)]
     end
 

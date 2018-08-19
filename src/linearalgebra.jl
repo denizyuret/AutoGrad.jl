@@ -1,4 +1,4 @@
-import LinearAlgebra: *, adjoint, det, diag, diagm, dot, inv, logabsdet, logdet, lq, norm, qr, svd, tr, transpose, tril, triu
+import LinearAlgebra: *, adjoint, det, diag, diagm, dot, inv, kron, logabsdet, logdet, lq, norm, qr, svd, tr, transpose, tril, triu
 
 # julia/stdlib/v0.7/LinearAlgebra/src/LinearAlgebra.jl Functions:
 # axpy!
@@ -16,9 +16,10 @@ import LinearAlgebra: *, adjoint, det, diag, diagm, dot, inv, logabsdet, logdet,
 @primitive adjoint(x),dy    adjoint(dy)
 # adjoint!
 @primitive det(x),dy,y  dy*y*inv(x)'
-@primitive diag(x),dy,y   diagm(dy)  # alternative: Diagonal(dy) # addtest(:diag, rand(3,3))
+@primitive diag(x),dy,y   diagm(0=>dy)  # alternative: Diagonal(dy)
+@primitive diag(x,i),dy,y   diagm(i=>dy)  # warning: these only works for square matrices
 # diagind
-@primitive diagm(x),dy,y   diag(dy)  # addtest(:diagm, rand(3))
+# @primitive diagm(x),dy,y   diag(dy,x[1]) # TODO: diagm has a pair input
 @primitive dot(x1, x2),dy,y  dy*x2  dy*x1  # addtestN(:dot, rand(3,2), rand(3,2))
 # eigen
 # eigen!
@@ -86,9 +87,9 @@ kron(a, b::Rec) = _kron(a, b)
 @primitive transpose(x),dy  transpose(dy)
 # transpose!
 # transpose_type
-@primitive tril(x),dy,y  dy.*tril(ones(x))  # addtest(:tril, rand(3,3))
+@primitive tril(x),dy,y  dy.*tril(fill!(similar(x),1))  # addtest(:tril, rand(3,3))
 # tril!
-@primitive triu(x),dy,y  dy.*triu(ones(x))  # addtest(:triu, rand(3,3))
+@primitive triu(x),dy,y  dy.*triu(fill!(similar(x),1))  # addtest(:triu, rand(3,3))
 # triu!
 
 # julia/stdlib/v0.7/LinearAlgebra/src/LinearAlgebra.jl Operators:

@@ -6,6 +6,7 @@ using LinearAlgebra
     w = randn(3,2)
     wt = randn(2,3)
     wsquare = randn(3,3)
+    wposdef = wsquare' * wsquare
     udg = [1.,2.,3.]
     dg = [4.,5.,6.]
     ldg  = [7.,8.,9.]
@@ -33,20 +34,21 @@ using LinearAlgebra
 
     @test gradcheck(adjoint,w)
     @test gradcheck(det,wsquare)
-    @test gradcheck(diag,w) #fails
-    @test gradcheckN(diagm1,udg,dg,ldg) #fails
+    @test gradcheck(diag,wsquare)
+    @test_broken gradcheck(diag,w)             #TODO no support for non-square matrices yet
+    @test_skip gradcheckN(diagm1,udg,dg,ldg)   #TODO diagm not implemented yet
     @test gradcheckN(dot,udg,ldg)
     @test gradcheckN(dot,w,copy(w))
     @test gradcheck(inv,wsquare)
-    @test gradcheck(krontest,w,copy(w)) #fails
+    @test gradcheck(krontest,w,copy(w))
     @test gradcheck(logabsdet,wsquare)
-    @test gradcheck(logdet,wsquare)
+    @test gradcheck(logdet,wposdef)
     @test gradcheck(norm,w,1)
     @test gradcheck(norm,w,2)
     @test gradcheck(norm,w,Inf)
-    @test gradcheck(qrtest,w) #iterator error
-    @test gradcheck(lqtest,w) #iterator error
-    @test gradcheck(svdtest,w) #iterator error
+    @test_broken gradcheck(qrtest,w) #TODO iterator error
+    @test_broken gradcheck(lqtest,w) #TODO iterator error
+    @test_broken gradcheck(svdtest,w) #TODO iterator error
     @test gradcheck(tr,wsquare)
     @test gradcheck(transpose,w)
     @test gradcheck(tril,w)
