@@ -144,9 +144,11 @@ et al. 2015)](https://arxiv.org/abs/1502.05767) for a general review
 of automatic differentiation, [autograd
 tutorial](https://github.com/HIPS/autograd/blob/master/docs/tutorial.md)
 for some Python examples, and Dougal's PhD thesis for design
-principles.  [JuliaDiff](http://www.juliadiff.org/) has alternative
-differentiation tools for Julia.  I would like to thank my students
-Ozan Arkan Can and Emre Yolcu for helpful contributions.
+principles.  [JuliaDiff](http://www.juliadiff.org/) and
+[FluxML](https://github.com/FluxML) have alternative differentiation
+tools for Julia.  I would like to thank Carlo Lucibello, Mike Innes,
+Rene Donner, Ekin Akyurek, Ozan Arkan Can and Emre Yolcu for their
+contributions.
 
 The suggested citation for AutoGrad is:
 

@@ -1,6 +1,7 @@
 name = "AutoGrad"
 uuid = "6710c13c-97f1-543f-91c5-74e8f7d95b35"
 author = ["Deniz Yuret <denizyuret@gmail.com>"]
+version = "1.0.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

@@ -1,6 +1,15 @@
+AutoGrad v1.0.0 Release Notes
+=============================
+2018-08-18
+
+* Julia 1.0 compatibility release (pre-0.7 Julia versions no longer supported) (@rened, @CarloLucibello).
+* Higher order gradient bug fixed (@MikeInnes).
+* Improved unit tests (@ekinakyurek).
+
+
 AutoGrad v0.1.0 Release Notes
-==============================
-2018-05-30
+=============================
+b6b5863 2018-05-30
 
 * Pre-0.6 Julia versions no longer supported.
 * LinAlg support (@CarloLucibello): det, logdet, inv, dot, diag, diagm, trace, logabsdet, kron, triu, tril, chol, lq, qr, svd
