@@ -61,6 +61,12 @@ using Statistics, LinearAlgebra
         @test gradcheckN(bp,abs.(x3d[1]),x1d[2])
         @test gradcheckN(bp,abs.(x4d[1]),x1d[2])
     end
+
+    @testset "values" begin
+        d = Dict(:a=>1, :b=>2)
+        @test grad(x->sum(values(x)))(d) == Dict(:a=>1, :b=>1)
+    end
+
     @test gradcheck(abs,x1d[1])
     @test gradcheck(abs2,x1d[1])
     @test gradcheck(big,x1d[1])
