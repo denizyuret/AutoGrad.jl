@@ -36,18 +36,16 @@
 # - need some way to define gradients, and some way to define zero gradients
 
 import Base.Broadcast: broadcasted
-broadcast_r = recorder(broadcast)
-broadcasted(f, x::Rec) = broadcast_r(f,x)
-broadcasted(f, x::Rec, y...) = broadcast_r(f,x,y...) # useful for clamp
-broadcasted(f, x::Rec, y) = broadcast_r(f,x,y)
-broadcasted(f, x, y::Rec) = broadcast_r(f,x,y)
-broadcasted(f, x::Rec, y::Rec) = broadcast_r(f,x,y)
+broadcasted(f, x::Rec) = forw(broadcast,f,x)
+broadcasted(f, x::Rec, y...) = forw(broadcast,f,x,y...) # useful for clamp
+broadcasted(f, x::Rec, y) = forw(broadcast,f,x,y)
+broadcasted(f, x, y::Rec) = forw(broadcast,f,x,y)
+broadcasted(f, x::Rec, y::Rec) = forw(broadcast,f,x,y)
 
 # This fixes sum(x.*x,dims=1) giving MethodError: no method matching sum(::Base.Broadcast.Broadcasted; dims=1)
 import Base.Broadcast: materialize
-materialize_r = recorder(materialize)
-materialize(x::Rec) = materialize_r(x)
-materialize(::Type{Grad{1}},dy,y,x::Rec) = dy
+materialize(x::Rec) = forw(materialize,x)
+back(::typeof(materialize),::Val{1},dy,y,x::Rec) = dy
 
 # The way broadcasting works in Julia:
 # y = f(x...) where f is a broadcasting operation.

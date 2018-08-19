@@ -27,13 +27,8 @@ const NAR = Union{Number,AbstractArray,Rec}
 cat(X::NA...; dims)=Base._cat(dims, X...) 
 
 # Then define the method that catches at least one Rec:
-cat_r = recorder(cat)
-cat(X::NAR...; dims)=cat_r(X...; dims=dims)
-
-cat(::Type{Grad{N}},y1::AbstractArray,y::AbstractArray,x::AbstractArray...; dims) where {N}=uncat(y1,N,dims,x...)   # ambiguity fix
-cat(::Type{Grad{N}},y1::NA,y::NA,x::NA...; dims) where {N}=uncat(y1,N,dims,x...)   # ambiguity fix
-cat(::Type{Grad{N}},y1::NAR,y::NAR,x::NAR...; dims) where {N}=uncat(y1,N,dims,x...)   # ambiguity fix
-cat(::Type{Grad{N}},y1,y,x...; dims) where {N}=uncat(y1,N,dims,x...)
+cat(X::NAR...; dims)=forw(cat,X...; dims=dims)
+back(::typeof(cat),::Val{N},y1,y,x...; dims) where {N}=uncat(y1,N,dims,x...)
 
 # In Julia6+ dims can be Val{N} which breaks uncat:
 uncat(y1,n,dims::Val{N},x...) where {N}=uncat(y1,n,N,x...)
@@ -139,18 +134,6 @@ hcat(x::Rec...) = cat(x...; dims=Val(2))
 # kernel call overhead.  To make it fast with KnetArrays we need a
 # single GPU kernel call which does all the copying.
 
-gradarg(::Type{Grad{N}}) where {N}=N
-
-function cat1d(g::DataType,y1,y,x...) # g = Grad{N}
-    argnum = gradarg(g)
-    offset2 = 0
-    @inbounds for i=1:argnum
-        offset2 += length(x[i])
-    end
-    offset1 = offset2 - length(x[argnum]) + 1
-    reshape(y1[offset1:offset2], size(x[argnum]))
-end
-
 function cat1d(args...)
     totlen = 0
     @inbounds for arg in args
@@ -186,6 +169,15 @@ function cat1d(args...)
         end
     end
     return result
+end
+
+function back(::typeof(cat1d),::Val{N},y1,y,x...) where {N}
+    offset2 = 0
+    @inbounds for i=1:N
+        offset2 += length(x[i])
+    end
+    offset1 = offset2 - length(x[N]) + 1
+    reshape(y1[offset1:offset2], size(x[N]))
 end
 
 export cat1d

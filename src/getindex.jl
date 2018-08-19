@@ -17,11 +17,11 @@ setindex!(x::Rec,v,I...)=error("Overwriting operations currently not supported."
 # We handle the containers by overloading getindex:
 
 @primitive  getindex(x,i...),dxi,xi  ungetindex(x,dxi,i)
-getindex(::Type{T},o...) where {T<:Grad} = nothing # Only the first arg has gradient
+back(::typeof(getindex),::Val{N},o...) where {N} = nothing # Only the first arg has gradient
 
 # use ungetindex machinery also for view and selectdim
 @primitive  view(x,i...),dxi,xi  ungetindex(x,dxi,i)
-view(::Type{T}, o...) where {T<:Grad} = nothing # Only the first arg has gradient
+back(::typeof(view),::Val{N},o...) where {N} = nothing # Only the first arg has gradient
 @inline selectdim(A::Rec{<:AbstractArray}, d::Integer, i) = Base._selectdim(A, d, i, Base.setindex(map(Base.Slice, axes(A)), i, d))
 
 # For efficiency we use the following sparse container
@@ -58,15 +58,11 @@ ungetindex(x,dxi,i)=UngetIndex(x,dxi,i)
 # first two args:
 # (a,a), (a,r), (r,r), (r,a), (g2,a), (g2,r), (g,a), (g,r)
 
-let ungetindex_r = recorder(ungetindex); global ungetindex
-    ungetindex(x,dxi::Rec,i)=ungetindex_r(x,dxi,i)
-end
+ungetindex(x,dxi::Rec,i)=forw(ungetindex,x,dxi,i)
 ungetindex(x::Rec,dxi::Rec,i)=ungetindex(getval(x),dxi,getval(i))
 ungetindex(x::Rec,dxi,i)=ungetindex(getval(x),dxi,getval(i))
-ungetindex(::Type{Grad{2}},ddx,dx,x,dxi,i)=getindex(ddx,getval(i)...)
-ungetindex(::Type{Grad{2}},ddx::Rec,dx,x,dxi,i)=getindex(ddx,getval(i)...)
-ungetindex(::Type{T},o...) where {T<:Grad} = nothing
-ungetindex(::Type{T},ddx::Rec,o...) where {T<:Grad} = nothing
+back(::typeof(ungetindex),::Val{2},ddx,dx,x,dxi,i)=getindex(ddx,getval(i)...)
+back(::typeof(ungetindex),::Val{N},o...) where {N} = nothing
 
 # gradcheck works with the first arg, we need to check ungetindex grad for its second arg
 # ungetindex2(value, container, index)=ungetindex(container, value, index)

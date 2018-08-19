@@ -6,8 +6,6 @@
 # f{T<:Number,A<:AbstractArray}(x::Rec{A{T}})
 # 20180725: TODO: This may have changed in Julia 0.7
 
-# TODO: fix primitive documentation.
-
 """
 
     @primitive  fx g1 g2...
@@ -20,10 +18,10 @@ non-numeric functions such as `size` should be defined using the
 # Examples
 
     @primitive sin(x::Number)
-    @primitive hypot(x1::Array,x2::Array),dy,y
+    @primitive hypot(x1,x2),dy,y
 
-    @primitive sin(x::Number),dy  (dy*cos(x))
-    @primitive hypot(x1::Array,x2::Array),dy,y  (dy.*x1./y)  (dy.*x2./y)
+    @primitive sin(x::Number),dy  (dy.*cos(x))
+    @primitive hypot(x1,x2),dy,y  (dy.*x1./y)  (dy.*x2./y)
 
 The first example shows that `fx` is a typed method declaration.
 Julia supports multiple dispatch, i.e. a single function can have
@@ -46,76 +44,78 @@ expressions.
 
 The @primitive macro turns the first example into:
 
-    let sin_r = recorder(sin)
-        global sin
-        sin(x::Rec{T}) where {T<:Number} = sin_r(x)
-    end
+    sin(x::Rec{T}) where {T<:Number} = forw(sin, x)
 
 This will cause calls to `sin` with a boxed argument
 (`Rec{T<:Number}`) to be recorded.  The recorded operations are used
-by `grad` to construct a dynamic computational graph.  With multiple
+by AutoGrad to construct a dynamic computational graph.  With multiple
 arguments things are a bit more complicated.  Here is what happens
 with the second example:
 
-    let hypot_r = recorder(hypot)
-        global hypot
-        hypot(x1::Rec{T},x2::Rec{S}) where {T<:Array,S<:Array} = hypot_r(x1,x2)
-        hypot(x1::Rec{T},x2::S) where {T<:Array,S<:Array} = hypot_r(x1,x2)
-        hypot(x1::T,x2::Rec{S}) where {T<:Array,S<:Array} =hypot_r(x1,x2)
-    end
+    hypot(x1::Rec{S}, x2::Rec{T}) where {S<:Any,T<:Any} = forw(hypot, x1, x2)
+    hypot(x1::S, x2::Rec{T})      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
+    hypot(x1::Rec{S}, x2::T)      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
 
-We want the recorder version to be called if any one of the arguments
+We want the forw method to be called if any one of the arguments
 is a boxed `Rec`.  There is no easy way to specify this in Julia, so
 the macro generates all 2^N-1 boxed/unboxed argument combinations.
 
 In AutoGrad, gradients are defined using gradient methods that have
-the following signature:
+the following pattern:
 
-    f(Grad{i},dy,y,x...) => dx[i]
+    back(f,Val(i),dy,y,x...) => dx[i]
 
 For the third example here is the generated gradient method:
 
-    sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy*cos(x))
+    back(::typeof(sin), ::Val{1}, dy, y, x::Rec{T}) where {T<:Number} = dy .* cos(x)
 
 For the last example a different gradient method is generated for each
 argument:
 
-    hypot(::Type{Grad{1}},dy,y,x1::Rec{T},x2::Rec{S}) where {T<:Array,S<:Array} = (dy.*x1./y)
-    hypot(::Type{Grad{2}},dy,y,x1::Rec{T},x2::Rec{S}) where {T<:Array,S<:Array} = (dy.*x2./y)
+    back(::typeof(hypot), ::Val{1}, dy, y, x1::Rec{S}, x2::Rec{T}) where {S<:Any,T<:Any} = (dy .* x1) ./ y
+    back(::typeof(hypot), ::Val{2}, dy, y, x1::Rec{S}, x2::Rec{T}) where {S<:Any,T<:Any} = (dy .* x2) ./ y
 
 In fact @primitive generates four more definitions for the other
 boxed/unboxed argument combinations.
+
+# Broadcasting
+
+Broadcasting is handled by extra `forw` and `back` methods. In `broadcast.jl` we define:
+
+    broadcasted(f, x::Rec) = forw(broadcast,f,x)
+
+and similar methods that match any function `f`, so that when a boxed
+value is in a broadcasting operation `forw` is called. The
+`@primitive` macro defines the `back` method for broadcasting of a
+particular primitive:
+
+    back(::typeof(broadcast), ::Val{2}, dy, y, ::typeof(sin), x::Rec{T}) where {T<:Number} = dy .* cos(x)
+
+If you do not want the back method for broadcasting, you can use the
+`@primitive1` macro which omits this final definition.
 
 """
 macro primitive(f,g...)
     (f,dy,y) = fparse(f)
     b = Expr(:block)
-    fn = fname(f)
-    push!(b.args, :(global $fn)) # e.g. global sin
-    r = gensym()
-    rx = rcall(r,f)             # e.g. sin_r(x)
-    dx = gensym()
+    rx = fcall(f)             # e.g. forw(sin,x)
     for fx in fsigs(f)
-        push!(b.args, :($fx = $rx)) # e.g. sin(x::Rec{T}) where {T<:Number} = sin_r(x)
+        push!(b.args, :($fx = $rx)) # e.g. sin(x::Rec{T}) where {T<:Number} = forw(sin,x)
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)
-            push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
+            push!(b.args, :($gx = $(g[i]))) # e.g. back(::typeof(sin), ::Val{1}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
             bx = bsig(fx,dy,y,i)
-            push!(b.args, :($bx = $(g[i]))) # e.g. broadcast(::Type{Grad{2}},dy,y,::typeof(sin),x::Rec) = (dy.*cos.(x))
+            push!(b.args, :($bx = $(g[i]))) # e.g. back(::typeof(broadcast), ::Val{2}, dy, y, ::typeof(sin), x::Rec) = (dy.*cos.(x))
         end
     end
-    return esc(Expr(:let,:($r=recorder($fn)),b))
+    return esc(b)
 end
 
 # Do we need the version without broadcasting?
 macro primitive1(f,g...)
     (f,dy,y) = fparse(f)
     b = Expr(:block)
-    fn = fname(f)
-    push!(b.args, :(global $fn)) # e.g. global sin
-    r = gensym()
-    rx = rcall(r,f)             # e.g. sin_r(x)
-    dx = gensym()
+    rx = fcall(f)
     for fx in fsigs(f)
         push!(b.args, :($fx = $rx)) # e.g. sin(x::Rec{T}) where {T<:Number} = sin_r(x)
         for i=1:length(g)
@@ -123,7 +123,7 @@ macro primitive1(f,g...)
             push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
         end
     end
-    return esc(Expr(:let,:($r=recorder($fn)),b))
+    return esc(b)
 end
 
 
@@ -136,7 +136,6 @@ Define `f` as an AutoGrad primitive operation with zero gradient.
 # Example:
 
     @zerograd  floor(x::Float32)
-    @zerograd2 floor(x::Float32)
 
 `@zerograd` allows `f` to handle boxed `Rec` inputs by unboxing them
 like a `@primitive`, but unlike `@primitive` it does not record its
@@ -145,8 +144,8 @@ actions or return a boxed `Rec` result.  Some functions, like
 or constant outputs.  These need to handle `Rec` inputs, but do not
 need to record anything and can return regular values.  Their output
 can be treated like a constant in the program.  Use the `@zerograd`
-macro for those.  Use the `@zerograd2` variant for broadcasting
-functions. Note that `kwargs` are NOT unboxed.
+macro for those.  Use the `@zerograd1` variant if you don't want to
+define the broadcasting version. Note that `kwargs` are NOT unboxed.
 
 """
 macro zerograd(f)
@@ -193,7 +192,7 @@ function fparse(f)
     return (f,dy,y)
 end    
 
-# Input is of the form: (where (call f (:: x (curly Rec T))) (<: T Int))
+# Input is of the form: (where (call f (:: x (curly (. AutoGrad Rec) T))) (<: T Int))
 function zcall(f)
     z = copy(f.args[1])
     z1 = z.args[1]
@@ -206,7 +205,7 @@ function zcall(f)
             error("Unrecognized argtype '$zi'")
         elseif zi.head==:(::)
             (v,t) = zi.args
-            if t==:Rec || (isa(t,Expr) && t.head==:curly && t.args[1]==:Rec)
+            if t==:(AutoGrad.Rec) || (isa(t,Expr) && t.head==:curly && t.args[1]==:(AutoGrad.Rec))
                 z.args[i] = :($v.value)
             else
                 z.args[i] = v
@@ -233,22 +232,10 @@ function bzcall(fx,zx)
     return (bfx,bzx)
 end    
 
-# get name out of function declaration
-function fname(f)
-    f.head == :where && error("parametric methods not currently supported")
-    n = f.args[1]
-    isa(n,Expr) && n.head==:curly && error("parametric methods not currently supported")
-    if isa(n,Symbol)
-        return n
-    else
-        error("$n not a symbol")
-    end
-end
-
-# create call to r using typeless argument of f
-function rcall(r,f)
+function fcall(f)
     rx = notypes(f)
-    rx.args[1]=r
+    fn = rx.args[1]
+    rx.args[1]=:(AutoGrad.forw)
     # Need to fix kwargs
     r2 = rx.args[2]
     if isa(r2,Expr) && r2.head == :parameters
@@ -261,6 +248,9 @@ function rcall(r,f)
             elseif !isa(k.args[1],Symbol); error("Bad kwarg '$k'")
             else; k.args[2]=k.args[1]; end
         end
+        insert!(rx.args,3,fn)
+    else
+        insert!(rx.args,2,fn)
     end
     return rx
 end
@@ -317,7 +307,7 @@ function fsigs(f)
             in(ai.head, (:parameters, :(...))) && continue
             ai.head == :(::) || error("Bad arg '$ai'")
             if nodes & (1<<iargs) == 0
-                ai.args[2] = Expr(:curly,:Rec,ai.args[2])
+                ai.args[2] = :(AutoGrad.Rec{$(ai.args[2])}) #Expr(:curly,:Rec,ai.args[2])
             end
             iargs += 1
         end
@@ -331,10 +321,13 @@ end
 function gsig(f,dy,y,i)
     fcopy = copy(f)
     g = fcopy.args[1]
+    fname = g.args[1]
+    g.args[1] = :(AutoGrad.back)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
-    insert!(g.args, a, :(::Type{Grad{$i}}))
-    insert!(g.args, a+1, dy)
-    insert!(g.args, a+2, y)
+    insert!(g.args, a, :(::typeof($fname)))
+    insert!(g.args, a+1, :(::Val{$i}))
+    insert!(g.args, a+2, dy)
+    insert!(g.args, a+3, y)
     return fcopy
 end
 
@@ -345,12 +338,13 @@ function bsig(f,dy,y,i)
     fcopy = copy(f)
     g = fcopy.args[1]
     fname = g.args[1]
-    g.args[1] = :(Base.Broadcast.broadcast)
+    g.args[1] = :(AutoGrad.back)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
-    insert!(g.args, a, :(::Type{Grad{$(i+1)}}))
-    insert!(g.args, a+1, dy)
-    insert!(g.args, a+2, y)
-    insert!(g.args, a+3, :(::typeof($fname)))
+    insert!(g.args, a, :(::typeof(broadcast)))
+    insert!(g.args, a+1, :(::Val{$(i+1)}))
+    insert!(g.args, a+2, dy)
+    insert!(g.args, a+3, y)
+    insert!(g.args, a+4, :(::typeof($fname)))
     return fcopy
 end
 

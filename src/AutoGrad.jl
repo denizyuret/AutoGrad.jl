@@ -1,6 +1,9 @@
 module AutoGrad
 using LinearAlgebra, Statistics, SpecialFunctions
 
+# Use AutoGrad.dir(path...) to construct paths relative to AutoGrad root.
+dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
+
 # Uncomment include("../util/debug.jl") and the following macro line to see debug output
 # macro dbg(x); esc(:(println(_dbg($x)))); end;
 macro dbg(x); end
@@ -11,8 +14,7 @@ macro dbg(x); end
 macro prof(label,ex); esc(ex); end
 
 export grad, gradloss, getval
-export @primitive, @zerograd, @primitive1, @zerograd1, recorder, Rec, Grad  # the last three are required for the macros to work
-dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
+export @primitive, @zerograd, @primitive1, @zerograd1
 
 include("core.jl")
 include("broadcast.jl")
