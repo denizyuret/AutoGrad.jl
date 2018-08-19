@@ -13,7 +13,7 @@ include("header.jl")
 
     @test gradcheckN(cat1, x1d...)
     @test gradcheckN(cat1, x1d[1], x2d[1]')
-    #@test gradcheckN(cat1, x1d[1], x2d[1]) #TODO: !!uncat mismatch error!! why is this working in Base.cat?
+    @test_skip gradcheckN(cat1, x1d[1], x2d[1]) #TODO: !!uncat mismatch error!! why is this working in Base.cat?
     
     @test gradcheckN(cat2, x1d...)
     @test gradcheckN(cat2, x1d[1], x2d[1])

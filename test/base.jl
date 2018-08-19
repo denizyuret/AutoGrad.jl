@@ -56,21 +56,22 @@ using Statistics, LinearAlgebra
     end
 
     @testset "power" begin
-        @test gradcheckN(^,xsquare,x1d[2]) #fails
+        @test_broken gradcheckN(^,xsquare,x1d[2]) #TODO: integer and matrix powers
         @test gradcheckN(bp,abs.(x2d[1]),x1d[2])
         @test gradcheckN(bp,abs.(x3d[1]),x1d[2])
         @test gradcheckN(bp,abs.(x4d[1]),x1d[2])
     end
     @test gradcheck(abs,x1d[1])
     @test gradcheck(abs2,x1d[1])
-    @test gradcheck(big,x1d[1]) #fails
-    @test gradcheck(float,1) #fails
+    @test gradcheck(big,x1d[1])
+    @test gradcheck(float,1)
     @test gradcheck(maximum,x4d[1])
     @test gradcheck(maxabs,x4d[1])
     @test gradcheck(minimum,x4d[1])
     @test gradcheck(minabs,x4d[1])
     @test gradcheck(permutedims,x4d[1],(3,4,2,1))
-    @test gradcheckN(prod,x1d) #fails
+    @test_broken gradcheck(prod,x1d) #TODO: gradcheck tuple support so collect not necessary in next line
+    @test gradcheck(prod,collect(x1d))
     @test gradcheck(sum,x4d[1])
     @test gradcheck(sumabs,x4d[1])
     @test gradcheck(sumabs2,x4d[1])

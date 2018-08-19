@@ -1,19 +1,25 @@
 language: julia
-
-## https://docs.travis-ci.com/user/languages/julia
-## If you leave the julia: key out of your .travis.yml, Travis CI will use the most recent release.
+os:
+  - linux
+  - osx
 julia:
   - 0.7
   - 1.0
   - nightly
-os:
-  - linux
-  - osx
-matrix:
-  allow_failures:
-    - julia: nightly  ## getting too many warnings
 notifications:
   email: false
+git:
+  depth: 9999999
+
+
+
+## https://docs.travis-ci.com/user/languages/julia
+
+## If you leave the julia: key out of your .travis.yml, Travis CI will use the most recent release.
+
+# matrix:
+#   allow_failures:
+#     - julia: nightly  ## getting too many warnings
 
 ## uncomment the following lines to override the default test script
 #script:

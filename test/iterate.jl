@@ -32,7 +32,7 @@ include("header.jl")
     @test gradcheck(itr2,warray)
     @test gradcheck(itr1,warray[1])
     @test gradcheck(itr2,warray[1])
-    @test gradcheck(itr3,wdict) #fails
+    @test gradcheck(itr3,wdict)
     @test gradcheck(itr4,warray) 
     @test gradcheck(itr4,wtuple)
 end
