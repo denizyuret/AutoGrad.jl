@@ -1,4 +1,5 @@
-import Base: getindex, setindex!, sum, zeros, zero, ones, length, get
+import Base: getindex, setindex!, sum, zeros, zero, ones, length, get, 
+             view, selectdim
 
 # Here we will define indexing (getindex,setindex!,firstindex,lastindex) 
 # interface for generic Rec types.
@@ -18,6 +19,11 @@ setindex!(x::Rec,v,I...)=error("Overwriting operations currently not supported."
 @primitive  getindex(x,i...),dxi,xi  ungetindex(x,dxi,i)
 getindex(::Type{T},o...) where {T<:Grad} = nothing # Only the first arg has gradient
 
+# use ungetindex machinery also for view and selectdim
+@primitive  view(x,i...),dxi,xi  ungetindex(x,dxi,i)
+view(::Type{T}, o...) where {T<:Grad} = nothing # Only the first arg has gradient
+@inline selectdim(A::Rec{<:AbstractArray}, d::Integer, i) = Base._selectdim(A, d, i, Base.setindex(map(Base.Slice, axes(A)), i, d))
+
 # For efficiency we use the following sparse container
 # This object represents what you would get with
 # setindex!(similar(container), value, index...)
@@ -29,7 +35,11 @@ getindex(::Type{T},o...) where {T<:Grad} = nothing # Only the first arg has grad
 # TODO: implement KnetArray version of addindex! ???
 # TODO: figure out julia4 problem with Array{CartesianIndex} -- j4 no longer supported.
 
-struct UngetIndex; container; value; index; end
+struct UngetIndex
+    container
+    value
+    index
+end
 
 # Gradient of getindex: If xi=getindex(x,i...) and we receive dxi,
 # ungetindex creates dx representing zeros similar to x, with only
