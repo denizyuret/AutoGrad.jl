@@ -291,6 +291,7 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* 
 # setdiff,
 # setindex!,
 @zerograd similar(x,i...)
+similar(x::Rec, dims::Base.DimOrInd...) = similar(x.value, dims...) # 0.7 ambiguity fix
 # sizehint!,
 # splice!,
 # symdiff!,
