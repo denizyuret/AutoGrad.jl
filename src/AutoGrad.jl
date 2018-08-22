@@ -30,6 +30,6 @@ include("cat.jl")
 
 # Uncomment these for debugging:
 # include("../util/debug.jl")
-# include("../test/gradcheck.jl"); export gradcheck, randcheck, check_grads, gradcheckN
+include("../test/gradcheck.jl")
 
 end # module

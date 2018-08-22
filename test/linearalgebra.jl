@@ -36,16 +36,16 @@ using LinearAlgebra
     @test gradcheck(det,wsquare)
     @test gradcheck(diag,wsquare)
     @test_broken gradcheck(diag,w)             #TODO no support for non-square matrices yet
-    @test_skip gradcheckN(diagm1,udg,dg,ldg)   #TODO diagm not implemented yet
-    @test gradcheckN(dot,udg,ldg)
-    @test gradcheckN(dot,w,copy(w))
+    @test_skip gradcheck(diagm1,udg,dg,ldg)   #TODO diagm not implemented yet
+    @test gradcheck(dot,udg,ldg)
+    @test gradcheck(dot,w,copy(w))
     @test gradcheck(inv,wsquare)
     @test gradcheck(krontest,w,copy(w))
     @test gradcheck(logabsdet,wsquare)
     @test gradcheck(logdet,wposdef)
-    @test gradcheck(norm,w,1)
-    @test gradcheck(norm,w,2)
-    @test gradcheck(norm,w,Inf)
+    @test gradcheck(norm,w,1; args=1)
+    @test gradcheck(norm,w,2; args=1)
+    @test gradcheck(norm,w,Inf; args=1)
     @test_broken gradcheck(qrtest,w) #TODO iterator error
     @test_broken gradcheck(lqtest,w) #TODO iterator error
     @test_broken gradcheck(svdtest,w) #TODO iterator error
@@ -53,5 +53,5 @@ using LinearAlgebra
     @test gradcheck(transpose,w)
     @test gradcheck(tril,w)
     @test gradcheck(triu,w)
-    @test gradcheckN(*,w,wt)
+    @test gradcheck(*,w,wt)
 end

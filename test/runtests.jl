@@ -17,5 +17,5 @@
 @time include("iterate.jl")
 @time include("cat.jl")
 @time include("rosenbrock.jl")
-@time include("highorder.jl") 
-@time include("neuralnet.jl") 
+@time include("highorder.jl")
+@time include("neuralnet.jl")

@@ -84,7 +84,7 @@ end
 
 function sum_outgrads(a::Tuple,b::UngetIndex)
     ca = collect(Any,a)
-    if length(b.index[1]) > 1
+    if isa(b.value,Tuple) # length(b.index[1]) > 1
         cb = collect(Any,b.value)
     else
         cb = b.value

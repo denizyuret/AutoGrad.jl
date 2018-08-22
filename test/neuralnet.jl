@@ -10,13 +10,12 @@ wt = (wa...,)
 wd = Dict(); for i=1:length(wa); wd[i]=wa[i]; end
 
 @testset "neuralnet" begin
-    @test gradcheckN(n0, wa, rand(3,10), rand(2,10))
-    @test gradcheckN(n0, wt, rand(3,10), rand(2,10))
-    @test gradcheckN(n0, wd, rand(3,10), rand(2,10))
-    @test gradcheckN(n1sum, wa, rand(3,10), rand(2,10))
-    @test gradcheckN(n1sum, wt, rand(3,10), rand(2,10))
-    # TODO: This needs more work:
-    @test_skip check_grads(n1sumd, wd, rand(3,10), rand(2,10))  # TODO: FAIL
+    @test gradcheck(n0, wa, rand(3,10), rand(2,10))
+    @test gradcheck(n0, wt, rand(3,10), rand(2,10))
+    @test gradcheck(n0, wd, rand(3,10), rand(2,10))
+    @test gradcheck(n1sum, wa, rand(3,10), rand(2,10))
+    @test gradcheck(n1sum, wt, rand(3,10), rand(2,10))
+    @test gradcheck(n1sumd, wd, rand(3,10), rand(2,10))
 end
 
 nothing

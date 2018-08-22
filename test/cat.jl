@@ -11,18 +11,18 @@ include("header.jl")
     x2d = ([1. 2.],[3. 4.]) 
     x3d = (randn(2,3,5),randn(1,3,5),randn(2,2,5),randn(2,3,2)) 
 
-    @test gradcheckN(cat1, x1d...)
-    @test gradcheckN(cat1, x1d[1], x2d[1]')
-    @test_skip gradcheckN(cat1, x1d[1], x2d[1]) #TODO: !!uncat mismatch error!! why is this working in Base.cat?
+    @test gradcheck(cat1, x1d...)
+    @test gradcheck(cat1, x1d[1], x2d[1]')
+    @test_skip gradcheck(cat1, x1d[1], x2d[1]) #TODO: !!uncat mismatch error!! why is this working in Base.cat?
     
-    @test gradcheckN(cat2, x1d...)
-    @test gradcheckN(cat2, x1d[1], x2d[1])
-    @test gradcheckN(cat2, x2d...)
+    @test gradcheck(cat2, x1d...)
+    @test gradcheck(cat2, x1d[1], x2d[1])
+    @test gradcheck(cat2, x2d...)
     
-    @test gradcheckN(cat31, x3d[1],x3d[2])
-    @test gradcheckN(cat32, x3d[1],x3d[3])
-    @test gradcheckN(cat33, x3d[1],x3d[4])
+    @test gradcheck(cat31, x3d[1],x3d[2])
+    @test gradcheck(cat32, x3d[1],x3d[3])
+    @test gradcheck(cat33, x3d[1],x3d[4])
     
-    @test gradcheckN(cat1d,[1.,2.],[3.,4.])
+    @test gradcheck(cat1d,[1.,2.],[3.,4.])
 end
 

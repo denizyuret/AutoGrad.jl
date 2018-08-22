@@ -16,44 +16,44 @@ using Statistics, LinearAlgebra
     bp(x...) = broadcast(^,x...)
 
     @testset "product" begin
-        @test gradcheckN(*,x1d...)
-        @test gradcheckN(*,x1d[1],x2d[2])
-        @test gradcheckN(bt,x1d[1],x2d[2])
-        @test gradcheckN(*,x2d[1],x2d[2]')
-        @test gradcheckN(bt,x2d...)
-        @test gradcheckN(bt,x3d...)
-        @test gradcheckN(bt,x4d...)
+        @test gradcheck(*,x1d...)
+        @test gradcheck(*,x1d[1],x2d[2])
+        @test gradcheck(bt,x1d[1],x2d[2])
+        @test gradcheck(*,x2d[1],x2d[2]')
+        @test gradcheck(bt,x2d...)
+        @test gradcheck(bt,x3d...)
+        @test gradcheck(bt,x4d...)
     end
 
     @testset "division" begin
-        @test gradcheckN(/,x1d...)
-        @test gradcheckN(bd,x1d[1],x2d[2])
-        @test gradcheckN(bd,x2d[1]...)
-        @test gradcheckN(bd,x2d...)
-        @test gradcheckN(bd,x3d...)
-        @test gradcheckN(bd,x4d...)
+        @test gradcheck(/,x1d...)
+        @test gradcheck(bd,x1d[1],x2d[2])
+        @test gradcheck(bd,x2d[1]...)
+        @test gradcheck(bd,x2d...)
+        @test gradcheck(bd,x3d...)
+        @test gradcheck(bd,x4d...)
     end
 
     @testset "plus/minus" begin
         for op in [+,-]
-            @test gradcheckN(op,x1d[1],x1d[2])
-            @test gradcheckN(op,x2d...)
-            @test gradcheckN(op,x3d[1],copy(x3d[1]))
-            @test gradcheckN(op,x4d[1],copy(x4d[1]))
+            @test gradcheck(op,x1d[1],x1d[2])
+            @test gradcheck(op,x2d...)
+            @test gradcheck(op,x3d[1],copy(x3d[1]))
+            @test gradcheck(op,x4d[1],copy(x4d[1]))
         end
         for op in [ba,bm]
-            @test gradcheckN(op,x1d[1],x2d[2])
-            @test gradcheckN(op,x2d...)
-            @test gradcheckN(op,x3d...)
-            @test gradcheckN(op,x4d...)
+            @test gradcheck(op,x1d[1],x2d[2])
+            @test gradcheck(op,x2d...)
+            @test gradcheck(op,x3d...)
+            @test gradcheck(op,x4d...)
         end
     end
 
     @testset "power" begin
-        @test_broken gradcheckN(^,xsquare,x1d[2]) #TODO: integer and matrix powers
-        @test gradcheckN(bp,abs.(x2d[1]),x1d[2])
-        @test gradcheckN(bp,abs.(x3d[1]),x1d[2])
-        @test gradcheckN(bp,abs.(x4d[1]),x1d[2])
+        @test_broken gradcheck(^,xsquare,x1d[2]) #TODO: integer and matrix powers
+        @test gradcheck(bp,abs.(x2d[1]),x1d[2])
+        @test gradcheck(bp,abs.(x3d[1]),x1d[2])
+        @test gradcheck(bp,abs.(x4d[1]),x1d[2])
     end
 
     @testset "values" begin
@@ -69,9 +69,8 @@ using Statistics, LinearAlgebra
     @test gradcheck(x->maximum(abs,x),x4d[1])
     @test gradcheck(minimum,x4d[1])
     @test gradcheck(x->minimum(abs,x),x4d[1])
-    @test gradcheck(permutedims,x4d[1],(3,4,2,1))
-    @test_broken gradcheck(prod,x1d) #TODO: gradcheck tuple support so collect not necessary in next line
-    @test gradcheck(prod,collect(x1d))
+    @test gradcheck(permutedims,x4d[1],(3,4,2,1); args=1)
+    @test gradcheck(prod,x1d)
     @test gradcheck(sum,x4d[1])
     @test gradcheck(x->sum(abs,x),x4d[1])
     @test gradcheck(x->sum(abs2,x),x4d[1])

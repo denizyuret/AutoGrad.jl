@@ -7,8 +7,8 @@ _dbg(x)=summary(x) # extend to define short printable representations
 _dbg(x::Tuple)=join(_dbg.(x),' ')
 _dbg(x::Node)=@sprintf("N%s(%s)",id2(x),_dbg(x.rec.value))
 _dbg(x::Rec)=(n=length(x.nodes); @sprintf("R%s%s(%s)",id2(x),n==1 ? "" : "[$n]", _dbg(x.value)))
-_dbg(x::Tape)="N"*ssize(x)
-_dbg(x::AbstractArray)=_dbg(eltype(x))*ssize(x)*id2(x)
+_dbg(x::Tape)="N"*id2(x)*ssize(x)
+_dbg(x::AbstractArray)=_dbg(eltype(x))*id2(x)*ssize(x)
 _dbg(::Type{Any})="A"
 _dbg(::Type{Float32})="S"
 _dbg(::Type{Float64})="D"
