@@ -55,5 +55,7 @@ using LinearAlgebra
         @test gradcheck(tril,w)
         @test gradcheck(triu,w)
         @test gradcheck(*,w,wt)
+        @test_broken gradcheck(^,wsquare,randn()) #TODO: real matrix powers
+        @test_broken gradcheck(^,wsquare,rand(-3:3)) #TODO: integer matrix powers
     end
 end

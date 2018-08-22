@@ -5,7 +5,7 @@ using LinearAlgebra, Statistics, SpecialFunctions
 dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
 
 # Uncomment include("../util/debug.jl") and the following macro line to see debug output
-# macro dbg(x); esc(:(println(_dbg($x)))); end;
+# DBG=false; dbg(x)=(global DBG=x); macro dbg(x); esc(:((DBG && println(_dbg($x))))); end
 macro dbg(x); end
 
 # To perform profiling of AutoGrad internals, uncomment the following lines. Make sure to Pkg.add("TimerOutputs").

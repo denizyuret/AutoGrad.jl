@@ -79,6 +79,8 @@ function gcwalk(i, xptr, gptr, f0, f, x, kw, nsample, verbose, delta, rtol, atol
         return all(indices) do j
             gcwalk(j, xptr[i], gcget(gptr,i,nothing), f0, f, x, kw, nsample, verbose, delta, rtol, atol)
         end
+    else
+        return true
     end
 end
 

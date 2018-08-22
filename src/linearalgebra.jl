@@ -94,10 +94,15 @@ kron(a, b::Rec) = _kron(a, b)
 
 # julia/stdlib/v0.7/LinearAlgebra/src/LinearAlgebra.jl Operators:
 @primitive1 *(x1,x2),dy  (dy*x2')  (x1'*dy) # number and broadcasting methods defined in base.jl
+@primitive1 ^(x1,x2::Integer),dy,y  error("Derivatives of integer matrix powers not defined.") # this gives real results, TODO.
+@primitive1 ^(x1,x2::Number),dy,y   error("Derivatives of real matrix powers not defined.") # this could give imaginary results, out of scope
 # \
 # /
 # ⋅ = dot
 # × = cross
+# +
+# -
+# ==
 
 # julia/stdlib/v0.7/LinearAlgebra/src/blas.jl exports:
 # # Level 1

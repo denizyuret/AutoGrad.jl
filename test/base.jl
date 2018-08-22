@@ -59,10 +59,14 @@ using Statistics, LinearAlgebra
         end
 
         @testset "power" begin
-            @test_broken gradcheck(^,xsquare,x1d[2]) #TODO: integer and matrix powers
+            @test gradcheck(^, abs(rand()), randn())
+            @test gradcheck(^, abs(rand()), rand(-3:3))
             @test gradcheck(bp,abs.(x2d[1]),x1d[2])
             @test gradcheck(bp,abs.(x3d[1]),x1d[2])
             @test gradcheck(bp,abs.(x4d[1]),x1d[2])
+            # Move these to linearalgebra.jl:
+            # @test_broken gradcheck(^,xsquare,randn())
+            # @test_broken gradcheck(^,xsquare,rand(-3:3))
         end
 
         @testset "values" begin
