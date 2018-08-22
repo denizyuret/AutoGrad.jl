@@ -1,9 +1,15 @@
 include("header.jl")
 
-o = (:delta=>1e-3,:verbose=>1)
 using SpecialFunctions
 
 @testset "specialfunctions" begin
+    o = (:delta=>0.0001,:rtol=>0.01,:atol=>0.01)
+    ϵ = 0.1
+    val_lt_2(x)=rand() * (2-2ϵ) + ϵ
+    val_gt_0(x)=abs(x) + ϵ
+    abs_lt_1(x)=rand() * (2-2ϵ) - (1-ϵ)
+    val_gamma(x)=(x < ϵ && abs(x-round(x)) < ϵ ? x+0.5 : x) # avoid <=0 integers
+
     # `airy(k,x)` is deprecated, use `airyai(x)`, `airyaiprime(x)`, `airybi(x)` or `airybiprime(x)` instead.
     @test randcheck(airyai; o...) # @primitive airyai(x),dy (dy.*(airyaiprime.(x)))
     @test randcheck(airyaiprime; o...) # @primitive airyaiprime(x),dy (dy.*(x .* airyai.(x)))
@@ -32,7 +38,7 @@ using SpecialFunctions
     # beta
     # cosint
     @test randcheck(dawson; o...) # @primitive dawson(x),dy,y (dy.*((-2y) .* x + 1))
-    @test randcheck(digamma; o...) # @primitive digamma(x),dy,y (dy.*(trigamma.(x)))
+    @test randcheck(digamma; o...) # @primitive digamma(x),dy,y (dy.*(trigamma.(x))) ## avoid <=0 ints
     @test randcheck(erf; o...) # @primitive erf(x),dy,y (dy.*(exp.(-(abs2.(x))) * convert(eltype(x), 2 / √π)))
     @test randcheck(erfc; o...) # @primitive erfc(x),dy,y (dy.*(-(exp.(-(abs2.(x)))) * convert(eltype(x), 2 / √π)))
     @test randcheck(erfcinv,val_lt_2; o...) # @primitive erfcinv(x),dy,y (dy.*(-(exp.(abs2.(y))) * convert(eltype(x), √π / 2)))
@@ -40,7 +46,7 @@ using SpecialFunctions
     @test randcheck(erfi; o...) # @primitive erfi(x),dy,y (dy.*(exp.(abs2.(x)) * convert(eltype(x), 2 / √π)))
     @test randcheck(erfinv,abs_lt_1; o...) # @primitive erfinv(x),dy,y (dy.*(exp.(abs2.(y)) * convert(eltype(x), √π / 2)))
     # eta
-    @test randcheck(gamma,abs_gt_0; o...) # @primitive gamma(x),dy,y (dy.*(y .* digamma.(x)))
+    @test randcheck(gamma,val_gamma; o...) # @primitive gamma(x),dy,y (dy.*(y .* digamma.(x))) ## avoid <=0 ints
     # hankelh1
     # hankelh1x
     # hankelh2
@@ -49,9 +55,9 @@ using SpecialFunctions
     # lbeta
     # `lfact` is deprecated, use `lfactorial` instead.
     # lfactorial
-    @test randcheck(lgamma,abs_gt_0; o...) # @primitive lgamma(x),dy,y (dy.*(digamma.(x)))
+    @test randcheck(lgamma,val_gamma; o...) # @primitive lgamma(x),dy,y (dy.*(digamma.(x))) ## avoid <=0 ints
     # @test randcheck(polygamma) # @primitive polygamma(x1,x2),dy,y  nothing  unbroadcast(x2,dy.*polygamma(x1+1,x2))
     # sinint
-    @test randcheck(trigamma,val_gt_0; o...) # @primitive trigamma(x),dy,y (dy.*(polygamma.(2,x)))
+    @test randcheck(trigamma,val_gamma; o...) # @primitive trigamma(x),dy,y (dy.*(polygamma.(2,x)))
     # zeta
 end

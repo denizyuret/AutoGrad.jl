@@ -24,16 +24,15 @@ number, we check the gradient of `sum(f(x...))`.
   gradient `dw=(grad(f))(w,x...;o...)` compared to their numerical
   estimates.
 
-* `atol=0.001; rtol=0.01`: tolerance parameters.  See `isapprox` for
+* `atol=rtol=0.01`: tolerance parameters.  See `isapprox` for
   their meaning.
 
-* `delta`: step size for numerical gradient calculation. 
-  `cbrt(eps(val))` is used if not specified.
+* `delta=0.0001`: step size for numerical gradient calculation.
 
-* `verbose=false`: print detailed messages if true.
+* `verbose=1`: 0 prints nothing, 1 shows failing tests, 2 shows all tests.
 
 """
-function gradcheck(f, x...; kw=(), args=:, nsample=10, verbose=1, rtol=0.01, atol=0.001, delta=0.0001)
+function gradcheck(f, x...; kw=(), args=:, nsample=10, verbose=1, rtol=0.01, atol=0.01, delta=0.0001)
     args = isa(args, Colon) ? (1:length(x)) : args
     tape = Tape()
     xrec  = Any[x...]
@@ -52,15 +51,18 @@ end
 
 function gcwalk(i, xptr, gptr, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
     if isa(xptr[i], Number)
-        xorig = xptr[i]
-        delta = delta > 0 ? delta : cbrt(eps(xorig))
-        xptr[i] = xorig >= 0 ? xorig + delta : xorig - delta
+        xi = xptr[i]
+        delta = delta > 0 ? delta : cbrt(eps(xi))
+        xptr[i] = xi >= 0 ? xi + delta : xi - delta
         f1 = gcsum(f(x...; kw...))
-        nd = (f1 - f0) / (xptr[i] - xorig)
-        xptr[i] = xorig
+        nd = (f1 - f0) / (xptr[i] - xi)
+        xptr[i] = xi
         ad = gcget(gptr,i,0)
         result = isapprox(nd, ad, rtol=rtol, atol=atol)
-        if verbose > 1 || (!result && verbose > 0); @show xorig,f0,nd,ad; end
+        if verbose >= 2 || (!result && verbose >= 1)
+            fn = (f==broadcast ? x[1] : f)
+            @show fn,xi,f0,nd,ad,x
+        end
         return result
     elseif !isempty(methods(length,(typeof(xptr[i]),)))
         n = length(xptr[i])
@@ -133,27 +135,17 @@ function gcsum(x)
     end
 end
 
-"Test a numeric function with randn scalars and randn arrays, possibly transforming the input to match the domain"
+"Test a numeric function with Float32/64 randn scalars and randn arrays, possibly transforming the input to match the domain"
 function randcheck(f,t1=identity,ts...; args=:, kw...)
     ts = [t1,ts...]
     if isa(args,Colon); args=1:length(ts); end
     x64 = map(t->t(randn()), ts)
     a64 = map(t->t.(randn(2)), ts)
+    x32 = map(t->t(randn(Float32)), ts)
+    a32 = map(t->t.(randn(Float32,2)), ts)
+    gradcheck(f, x32...; args=args, kw...) &&
+    gradcheck(broadcast, f, a32...; args=(args.+1), kw...) &&
     gradcheck(f, x64...; args=args, kw...) &&
     gradcheck(broadcast, f, a64...; args=(args.+1), kw...)
-    # Uncomment to test with Float32, much harder to pass tests
-    # x32 = map(t->t(randn(Float32)), ts)
-    # a32 = map(t->t.(randn(Float32,2)), ts)
-    # gradcheck(f, x32...; args=args, kw...) &&
-    # gradcheck(broadcast, f, a32...; args=(args.+1), kw...) &&
 end
-
-ϵ = 0.1
-abs_gt_0(x)=(x < -ϵ ? x : x < 0 ? -ϵ : x < ϵ ? ϵ : x)
-abs_lt_1(x)=rand()*(2-2ϵ)-(1-ϵ)
-abs_gt_1(x)=1/abs_lt_1(x)
-val_lt_1(x)=clamp(rand(),ϵ,1-ϵ)
-val_lt_2(x)=clamp(2*rand(),ϵ,2-ϵ)
-val_gt_1(x)=1/val_lt_1(x)
-val_gt_0(x)=clamp(abs(x),ϵ,Inf)
 
