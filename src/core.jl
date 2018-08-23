@@ -451,7 +451,8 @@ end
 sum_outgrads(a::Number, b::Number)=a+b
 sum_outgrads(a::Tuple, b::Tuple)=tuple([sum_outgrads(x,y) for (x,y) in zip(a,b)]...)
 sum_outgrads(a::AbstractDict, b::AbstractDict) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=sum_outgrads(v,get(z,k,nothing)); end; z)
-sum_outgrads(a::AbstractArray{T},b::AbstractArray{T}) where T = (if isbitstype(T); (a+b); else; T[sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
+# We could have Array{Array} and Array{Any} added:
+sum_outgrads(a::AbstractArray{T},b::AbstractArray) where T = (if isbitstype(T); (a+b); else; T[sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
 # sum_outgrads needs to be a primitive for higher order gradients:
 sum_outgrads(a::Rec,b::Rec)=forw(sum_outgrads,a,b)
 sum_outgrads(a::Rec,b)=forw(sum_outgrads,a,b)
