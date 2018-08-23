@@ -1,30 +1,37 @@
 using Printf
 using Base.Broadcast: Broadcasted
-using AutoGrad: Node, Rec, Tape, UngetIndex
+using AutoGrad: Node, Rec, Tape, UngetIndex, findeq
+import AutoGrad: _dbg
+
+# For disambiguating objects:
+_objdict = Dict{String,Array{UInt64,1}}()
+
+function _dbg(x)
+    str = _dbg1(x)
+    oid = objectid(x)
+    oids = get!(_objdict, str, [oid])
+    idx = findeq(oids,oid)
+    if idx === 0; push!(oids,oid); idx=length(oids); end
+    if idx === 1; return str; end
+    return "$str.$idx"
+end
 
 # Pretty print for debugging:
-_dbg(x)=summary(x) # extend to define short printable representations
-_dbg(x::Tuple)=join(_dbg.(x),' ')
-_dbg(x::Node)=@sprintf("N%s(%s)",id2(x),_dbg(x.rec.value))
-_dbg(x::Rec)=(n=length(x.nodes); @sprintf("R%s%s(%s)",id2(x),n==1 ? "" : "[$n]", _dbg(x.value)))
-_dbg(x::Tape)="N"*id2(x)*ssize(x)
-_dbg(x::AbstractArray)=_dbg(eltype(x))*id2(x)*ssize(x)
-_dbg(::Type{Any})="A"
-_dbg(::Type{Float32})="S"
-_dbg(::Type{Float64})="D"
-_dbg(t::Type)="$t"
-_dbg(x::Dict)="H"*id2(x)
-_dbg(x::Float32)=@sprintf("%.2g",x) # "S"*id2(x)
-_dbg(x::Float64)=@sprintf("%.2g",x) # "D"*id2(x) 
-_dbg(x::Symbol)=string(x)
-_dbg(x::Integer)=string(x)
-_dbg(x::String)=x
-_dbg(x::Char)=x
-_dbg(x::Function)=(s=string(x);length(s)<20 ? s : "F"*id2(x))
-_dbg(x::Broadcasted)=@sprintf("B(%s)",_dbg(copy(x)))
-_dbg(x::UngetIndex)="U$(id2(x))_$(_dbg(x.container))_$(_dbg(x.value))_$((x.index...,))"
-id2(x)=@sprintf("%02d",(objectid(x)%100))
-ssize(x)="$(collect(size(x)))"
+_dbg1(x)=summary(x) # extend to define short printable representations
+_dbg1(x::Tuple)=@sprintf("Tuple%s", _dbg.(x))
+_dbg1(x::Node)=@sprintf("Node(%s)",_dbg(x.rec.value))
+_dbg1(x::Rec)=(n=length(x.nodes); @sprintf("Rec%s(%s)",n==1 ? "" : "[$n]", _dbg(x.value)))
+_dbg1(x::AbstractArray{T}) where {T} = length(x) < 10 ? string(x) : @sprintf("Array{%s}%s",_tstr(T),size(x))
+_dbg1(x::AbstractArray{T}) where {T<:Node} = @sprintf("Array{%s}%s",_tstr(T),size(x))
+_dbg1(x::AbstractDict{T,S}) where {T,S} = "Dict{$T,$S}($(length(x)))"
+_dbg1(x::Real)=@sprintf("%.2g",x)
+_dbg1(x::Symbol)=string(x)
+_dbg1(x::String)=x
+_dbg1(x::Char)=string(x)
+_dbg1(x::Function)=(s=string(x);length(s)<20 ? s : "Function")
+_dbg1(x::Broadcasted)=@sprintf("Broadcasted(%s)",_dbg(copy(x)))
+_dbg1(x::UngetIndex)=@sprintf("UngetIndex(%s→%s[%s])",_dbg(x.value),_dbg(x.container),x.index)
+_tstr(::Type{T}) where T = replace(replace(string(T),r".*\." => ""),r"\{.*" => "") # short types
 
 import Base.show
 show(io::IO, n::Rec) = print(io, _dbg(n))

@@ -4,8 +4,8 @@ using LinearAlgebra, Statistics, SpecialFunctions
 # Use AutoGrad.dir(path...) to construct paths relative to AutoGrad root.
 dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
 
-# Uncomment include("../util/debug.jl") and the following macro line to see debug output
-# DBG=false; dbg(x)=(global DBG=x); macro dbg(x); esc(:((DBG && println(_dbg($x))))); end
+# Uncomment the following line and include("../util/debug.jl") for debugging:
+# macro dbg(x); esc(:((DBG && println(join(_dbg.($x),' '))))); end; DBG=false; dbg(x)=(global DBG=x); _dbg(x)=summary(x)
 macro dbg(x); end
 
 # To perform profiling of AutoGrad internals, uncomment the following lines. Make sure to Pkg.add("TimerOutputs").
@@ -27,9 +27,7 @@ include("specialfunctions.jl")
 include("getindex.jl")
 include("iterate.jl")
 include("cat.jl")
-
-# Uncomment these for debugging:
-# include("../util/debug.jl")
 include("../test/gradcheck.jl")
+#include("../util/debug.jl")
 
 end # module

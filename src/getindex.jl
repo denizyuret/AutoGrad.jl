@@ -116,7 +116,7 @@ using Base.Cartesian # for @nexprs etc.
         x′ = unalias(A, x)
         @nexprs $N d->(I_d = unalias(A, I[d]))
         idxlens = @ncall $N index_lengths I
-        # @ncall $N setindex_shape_check x′ (d->idxlens[d]) # <-- different from _unsafe_setindex!
+        @ncall $N setindex_shape_check x′ (d->idxlens[d])
         Xy = iterate(x′)
         @inbounds @nloops $N i d->I_d begin
             # This is never reached, but serves as an assumption for
@@ -135,15 +135,12 @@ using Base.Cartesian # for @nexprs etc.
 end
 
 # The following methods can assume there are no repeated indices:
-
-sum_outgrads_array(A::AbstractArray, X, I::CartesianIndex)=sum_outgrads_single(A,X,I)
-sum_outgrads_array(A::AbstractArray, X, I::Real)=sum_outgrads_single(A,X,I)
-sum_outgrads_array(A::AbstractArray, X, I::Colon)=sum_outgrads_single(A,X,I)
-sum_outgrads_array(A::AbstractArray, X, I::AbstractArray{Bool})=sum_outgrads_single(A,X,I)
-sum_outgrads_array(A::AbstractArray, X, I::AbstractRange)=sum_outgrads_single(A,X,I)
-function sum_outgrads_single(A::AbstractArray, X, I)
-    v = sum_outgrads(getindex(A,I), X)
-    setindex!(A, v, I)
+# Only AbstractArray{Real} allows for repeated indices.
+sum_outgrads_array(A::AbstractArray, X, I::Real...)=sum_outgrads_single(A,X,I...)
+sum_outgrads_array(A::AbstractArray, X, I...)=sum_outgrads_single(A,X,I...)
+function sum_outgrads_single(A::AbstractArray, X, I...)
+    v = sum_outgrads(getindex(A,I...), X)
+    setindex!(A, v, I...)
 end
 
 # This gets used in higher order gradients.
