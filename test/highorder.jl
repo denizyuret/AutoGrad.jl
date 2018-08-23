@@ -11,16 +11,16 @@ include("header.jl")
     g8 = grad(g7);  @test g8(1)==sin(1)
     g9 = grad(g8);  @test g9(1)==cos(1)
 
-    # PR #75
+    # PR #75: Tape confusion fix
     @test grad(x -> x*grad(y -> x+y)(x))(5.0) == 1
     @test grad(x -> x*grad(y -> x+y)(1x))(5.0) == 1
 
-    # Issue #44
+    # Issue #44: third gradient of exp(x*x) gives nothing
     @test exp(1) == grad(exp)(1) == grad(grad(exp))(1)
     f(x) = exp(x*x)
     @test f(1) ≈ grad(f)(1) / 2 ≈ grad(grad(f))(1) / 6
 
-    # Issue #62
+    # Issue #62: bug second derivative tanh
     @test grad(tanh)(1) == 1 - tanh(1)^2
     @test grad(grad(tanh))(1) == -2*tanh(1)*(1-tanh(1)^2)
 end

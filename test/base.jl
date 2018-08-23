@@ -90,4 +90,23 @@ using Statistics, LinearAlgebra
         @test gradcheck(vec,x4d[1])
         @test gradcheck(copy,x4d[1])
     end
+
+    # Issue #76: StackOverflowError in grad on broadcasted function
+    f(x) = x.^2
+    jf = AutoGrad.grad(f)
+    @test jf(1) == 2
+
+    # Issue #80: broadcast error for integer power
+    @test grad(x->sum(x.^2))([1,2,3]) == [2,4,6]
+    @test grad(x->sum(x.^2.0))([1,2,3]) == [2.,4.,6.]
+    r = [1. 2.; 3. 4.]
+    @test_throws ErrorException grad(x->sum(x^2.0))(r)
+    @test_throws ErrorException grad(x->sum(x^2))(r)
+    @test grad(x->sum(x.^2))(r) == [2.0 4.0; 6.0 8.0]
+    @test grad(x->sum(x.^2.0))(r) == [2.0 4.0; 6.0 8.0]
+    @test isa(r^3.1, Array{Complex{Float64},2})
+    @test isa(r.^3.1, Array{Float64,2})
+    @test_throws ErrorException grad(x->sum(x^3.1))(r)
+    @test isa(grad(x->sum(x.^3.1))(r), Array{Float64,2})
+
 end

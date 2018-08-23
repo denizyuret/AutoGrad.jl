@@ -135,8 +135,8 @@ using Base.Cartesian # for @nexprs etc.
 end
 
 # The following methods can assume there are no repeated indices:
-# Only AbstractArray{Real} allows for repeated indices.
-sum_outgrads_array(A::AbstractArray, X, I::Real...)=sum_outgrads_single(A,X,I...)
+# Only Array{Int} allows for repeated indices.
+sum_outgrads_array(A::AbstractArray, X, I::Union{Real,Colon,AbstractRange,AbstractArray{Bool}}...)=sum_outgrads_single(A,X,I...)
 sum_outgrads_array(A::AbstractArray, X, I...)=sum_outgrads_single(A,X,I...)
 function sum_outgrads_single(A::AbstractArray, X, I...)
     v = sum_outgrads(getindex(A,I...), X)

@@ -16,7 +16,7 @@ using SpecialFunctions
     # airyaiprimex
     # airyaix
     @test randcheck(airybi; o...) # @primitive airybi(x),dy (dy.*(airybiprime.(x)))
-    @test randcheck(airybiprime; o...) # @primitive airybiprime(x),dy (dy.*(x .* airybi.(x)))
+    @test randcheck(airybiprime,abs_lt_1; o...) # @primitive airybiprime(x),dy (dy.*(x .* airybi.(x)))
     # airybiprimex
     # airybix
     # `airyprime(z::Number)` is deprecated, use `airyaiprime(z)` instead.
@@ -38,7 +38,7 @@ using SpecialFunctions
     # beta
     # cosint
     @test randcheck(dawson; o...) # @primitive dawson(x),dy,y (dy.*((-2y) .* x + 1))
-    @test randcheck(digamma; o...) # @primitive digamma(x),dy,y (dy.*(trigamma.(x))) ## avoid <=0 ints
+    @test randcheck(digamma,val_gamma; o...) # @primitive digamma(x),dy,y (dy.*(trigamma.(x))) ## avoid <=0 ints
     @test randcheck(erf; o...) # @primitive erf(x),dy,y (dy.*(exp.(-(abs2.(x))) * convert(eltype(x), 2 / √π)))
     @test randcheck(erfc; o...) # @primitive erfc(x),dy,y (dy.*(-(exp.(-(abs2.(x)))) * convert(eltype(x), 2 / √π)))
     @test randcheck(erfcinv,val_lt_2; o...) # @primitive erfcinv(x),dy,y (dy.*(-(exp.(abs2.(y))) * convert(eltype(x), √π / 2)))

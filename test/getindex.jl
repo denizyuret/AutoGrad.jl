@@ -53,7 +53,7 @@ include("header.jl")
             f1(x)=(p=size(x, 1); p*sum(abs2,x))
             @test grad(f1)(ones(3, 3)) == fill(6, 3, 3)
 
-            # issue #18
+            # Issue #18: ambiguity error in size(rec, dims...)
             f2(x)=(p=(size(x, 1), size(x, 2)); p[1]*sum(abs2,x))
             @test grad(f2)(ones(3, 3)) == fill(6, 3, 3)
         end
@@ -89,7 +89,7 @@ include("header.jl")
             @test gradcheck(f1sum,t1)
             @test gradcheck(f1sum,d1)
 
-            r0(x)=(s=0; for i=2:length(x); s+=(1-x[i-1])^2 + 100*(x[i]-x[i-1]^2)^2; end; s)
+            r0(x)=(s=0; for i=2:length(x); s+=(1-x[i-1])^2 + 2*(x[i]-x[i-1]^2)^2; end; s)
             r1 = grad(r0)
             r1sum(x)=sum(values(r1(x)))
             r2 = grad(r1sum)
@@ -113,8 +113,16 @@ include("header.jl")
             g3 = grad(x->sum(selectdim(x,2,1:2).^2.0))
             @test g1(a) == g2(a) == g3(a)
         end
-
     end
+
+    # Issue #73: incorrect gradient when indexing into a matrix of vectors
+    a = Matrix{Array{Float32}}(undef, 2, 1)
+    a[1] = [2,3,4]
+    a[2] = [4,5,6]
+    g1 = grad(x->x[1]' * x[2])
+    g2 = grad(x->x[1, 1]' * x[2, 1])
+    @test g1(a) == g2(a)
+
 end
 
 nothing

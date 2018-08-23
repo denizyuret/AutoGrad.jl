@@ -14,6 +14,7 @@ include("header.jl")
     val_cotd(x)=(abs(cotd(x)) > 10 ? x+90 : x) # avoid multiples of 180
     val_tan(x)=(abs(tan(x)) > 10 ? x+pi/2 : x) # avoid pi/2, 3pi/2 etc.
     val_tand(x)=(abs(tand(x)) > 10 ? x+90 : x) # avoid 90, 270, etc.
+    val_logb(x)=(x = abs(x) + ϵ; abs(x-1) < ϵ ? x+0.5 : x)     # avoid log base close to 1
     id = identity
     val(v) = (x->v)
 
@@ -51,7 +52,7 @@ include("header.jl")
     @test randcheck(csch,abs_gt_0;o...)
     @test randcheck(deg2rad;o...)
     @test randcheck(exp;o...)
-    @test randcheck(exp10;o...)
+    @test randcheck(exp10,abs_lt_1;o...)
     @test randcheck(exp2;o...)
     @test randcheck(expm1;o...)
     @test randcheck(exponent;o...)
@@ -59,7 +60,7 @@ include("header.jl")
     @test randcheck(hypot,id,id;o...)
     @test randcheck(ldexp,id,val(rand(-5:5)); args=1,o...)
     @test randcheck(log,val_gt_0;o...)
-    @test randcheck(log,val_gt_0,val_gt_0;o...)
+    @test randcheck(log,val_logb,val_gt_0;o...)
     @test randcheck(log10,val_gt_0;o...)
     @test randcheck(log1p,val_gt_m1;o...)
     @test randcheck(log2,val_gt_0;o...)

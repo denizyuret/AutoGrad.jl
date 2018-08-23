@@ -1,6 +1,8 @@
 include("header.jl")
 
 @testset "iterate" begin
+    o = (:delta => 0.01,)
+
     function itr1(w)
         total = 0.0
         for wi in w; total+=sum(wi); end
@@ -29,12 +31,12 @@ include("header.jl")
         wtuple  = (randn(T,2,3,5),randn(T,1,3,5))
         wdict   = Dict(:w1=>randn(T,2,3,5),:w2=>randn(T,1,3,5))
 
-        @test gradcheck(itr1,warray)
-        @test gradcheck(itr2,warray)
-        @test gradcheck(itr1,warray[1])
-        @test gradcheck(itr2,warray[1])
-        @test gradcheck(itr3,wdict)
-        @test gradcheck(itr4,warray) 
-        @test gradcheck(itr4,wtuple)
+        @test gradcheck(itr1,warray; o...)
+        @test gradcheck(itr2,warray; o...)
+        @test gradcheck(itr1,warray[1]; o...)
+        @test gradcheck(itr2,warray[1]; o...)
+        @test gradcheck(itr3,wdict; o...)
+        @test gradcheck(itr4,warray; o...) 
+        @test gradcheck(itr4,wtuple; o...)
     end
 end
