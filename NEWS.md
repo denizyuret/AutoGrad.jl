@@ -1,6 +1,20 @@
+AutoGrad v1.0.1 Release Notes
+=============================
+daef32c 2018-08-24
+
+* Using forw and back methods instead of the recorder function generator and the Grad type.
+* New gradcheck method checks all arguments, handles tuples and dicts as well as arrays.
+* Memory saving by erasing outgrads from tape after use (@ekinakyurek).
+* Fixed integer powers and matrix powers.
+* Fixed sum_outgrads_array bug causing incorrect grad when indexing into a matrix of vectors #73.
+* Fixed sum_outgrads bug so arrays of different types can be added #71.
+* Robust Float32 testing added #87 (@ekinakyurek).
+* Cleaned up and documented the handling of broadcasting.
+* Codecov support added.
+
 AutoGrad v1.0.0 Release Notes
 =============================
-2018-08-18
+bb5e356 2018-08-19
 
 * Julia 1.0 compatibility release (pre-0.7 Julia versions no longer supported) (@rened, @CarloLucibello).
 * Higher order gradient bug fixed (@MikeInnes).
