@@ -27,27 +27,35 @@
 #
 ### copyto!: is responsible for calculating the final result
 
+# Current design avoids generating Broadcasted objects:
+# For regular primitives:
+# f(x...) => forw(f,x...)           # (macros.jl; @primitive f if any x is a rec)
+# forw(f,x...) => f(getval.(x)...)  # (core.jl; f is the recorded function)
+# back(f,i,dy,y,x...)               # (macros.jl; @primitive defines this)
+# For broadcasted primitives:
+# f.(x...) => broadcasted(f,x...)                       # (parser)
+# broadcasted(f,x...) => forw(broadcast,f,x...)         # (broadcast.jl; if one of first two x is a rec)
+# forw(broadcast,f,x...) => broadcast(f,getval.(x)...)  # (core.jl; broadcast is the recorded function)
+# back(broadcast,i,dy,y,f,x...)                         # (macros.jl; @primitive defines this, @primitive1 does not)
+# For direct use of broadcast:
+# broadcast(f,x...) => materialize(broadcasted(f,x...)) # (base/broadcast.jl fallback for unknown rec types)
+# broadcasted(f,x...) => forw(broadcast,f,x...)         # (forw calling broadcast with unboxed args returning rec)
+# materialize(x::Rec) => x                              # (broadcast.jl; defined below)
 
-# This should stop broadcast from fusing Recs:
+import Base.Broadcast: broadcasted, materialize
+broadcasted(f, x::Rec, y...) = forw(broadcast,f,x,y...)
+broadcasted(f, x, y::Rec, z...) = forw(broadcast,f,x,y,z...) # useful for x.^2 => broadcasted(literal_pow,^,x,Val(2))
+broadcasted(f, x::Rec, y::Rec, z...) = forw(broadcast,f,x,y,z...) # ambiguity fix
+materialize(x::Rec)=x  # This fixes sum(x.*x,dims=1) giving MethodError: no method matching sum(::Base.Broadcast.Broadcasted; dims=1)
 
-# Alternatives:
+
+# Design alternatives:
 # - define your own bcast function.
 # - keep a dictionary of zerograd functions.
 # - need some way to define gradients, and some way to define zero gradients
 
-import Base.Broadcast: broadcasted
-broadcasted(f, x::Rec) = forw(broadcast,f,x)
-broadcasted(f, x::Rec, y...) = forw(broadcast,f,x,y...) # useful for clamp
-broadcasted(f, x::Rec, y) = forw(broadcast,f,x,y)
-broadcasted(f, x, y::Rec) = forw(broadcast,f,x,y)
-broadcasted(f, x::Rec, y::Rec) = forw(broadcast,f,x,y)
 
-# This fixes sum(x.*x,dims=1) giving MethodError: no method matching sum(::Base.Broadcast.Broadcasted; dims=1)
-import Base.Broadcast: materialize
-materialize(x::Rec) = forw(materialize,x)
-back(::typeof(materialize),::Val{1},dy,y,x::Rec) = dy
-
-# The way broadcasting works in Julia:
+# Broadcasting dimensions:
 # y = f(x...) where f is a broadcasting operation.
 # size(y) = broadcast_shape(x...)
 # ndims(y) = max ndims(x)

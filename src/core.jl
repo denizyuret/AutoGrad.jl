@@ -72,7 +72,7 @@ end
 # 2.6 the output of f (end_box) could be a boxed Rec or a regular value (if it does not depend on x)
 
 function forward_pass(fun, args, kwargs, argnum)
-    @dbg ("[fwd$argnum", fun, args..., kwargs...)
+    @dbg ("[fpas", fun, args..., kwargs...)
     tape = Tape()
     arg_wrt = args[argnum]
     if isa(arg_wrt,Rec)
@@ -91,7 +91,7 @@ function forward_pass(fun, args, kwargs, argnum)
     @dbg ("[call", fun, args..., kwargs...)
     end_box = fun(args...; kwargs...) # 4458
     @dbg ("]call", fun, args..., kwargs..., '→', end_box)
-    @dbg ("]fwd$argnum", '→', start_box, end_box, tape)
+    @dbg ("]fpas", '→', start_box, end_box, tape)
     return start_box, end_box, tape
 end
 
@@ -139,6 +139,7 @@ function forw(f, args...; kwargs...)
     end
     if DEBUGTAPE; _debugtape(result,argvals); end
     @dbg ("]forw", f, args..., kwargs..., '→', result)
+    @dbg (isa(result,Rec) ? (dumptape(result.tapes[1]);"") : "")
 end # prof begin
     return result
 end # function forw
@@ -192,7 +193,7 @@ end
 # the gradient wrt the start_box.
 
 function backward_pass(start_box, end_box, tape)
-    @dbg ("[back",start_box,end_box,tape)
+    @dbg ("[bpas",start_box,end_box,tape)
 
 # 4.2 If end_box is not a Rec on the given tape, we return zero
 # df/fx if x is a bits type, `nothing` otherwise.  end_box may not
@@ -215,6 +216,7 @@ function backward_pass(start_box, end_box, tape)
 # We need to complete!(tape) to prevent recording during backward_pass.
 
     complete!(tape)
+    @dbg (dumptape(tape);"")
 
 # 4.4 the tape is read in reverse and for each node with a non-zero
 # outgrad its ingrads are computed using the back methods.
@@ -222,7 +224,7 @@ function backward_pass(start_box, end_box, tape)
     for n in tape[end-1:-1:1]  # note the end-1 because we pushed an eot marker
         if n.outgrad === nothing; continue; end
         @prof "NODE" r = n.rec
-        @dbg ("[node", r.func, r.args..., r.kwargs..., '→', r, '←', n.outgrad)
+        @dbg ("[back", r.func, r.args..., r.kwargs..., '→', r, '←', n.outgrad)
         for i=1:length(n.parents)
             isassigned(n.parents,i) || continue
             @prof "GRAD" p = n.parents[i]
@@ -230,11 +232,13 @@ function backward_pass(start_box, end_box, tape)
             #@prof "back$i.$(r.func)" og = r.func(Grad{i},n.outgrad,r.value,r.args...;r.kwargs...) # 4887
             #@prof "back$i.$(r.func)" og = r.func(Grad{i},n.outgrad,r,r.args...;r.kwargs...)
             @prof "back$i.$(r.func)" og = back(r.func,Val(i),n.outgrad,r,r.args...;r.kwargs...)
-            @dbg ("[sum$i",p.rec,'=',p.outgrad,"+",og)
+            @dbg ("[bac$i",p.rec,'=',p.outgrad,"+",og)
             @prof "sumg$i.$(r.func)" p.outgrad = sum_outgrads(p.outgrad, og) # 1141
-            @dbg ("]sum$i",p.rec,'=',p.outgrad)
+            @dbg ("]bac$i",p.rec,'=',p.outgrad)
+            @dbg (dumptape(tape);"")
         end
-        @dbg ("]node", r.func, r.args..., r.kwargs..., '→', r, '←', n.outgrad)
+        # if r.func != rand; n.outgrad = nothing; end
+        @dbg ("]back", r.func, r.args..., r.kwargs..., '→', r, '←', n.outgrad)
     end
 
 # 4.5 tape[1].outgrad is returned.  How do we know this is the
@@ -248,7 +252,7 @@ function backward_pass(start_box, end_box, tape)
 # end_box, their outgrad will remain empty, thus only the necessary
 # gradients are computed.
 
-    @dbg ("]back",start_box,end_box,tape,'→',tape[1].outgrad)
+    @dbg ("]bpas",start_box,end_box,tape,'→',tape[1].outgrad)
     return tape[1].outgrad
 end
 
