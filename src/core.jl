@@ -237,7 +237,7 @@ function backward_pass(start_box, end_box, tape)
             @dbg ("]bac$i",p.rec,'=',p.outgrad)
             @dbg (dumptape(tape);"")
         end
-        # if r.func != rand; n.outgrad = nothing; end
+        if n !== tape[1]; n.outgrad = nothing; end # To save memory
         @dbg ("]back", r.func, r.args..., r.kwargs..., '→', r, '←', n.outgrad)
     end
 
