@@ -27,7 +27,7 @@ include("specialfunctions.jl")
 include("getindex.jl")
 include("iterate.jl")
 include("cat.jl")
-#include("../test/gradcheck.jl")
+include("../test/gradcheck.jl")
 #include("../util/debug.jl")
 
 end # module

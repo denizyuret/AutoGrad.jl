@@ -114,7 +114,7 @@ gradient(t,x)=nothing
 function grad(fun::Function, argnum::Int=1)
     function gradfun(args...; kwargs...)
         arg_wrt = args[argnum]
-        arg_wrt = isa(arg_wrt,Rec) ? arg_wrt : Param(arg_wrt) #TODO: identity(arg_wrt) --> back to Mike's bug
+        arg_wrt = isa(arg_wrt,Rec) ? identity(arg_wrt) : Param(arg_wrt) # identity(arg_wrt) from PR#75
         args = Any[args...]
         args[argnum] = arg_wrt
         result = differentiate(fun, args...; kwargs...)

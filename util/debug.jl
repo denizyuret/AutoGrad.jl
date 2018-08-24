@@ -1,6 +1,6 @@
 using Printf
 using Base.Broadcast: Broadcasted
-using AutoGrad: Node, Rec, Tape, UngetIndex, findeq
+using AutoGrad: Node, Rec, Tape, UngetIndex
 import AutoGrad: _dbg, dumptape
 
 # For disambiguating objects:
@@ -20,7 +20,7 @@ end
 _dbg1(x)=summary(x) # extend to define short printable representations
 _dbg1(x::Tuple)=@sprintf("Tuple%s", _dbg.(x))
 _dbg1(x::Node)=@sprintf("Node(%s)",_dbg(x.rec.value))
-_dbg1(x::Rec)=@sprintf("Rec%s(%s)",map(findeq,x.tapes,x.nodes),_dbg(x.value))
+_dbg1(x::Rec)=@sprintf("Rec(%s)",_dbg(x.value))
 _dbg1(x::AbstractArray{T}) where {T} = length(x) < 10 ? string(x) : @sprintf("Array{%s}%s",_tstr(T),size(x))
 _dbg1(x::AbstractArray{T}) where {T<:Node} = "T" # @sprintf("Array{%s}%s",_tstr(T),size(x))
 _dbg1(x::AbstractDict{T,S}) where {T,S} = "Dict{$T,$S}($(length(x)))"
@@ -40,18 +40,26 @@ show(io::IO, n::Tape) = print(io, _dbg(n))
 show(io::IO, n::UngetIndex)= print(io, _dbg(n))
 
 function dumptape(t::Tape)
-    og(r) = map((t,n)->(_dbg(t)*"="*_dbg(n.outgrad)), r.tapes, r.nodes)
+    og(r) = map(t->(_dbg(t)*"="*_dbg(findgrad(t,r))), AutoGrad._tapes)
+    println(_dbg(t))
     for i = 1:length(t)
         n = t[i]
         r = n.rec
-        p = ntuple(length(n.parents)) do j
-            isassigned(n.parents,j) ? findeq(t,n.parents[j]) : 0
+        if isa(r,Param)
+            v = _dbg(r.value)
+            println(join(("$i. Param($v)", og(r)...), ' '))
+        else
+            p = ntuple(length(n.parents)) do j
+                isassigned(n.parents,j) ? findeq(t,n.parents[j]) : 0
+            end
+            f = _dbg(r.func)
+            println(join(("$i. $f$p", og(r)...), ' '))
         end
-        f = _dbg(r.func)
-        println(join(("$i. $f$p", og(r)...), ' '))
     end
+    println()
 end
 
+findgrad(t,r)=(n=AutoGrad.findnode(t,r); n==nothing ? missing : n.outgrad)
 
 function _debugtape(result, argvals)
     if !isa(result,Rec); return; end
@@ -71,3 +79,12 @@ function _debugtape(result, argvals)
     println("$i. $f$p")
 end
 
+# findfirst uses == which is inefficient for tapes, so we define findeq with ===
+function findeq(A,v)
+    @inbounds for i=1:length(A)
+        if A[i] === v
+            return i
+        end
+    end
+    return 0
+end
