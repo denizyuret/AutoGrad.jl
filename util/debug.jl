@@ -53,3 +53,21 @@ function dumptape(t::Tape)
 end
 
 
+function _debugtape(result, argvals)
+    if !isa(result,Rec); return; end
+    @assert length(result.tapes) == length(result.nodes) == 1
+    tp = result.tapes[1]
+    n = result.nodes[1]
+    i = findeq(tp,n)
+    p = ntuple(length(n.parents)) do j
+        if isassigned(n.parents,j)
+            findeq(tp,n.parents[j])
+        elseif isa(argvals[j],Number) || isa(argvals[j],Symbol) || isa(argvals[j],AbstractRange)
+            argvals[j]
+        else
+            0
+        end
+    end
+    println("$i. $f$p")
+end
+

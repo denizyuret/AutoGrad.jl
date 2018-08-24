@@ -1,3 +1,6 @@
+using Test
+
+@testset "AutoGrad" begin
 @time include("base.jl")
 #TODO include("broadcast.jl")
 @time include("cat.jl")
@@ -13,3 +16,4 @@
 @time include("rosenbrock.jl")
 @time include("highorder.jl")
 @time include("neuralnet.jl")
+end

@@ -135,43 +135,31 @@ hcat(x::Rec...) = cat(x...; dims=Val(2))
 # single GPU kernel call which does all the copying.
 
 function cat1d(args...)
+    @inbounds for arg in args
+        if isa(arg,Rec)
+            return forw(_cat1d, args...)
+        end
+    end
+    return _cat1d(args...)
+end
+
+function _cat1d(args...)
     totlen = 0
     @inbounds for arg in args
         totlen += length(arg)
     end
-    result = similar(getval(args[1]), totlen)
+    result = similar(args[1], totlen)
     offset1 = 1
     offset2 = 0
     @inbounds for arg in args
         offset2 += length(arg)
-        result[offset1:offset2] = getval(arg)
+        result[offset1:offset2] = arg
         offset1 = offset2+1
-    end
-    @inbounds for argnum = 1:length(args)
-        arg = args[argnum]
-        if !isa(arg,Rec); continue; end
-        for t=1:length(arg.tapes)
-            tape = arg.tapes[t]
-            if iscomplete(tape); continue; end
-            parent = arg.nodes[t]
-            if !isa(result,Rec) 
-                result = Rec(result, tape; func=cat1d, args=args)
-                rnode = result.nodes[1]
-            else
-                s = findeq(result.tapes, tape)
-                if s > 0
-                    rnode = result.nodes[s]
-                else
-                    rnode = Node(result, tape)
-                end
-            end
-            rnode.parents[argnum] = parent
-        end
     end
     return result
 end
 
-function back(::typeof(cat1d),::Val{N},y1,y,x...) where {N}
+function back(::typeof(_cat1d),::Val{N},y1,y,x...) where {N}
     offset2 = 0
     @inbounds for i=1:N
         offset2 += length(x[i])
