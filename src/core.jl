@@ -53,6 +53,10 @@ _tapes = Tape[]
 
 function differentiate(f, x...; o...)
     global _tapes
+    if !isempty(_tapes)       # PR#75: to avoid tape confusion
+        x = map(duplicate,x)  # duplicate tracked function arguments.
+        o = isempty(o) ? () : pairs(map(duplicate,o.data))
+    end
     tape = newtape()
     push!(_tapes, tape)
     result = nothing
@@ -60,7 +64,7 @@ function differentiate(f, x...; o...)
         result = f(x...; o...)
     catch e
         pop!(_tapes); throw(e)
-     end
+    end
     if pop!(_tapes) !== tape; error("Tape stack error"); end
     if !isa(result,Result); return result; end
     if !isa(result.value, Number); error("AutoGrad can only handle scalar valued functions"); end
@@ -76,10 +80,12 @@ function differentiate(f, x...; o...)
             g = back(r.func, Val(i), n.outgrad, r, r.args...; r.kwargs...)
             p.outgrad = sum_outgrads(p.outgrad, g)
         end
-        if !isa(r,Param); n.outgrad = nothing; end
+        #TODO: if !isa(r,Param); n.outgrad = nothing; end  #This breaks higher order
     end
     return tape
 end
+
+duplicate(x)=(isa(x,Rec) ? identity(x) : x)
 
 const df = differentiate
 
@@ -120,7 +126,7 @@ end
 function grad(fun::Function, argnum::Int=1)
     function gradfun(args...; kwargs...)
         arg_wrt = args[argnum]
-        arg_wrt = !isa(arg_wrt,Rec) ? Param(arg_wrt) : arg_wrt # identity(arg_wrt) from PR#75 breaks higher order now.
+        if !isa(arg_wrt,Rec); arg_wrt = Param(arg_wrt); end
         args = Any[args...]
         args[argnum] = arg_wrt
         result = differentiate(fun, args...; kwargs...)
