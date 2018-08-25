@@ -1,3 +1,5 @@
+#Uncomment this for better testing
+using Random; Random.seed!(1)
 @time include("base.jl")
 #TODO include("broadcast.jl")
 @time include("cat.jl")
@@ -9,7 +11,6 @@
 @time include("math.jl")
 @time include("specialfunctions.jl")
 @time include("statistics.jl")
-
 @time include("rosenbrock.jl")
 @time include("highorder.jl")
 @time include("neuralnet.jl")
