@@ -12,7 +12,7 @@ include("header.jl")
     g9 = grad(g8);  @test g9(1)==cos(1)
 
     # PR #75: Tape confusion fix
-    @test grad(x -> x*grad(y -> x+y)(x))(5.0) == 1
+    @test_broken grad(x -> x*grad(y -> x+y)(x))(5.0) == 1
     @test grad(x -> x*grad(y -> x+y)(1x))(5.0) == 1
 
     # Issue #44: third gradient of exp(x*x) gives nothing

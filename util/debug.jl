@@ -1,6 +1,6 @@
 using Printf
 using Base.Broadcast: Broadcasted
-using AutoGrad: Node, Rec, Tape, UngetIndex
+using AutoGrad: Node, Rec, Tape, UngetIndex, _tapes, Result, Param
 import AutoGrad: _dbg, dumptape
 
 # For disambiguating objects:
@@ -21,6 +21,9 @@ _dbg1(x)=summary(x) # extend to define short printable representations
 _dbg1(x::Tuple)=@sprintf("Tuple%s", _dbg.(x))
 _dbg1(x::Node)=@sprintf("Node(%s)",_dbg(x.rec.value))
 _dbg1(x::Rec)=@sprintf("Rec(%s)",_dbg(x.value))
+_dbg1(x::Param)=@sprintf("P(%s)",_dbg(x.value))
+_dbg1(x::Result)=@sprintf("R(%s)",_dbg(x.value))
+_dbg1(x::Tape)="T$(findeq(_tapes,x))"
 _dbg1(x::AbstractArray{T}) where {T} = length(x) < 10 ? string(x) : @sprintf("Array{%s}%s",_tstr(T),size(x))
 _dbg1(x::AbstractArray{T}) where {T<:Node} = "T" # @sprintf("Array{%s}%s",_tstr(T),size(x))
 _dbg1(x::AbstractDict{T,S}) where {T,S} = "Dict{$T,$S}($(length(x)))"
@@ -38,6 +41,24 @@ show(io::IO, n::Rec) = print(io, _dbg(n))
 show(io::IO, n::Node) = print(io, _dbg(n))
 show(io::IO, n::Tape) = print(io, _dbg(n))
 show(io::IO, n::UngetIndex)= print(io, _dbg(n))
+
+Base.collect(t::Tape)=(a=Node[]; for n in t; push!(a,n); end; a)
+
+function dumptapes(tps=_tapes)
+    if isempty(tps); return; end
+    for n in reverse(collect(tps[1]))
+        r = n.rec
+        s = isa(r,Result) ? @sprintf("%s=%s%s",_dbg(r),_dbg(r.func),r.args) : _dbg(r)
+        @printf("%-24s", s)
+        for t in tps
+            g = get(t,r,nothing)
+            c = (g===nothing ? "-" : g.outgrad===nothing ? "0" : _dbg(g.outgrad))
+            print("\t$c")
+        end
+        println()
+    end
+    println()
+end
 
 function dumptape(t::Tape)
     og(r) = map(t->(_dbg(t)*"="*_dbg(findgrad(t,r))), AutoGrad._tapes)
@@ -88,3 +109,4 @@ function findeq(A,v)
     end
     return 0
 end
+

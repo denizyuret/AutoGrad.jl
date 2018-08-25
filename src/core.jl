@@ -1,7 +1,8 @@
-export Param, differentiate, df, gradient
+export Param, differentiate, df, gradient, gr
 
 abstract type Rec{T} end
 
+# mutable structs are a lot faster as keys for an IdDict!
 mutable struct Param{T} <: Rec{T}
     value::T
 end
@@ -18,30 +19,31 @@ mutable struct Node
     outgrad
     rec::Rec
     parents::Vector{Node}
-    prev::Node
+    cdr::Node
     Node(og,rc,pa,pr)=new(og,rc,pa,pr)
     Node()=new()
 end
 
-# Tape: rec0=>node0, rec1=>node1, ..., recN=>nodeN
-# where node[n].prev = node[n-1]
-# Special node0 marks both ends of the tape: 
-# node1.prev = node0
-# node0.prev = nodeN
-# Special rec0 acts as a key to node0.
-# mutable struct is a lot faster as key for an IdDict!
+# Tape: recN=>nodeN, ..., rec1=>node1, NIL=>node0
 const Tape = IdDict{Rec,Node}
-const EOT = Param([])
-newtape() = (n=Node(); n.prev=n; Tape(EOT => n))
+# Special node0 marks both ends of the tape: 
+# node[n].cdr = node[n-1]
+# node1.cdr = node0
+# node0.cdr = nodeN
+# Special rec NIL acts as a key to node0.
+const NIL = Param([])
+newtape() = (n=Node(); n.cdr=n; Tape(NIL => n))
 # Tape is iterated in reverse, last in first out
-# This also makes first(tape) the final result node
-Base.iterate(t::Tape,s=(t[EOT],t[EOT])) = 
-    ((p,n) = s; p = p.prev; p === n ? nothing : (p, (p, n)))
-# This hack is to make grad faster:
-last(t::Tape)=t[EOT].parents[1]
+Base.iterate(t::Tape,s=(t[NIL],t[NIL])) = 
+    ((p,n) = s; p = p.cdr; p === n ? nothing : (p, (p, n)))
+# This automatically makes first(tape) the final result node
+# last(tape) is the initial parameter node, but default slow.
+# This hack is to make old style grad faster:
+last(t::Tape)=t[NIL].parents[1]
 
 gradient(t,x)=nothing
 gradient(t::Tape,x::Rec)=(n=get(t,x,nothing); n===nothing ? n : n.outgrad)
+const gr = gradient
 
 getval(x)=x
 getval(x::Rec)=x.value
@@ -58,7 +60,7 @@ function differentiate(f, x...; o...)
         result = f(x...; o...)
     catch e
         pop!(_tapes); throw(e)
-    end
+     end
     if pop!(_tapes) !== tape; error("Tape stack error"); end
     if !isa(result,Result); return result; end
     if !isa(result.value, Number); error("AutoGrad can only handle scalar valued functions"); end
@@ -74,7 +76,7 @@ function differentiate(f, x...; o...)
             g = back(r.func, Val(i), n.outgrad, r, r.args...; r.kwargs...)
             p.outgrad = sum_outgrads(p.outgrad, g)
         end
-        #if !isa(r,Param); n.outgrad = nothing; end
+        if !isa(r,Param); n.outgrad = nothing; end
     end
     return tape
 end
@@ -87,38 +89,38 @@ function forw(f, args...; kwargs...)
     if isempty(_tapes); return result; end
     result = Result(result, f, args...; kwargs...)
     for tape in _tapes
-        push!(tape, result)
+        record(result, tape)
     end
     return result
 end
 
-function Base.push!(t::Tape, r::Rec)
-    n = get(t,r,nothing)
-    if n !== nothing; return n; end
-    if isa(r,Result)
-        nargs = length(r.args)
-        parents = Array{Node}(undef, nargs)
-        @inbounds for argnum = 1:nargs
-            arg = r.args[argnum]
-            if !isa(arg,Rec); continue; end
-            parent = push!(t,arg)
-            parents[argnum] = parent
+function record(r::Result,t::Tape)
+    nargs = length(r.args)
+    parents = Array{Node}(undef, nargs)
+    @inbounds for argnum = 1:nargs
+        arg = r.args[argnum]
+        if !isa(arg,Rec); continue; end	
+        p = get(t,arg,nothing)
+        if p === nothing
+            p = cons!(arg,t)
         end
-    else
-        parents = Node[]
+        parents[argnum] = p
     end
-    m = t[EOT]
-    prev = m.prev
-    node = Node(nothing, r, parents, prev)
-    if !isdefined(m,:parents); m.parents = [node]; end
-    t[r] = m.prev = node
+    cons!(r,t,parents)
+end
+
+function cons!(r::Rec,t::Tape,parents::Vector{Node}=Node[])
+    m = t[NIL]
+    n = Node(nothing, r, parents, m.cdr)
+    if !isdefined(m,:parents); m.parents = [n]; end # hack to make last(tape) faster
+    m.cdr = t[r] = n
 end
 
 # old interface
 function grad(fun::Function, argnum::Int=1)
     function gradfun(args...; kwargs...)
         arg_wrt = args[argnum]
-        arg_wrt = !isa(arg_wrt,Rec) ? Param(arg_wrt) : identity(arg_wrt) # from PR#75
+        arg_wrt = !isa(arg_wrt,Rec) ? Param(arg_wrt) : arg_wrt # identity(arg_wrt) from PR#75 breaks higher order now.
         args = Any[args...]
         args[argnum] = arg_wrt
         result = differentiate(fun, args...; kwargs...)
