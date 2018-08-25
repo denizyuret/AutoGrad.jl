@@ -32,7 +32,7 @@ number, we check the gradient of `sum(f(x...))`.
 * `verbose=1`: 0 prints nothing, 1 shows failing tests, 2 shows all tests.
 
 """
-function gradcheck(f, x...; kw=(), args=:, nsample=10, verbose=1, rtol=0.01, atol=0.01, delta=0.0001)
+function gradcheck(f, x...; kw=(), args=:, nsample=10, verbose=1, rtol=0.05, atol=0.01, delta=0.0001)
     args = isa(args, Colon) ? (1:length(x)) : args
     xrec  = Any[x...]
     for i in args; xrec[i] = Param(xrec[i]); end
