@@ -12,7 +12,13 @@ import Base: getindex, setindex!, sum, zeros, zero, ones, length, get,
 
 # We do not allow overwriting, so setindex! for Recs not allowed:
 
-setindex!(x::Rec,v,I...)=error("Overwriting operations currently not supported.")
+function setindex!(x::Rec,v,I...)
+    if !isempty(_tapes)
+        error("Array overwriting during gradient calculation not supported.")
+    else
+        setindex!(x.value,v,I...)
+    end
+end
 
 # We handle the containers by overloading getindex:
 
