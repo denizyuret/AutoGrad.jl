@@ -55,7 +55,7 @@ function differentiate(f, x...; o...)
     global _tapes
     if !isempty(_tapes)       # PR#75: to avoid tape confusion
         x = map(duplicate,x)  # duplicate tracked function arguments.
-        o = isempty(o) ? () : pairs(map(duplicate,o.data))
+        o = isempty(o) ? () : pairs(map(duplicate,values(o)))
     end
     tape = newtape()
     push!(_tapes, tape)
@@ -80,7 +80,7 @@ function differentiate(f, x...; o...)
             g = back(r.func, Val(i), n.outgrad, r, r.args...; r.kwargs...)
             p.outgrad = sum_outgrads(p.outgrad, g)
         end
-        #TODO: if !isa(r,Param); n.outgrad = nothing; end  #This breaks higher order
+        if isempty(_tapes) && !isa(r,Param); n.outgrad = nothing; end  # saves memory
     end
     return tape
 end
