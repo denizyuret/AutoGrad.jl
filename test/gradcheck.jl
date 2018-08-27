@@ -1,4 +1,4 @@
-using AutoGrad: Tape, Rec, Node, findeq, complete!, sum_outgrads, back
+using AutoGrad
 
 """
 
@@ -34,18 +34,27 @@ number, we check the gradient of `sum(f(x...))`.
 """
 function gradcheck(f, x...; kw=(), args=:, nsample=10, verbose=1, rtol=0.05, atol=0.01, delta=0.0001)
     args = isa(args, Colon) ? (1:length(x)) : args
-    tape = Tape()
     xrec  = Any[x...]
-    xnode = Array{Any}(undef, length(x))
-    for i in args; (xrec[i],xnode[i]) = gcparam(x[i], tape); end
-    result = gcsum(f(xrec...; kw...))
-    if isa(result, Rec); gcback(result, tape); end
-    f0 = getval(result)
+    for i in args; xrec[i] = Param(xrec[i]); end
+    result = differentiate(gcsum, f, xrec...; kw...)
+    f0 = value(result)
     xptr = Any[x...]
     gptr = Array{Any}(undef, length(x))
-    for i in args; gptr[i] = xnode[i].outgrad; end
+    for i in args; gptr[i] = gradient(result, xrec[i]); end
     all(args) do i
         gcwalk(i, xptr, gptr, f0, f, xptr, kw, nsample, verbose, delta, rtol, atol)
+    end
+end
+
+function gcsum(f,x...;o...)
+    y = f(x...;o...)
+    v = value(y)
+    if isa(v,Number)
+        return y
+    elseif isempty(v)
+        return 0
+    else
+        return sum(y)
     end
 end
 
@@ -54,14 +63,14 @@ function gcwalk(i, xptr, gptr, f0, f, x, kw, nsample, verbose, delta, rtol, atol
         xi = xptr[i]
         delta = delta > 0 ? delta : cbrt(eps(xi))
         xptr[i] = xi >= 0 ? xi + delta : xi - delta
-        f1 = gcsum(f(x...; kw...))
+        f1 = gcsum(f, x...; kw...)
         nd = (f1 - f0) / (xptr[i] - xi)
         xptr[i] = xi
         ad = gcget(gptr,i,0)
         result = isapprox(nd, ad, rtol=rtol, atol=atol)
         if verbose >= 2 || (!result && verbose >= 1)
             fn = (f==broadcast ? x[1] : f)
-            @show fn,xi,f0,nd,ad,x
+            @show fn,xi,f0,nd,ad
         end
         return result
     elseif !isempty(methods(length,(typeof(xptr[i]),)))
@@ -84,33 +93,6 @@ function gcwalk(i, xptr, gptr, f0, f, x, kw, nsample, verbose, delta, rtol, atol
     end
 end
 
-function gcparam(x,tape)
-    if isa(x,Rec)
-        x = identity(x)
-        n = Node(x,tape)
-    else
-        x = Rec(x,tape)
-        n = x.nodes[1]
-    end
-    return x, n
-end
-
-function gcback(y, tape)
-    tapeidx = findeq(y.tapes, tape)
-    y.nodes[tapeidx].outgrad = one(y.value)
-    complete!(tape)
-    for n in tape[end-1:-1:1]
-        if n.outgrad === nothing; continue; end
-        r = n.rec
-        for i in 1:length(n.parents)
-            if !isassigned(n.parents,i); continue; end
-            p = n.parents[i]
-            b = back(r.func, Val(i), n.outgrad, r, r.args...; r.kwargs...)
-            p.outgrad = sum_outgrads(p.outgrad, b)
-        end
-    end
-end
-
 function gcget(g,i,default=nothing)
     if isa(g,Nothing)
         return default
@@ -124,17 +106,6 @@ function gcget(g,i,default=nothing)
         return default
     end
     return g[i]
-end
-
-function gcsum(x)
-    v = getval(x)
-    if isa(v,Number)
-        return x
-    elseif isempty(v)
-        return 0
-    else
-        return sum(x)
-    end
 end
 
 "Test a numeric function with Float32/64 randn scalars and randn arrays, possibly transforming the input to match the domain"

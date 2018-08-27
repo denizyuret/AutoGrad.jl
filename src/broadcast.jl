@@ -29,24 +29,24 @@
 
 # Current design avoids generating Broadcasted objects:
 # For regular primitives:
-# f(x...) => forw(f,x...)           # (macros.jl; @primitive f if any x is a rec)
-# forw(f,x...) => f(getval.(x)...)  # (core.jl; f is the recorded function)
+# f(x...) => forw(f,x...)           # (macros.jl; @primitive f if any x is a Value)
+# forw(f,x...) => f(value.(x)...)  # (core.jl; f is the recorded function)
 # back(f,i,dy,y,x...)               # (macros.jl; @primitive defines this)
 # For broadcasted primitives:
 # f.(x...) => broadcasted(f,x...)                       # (parser)
-# broadcasted(f,x...) => forw(broadcast,f,x...)         # (broadcast.jl; if one of first two x is a rec)
-# forw(broadcast,f,x...) => broadcast(f,getval.(x)...)  # (core.jl; broadcast is the recorded function)
+# broadcasted(f,x...) => forw(broadcast,f,x...)         # (broadcast.jl; if one of first two x is a Value)
+# forw(broadcast,f,x...) => broadcast(f,value.(x)...)  # (core.jl; broadcast is the recorded function)
 # back(broadcast,i,dy,y,f,x...)                         # (macros.jl; @primitive defines this, @primitive1 does not)
 # For direct use of broadcast:
-# broadcast(f,x...) => materialize(broadcasted(f,x...)) # (base/broadcast.jl fallback for unknown rec types)
-# broadcasted(f,x...) => forw(broadcast,f,x...)         # (forw calling broadcast with unboxed args returning rec)
-# materialize(x::Rec) => x                              # (broadcast.jl; defined below)
+# broadcast(f,x...) => materialize(broadcasted(f,x...)) # (base/broadcast.jl fallback for unknown Value types)
+# broadcasted(f,x...) => forw(broadcast,f,x...)         # (forw calling broadcast with unboxed args returning Value)
+# materialize(x::Value) => x                              # (broadcast.jl; defined below)
 
 import Base.Broadcast: broadcasted, materialize
-broadcasted(f, x::Rec, y...) = forw(broadcast,f,x,y...)
-broadcasted(f, x, y::Rec, z...) = forw(broadcast,f,x,y,z...) # useful for x.^2 => broadcasted(literal_pow,^,x,Val(2))
-broadcasted(f, x::Rec, y::Rec, z...) = forw(broadcast,f,x,y,z...) # ambiguity fix
-materialize(x::Rec)=x  # This fixes sum(x.*x,dims=1) giving MethodError: no method matching sum(::Base.Broadcast.Broadcasted; dims=1)
+broadcasted(f, x::Value, y...) = forw(broadcast,f,x,y...)
+broadcasted(f, x, y::Value, z...) = forw(broadcast,f,x,y,z...) # useful for x.^2 => broadcasted(literal_pow,^,x,Val(2))
+broadcasted(f, x::Value, y::Value, z...) = forw(broadcast,f,x,y,z...) # ambiguity fix
+materialize(x::Value)=x  # This fixes sum(x.*x,dims=1) giving MethodError: no method matching sum(::Base.Broadcast.Broadcasted; dims=1)
 
 
 # Design alternatives:
@@ -74,10 +74,10 @@ the arguments and the result may be of different sizes.
 function unbroadcast(x, dx)
     if size(x)==size(dx)
         return dx
-    elseif isa(getval(x),Number)
+    elseif isa(value(x),Number)
         return sum(dx)
-    elseif isa(getval(dx),Number)
-        return fill!(similar(getval(x)),dx)
+    elseif isa(value(dx),Number)
+        return fill!(similar(value(x)),dx)
     else
         d = []
         for i=1:ndims(dx)

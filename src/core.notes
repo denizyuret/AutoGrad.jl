@@ -1,0 +1,12 @@
+# mutable structs are a lot faster as keys for an IdDict!
+
+# Tape: valN=>nodeN, ..., val1=>node1, NIL=>node0
+# Special node0 marks both ends of the tape: 
+# node[n].cdr = node[n-1]
+# node1.cdr = node0
+# node0.cdr = nodeN
+# Special Value NIL acts as a key to node0.
+# Tape is iterated in reverse, last in first out
+# This automatically makes first(tape) the final result node
+# last(tape) is the initial parameter node, but default slow.
+# The last(::Tape) hack is to make old style grad faster.

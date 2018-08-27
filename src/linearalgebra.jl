@@ -43,9 +43,9 @@ import LinearAlgebra: *, adjoint, det, diag, diagm, dot, inv, kron, logabsdet, l
 # issymmetric
 # istril
 # istriu
-kron(a::Rec, b::Rec)  = _kron(a, b)
-kron(a::Rec, b) = _kron(a, b)
-kron(a, b::Rec) = _kron(a, b)
+kron(a::Value, b::Value)  = _kron(a, b)
+kron(a::Value, b) = _kron(a, b)
+kron(a, b::Value) = _kron(a, b)
 # ldiv!
 # ldlt!
 # ldlt

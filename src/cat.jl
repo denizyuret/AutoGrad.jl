@@ -16,17 +16,17 @@ import Base: cat, vcat, hcat
 # and matching zero blocks away from the diagonal.
 
 # cat can take 0 or more arguments of any type.  In order to catch the
-# cases where at least one arg is Rec, we need to override the generic
-# Base.cat(d,x...). This will call the recording cat_r if a Rec is
+# cases where at least one arg is Value, we need to override the generic
+# Base.cat(d,x...). This will call the recording cat_r if a Value is
 # found, and the original _cat from the Base definition if not.
 
 const NA = Union{Number,AbstractArray}
-const NAR = Union{Number,AbstractArray,Rec}
+const NAR = Union{Number,AbstractArray,Value}
 
 # Base has cat(x...; dims) defined, first specialize this:
 cat(X::NA...; dims)=Base._cat(dims, X...) 
 
-# Then define the method that catches at least one Rec:
+# Then define the method that catches at least one Value:
 cat(X::NAR...; dims)=forw(cat,X...; dims=dims)
 back(::typeof(cat),::Val{N},y1,y,x...; dims) where {N}=uncat(y1,N,dims,x...)
 
@@ -54,7 +54,7 @@ function uncat(y1,n,dims,x...)
         end
     end
     x1 = y1[idx...]
-    if isa(getval(x[n]),Number)
+    if isa(value(x[n]),Number)
         length(x1)==1 || error("uncat mismatch")
         x1 = x1[1]
     else
@@ -112,20 +112,20 @@ end
 # generic methods that prevent the cat call when all arguments are
 # boxed.  This should fix it:
 
-vcat(x::Rec...) = cat(x...; dims=Val(1))
-hcat(x::Rec...) = cat(x...; dims=Val(2))
+vcat(x::Value...) = cat(x...; dims=Val(1))
+hcat(x::Value...) = cat(x...; dims=Val(2))
 
-# vcat(a::Rec,b::Rec,c...)=cat(1,a,b,c...)
-# vcat(a,b::Rec,c...)=cat(1,a,b,c...)
-# vcat(a::Rec,b...)=cat(1,a,b...)
-# hcat(a::Rec,b::Rec,c...)=cat(2,a,b,c...)
-# hcat(a,b::Rec,c...)=cat(2,a,b,c...)
-# hcat(a::Rec,b...)=cat(2,a,b...)
+# vcat(a::Value,b::Value,c...)=cat(1,a,b,c...)
+# vcat(a,b::Value,c...)=cat(1,a,b,c...)
+# vcat(a::Value,b...)=cat(1,a,b...)
+# hcat(a::Value,b::Value,c...)=cat(2,a,b,c...)
+# hcat(a,b::Value,c...)=cat(2,a,b,c...)
+# hcat(a::Value,b...)=cat(2,a,b...)
 
 # The cat implementation above is slow when called with a lot of
 # arguments (100s).  In our parser, the first epoch is a lot slower
 # than the other epochs.  This is probably because there is a lot of
-# compilation for different argument type patterns (where Recs
+# compilation for different argument type patterns (where Values
 # appear).  The following version tries to avoid all compilation at
 # runtime.  It takes a bunch of arrays (not numbers), could be
 # different shapes and sizes, and concatenates them as if they were
@@ -135,43 +135,31 @@ hcat(x::Rec...) = cat(x...; dims=Val(2))
 # single GPU kernel call which does all the copying.
 
 function cat1d(args...)
+    @inbounds for arg in args
+        if isa(arg,Value)
+            return forw(_cat1d, args...)
+        end
+    end
+    return _cat1d(args...)
+end
+
+function _cat1d(args...)
     totlen = 0
     @inbounds for arg in args
         totlen += length(arg)
     end
-    result = similar(getval(args[1]), totlen)
+    result = similar(args[1], totlen)
     offset1 = 1
     offset2 = 0
     @inbounds for arg in args
         offset2 += length(arg)
-        result[offset1:offset2] = getval(arg)
+        result[offset1:offset2] = arg
         offset1 = offset2+1
-    end
-    @inbounds for argnum = 1:length(args)
-        arg = args[argnum]
-        if !isa(arg,Rec); continue; end
-        for t=1:length(arg.tapes)
-            tape = arg.tapes[t]
-            if iscomplete(tape); continue; end
-            parent = arg.nodes[t]
-            if !isa(result,Rec) 
-                result = Rec(result, tape; func=cat1d, args=args)
-                rnode = result.nodes[1]
-            else
-                s = findeq(result.tapes, tape)
-                if s > 0
-                    rnode = result.nodes[s]
-                else
-                    rnode = Node(result, tape)
-                end
-            end
-            rnode.parents[argnum] = parent
-        end
     end
     return result
 end
 
-function back(::typeof(cat1d),::Val{N},y1,y,x...) where {N}
+function back(::typeof(_cat1d),::Val{N},y1,y,x...) where {N}
     offset2 = 0
     @inbounds for i=1:N
         offset2 += length(x[i])

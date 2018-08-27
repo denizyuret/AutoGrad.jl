@@ -2,8 +2,8 @@
 
 # I would like to make these type signatures as specific as possible.
 # The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
-# f{T<:Number,A<:AbstractArray{T}}(x::Rec{A})
-# f{T<:Number,A<:AbstractArray}(x::Rec{A{T}})
+# f{T<:Number,A<:AbstractArray{T}}(x::Value{A})
+# f{T<:Number,A<:AbstractArray}(x::Value{A{T}})
 # 20180725: TODO: This may have changed in Julia 0.7
 
 """
@@ -44,20 +44,20 @@ expressions.
 
 The @primitive macro turns the first example into:
 
-    sin(x::Rec{T}) where {T<:Number} = forw(sin, x)
+    sin(x::Value{T}) where {T<:Number} = forw(sin, x)
 
 This will cause calls to `sin` with a boxed argument
-(`Rec{T<:Number}`) to be recorded.  The recorded operations are used
+(`Value{T<:Number}`) to be recorded.  The recorded operations are used
 by AutoGrad to construct a dynamic computational graph.  With multiple
 arguments things are a bit more complicated.  Here is what happens
 with the second example:
 
-    hypot(x1::Rec{S}, x2::Rec{T}) where {S<:Any,T<:Any} = forw(hypot, x1, x2)
-    hypot(x1::S, x2::Rec{T})      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
-    hypot(x1::Rec{S}, x2::T)      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
+    hypot(x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = forw(hypot, x1, x2)
+    hypot(x1::S, x2::Value{T})      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
+    hypot(x1::Value{S}, x2::T)      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
 
 We want the forw method to be called if any one of the arguments
-is a boxed `Rec`.  There is no easy way to specify this in Julia, so
+is a boxed `Value`.  There is no easy way to specify this in Julia, so
 the macro generates all 2^N-1 boxed/unboxed argument combinations.
 
 In AutoGrad, gradients are defined using gradient methods that have
@@ -67,13 +67,13 @@ the following pattern:
 
 For the third example here is the generated gradient method:
 
-    back(::typeof(sin), ::Val{1}, dy, y, x::Rec{T}) where {T<:Number} = dy .* cos(x)
+    back(::typeof(sin), ::Val{1}, dy, y, x::Value{T}) where {T<:Number} = dy .* cos(x)
 
 For the last example a different gradient method is generated for each
 argument:
 
-    back(::typeof(hypot), ::Val{1}, dy, y, x1::Rec{S}, x2::Rec{T}) where {S<:Any,T<:Any} = (dy .* x1) ./ y
-    back(::typeof(hypot), ::Val{2}, dy, y, x1::Rec{S}, x2::Rec{T}) where {S<:Any,T<:Any} = (dy .* x2) ./ y
+    back(::typeof(hypot), ::Val{1}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x1) ./ y
+    back(::typeof(hypot), ::Val{2}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x2) ./ y
 
 In fact @primitive generates four more definitions for the other
 boxed/unboxed argument combinations.
@@ -82,14 +82,14 @@ boxed/unboxed argument combinations.
 
 Broadcasting is handled by extra `forw` and `back` methods. In `broadcast.jl` we define:
 
-    broadcasted(f, x::Rec) = forw(broadcast,f,x)
+    broadcasted(f, x::Value) = forw(broadcast,f,x)
 
 and similar methods that match any function `f`, so that when a boxed
 value is in a broadcasting operation `forw` is called. The
 `@primitive` macro defines the `back` method for broadcasting of a
 particular primitive:
 
-    back(::typeof(broadcast), ::Val{2}, dy, y, ::typeof(sin), x::Rec{T}) where {T<:Number} = dy .* cos(x)
+    back(::typeof(broadcast), ::Val{2}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number} = dy .* cos(x)
 
 If you do not want the back method for broadcasting, you can use the
 `@primitive1` macro which omits this final definition.
@@ -100,12 +100,12 @@ macro primitive(f,g...)
     b = Expr(:block)
     rx = fcall(f)             # e.g. forw(sin,x)
     for fx in fsigs(f)
-        push!(b.args, :($fx = $rx)) # e.g. sin(x::Rec{T}) where {T<:Number} = forw(sin,x)
+        push!(b.args, :($fx = $rx)) # e.g. sin(x::Value{T}) where {T<:Number} = forw(sin,x)
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)
-            push!(b.args, :($gx = $(g[i]))) # e.g. back(::typeof(sin), ::Val{1}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
+            push!(b.args, :($gx = $(g[i]))) # e.g. back(::typeof(sin), ::Val{1}, dy, y, x::Value{T}) where {T<:Number} = (dy.*cos.(x))
             bx = bsig(fx,dy,y,i)
-            push!(b.args, :($bx = $(g[i]))) # e.g. back(::typeof(broadcast), ::Val{2}, dy, y, ::typeof(sin), x::Rec) = (dy.*cos.(x))
+            push!(b.args, :($bx = $(g[i]))) # e.g. back(::typeof(broadcast), ::Val{2}, dy, y, ::typeof(sin), x::Value) = (dy.*cos.(x))
         end
     end
     return esc(b)
@@ -117,10 +117,10 @@ macro primitive1(f,g...)
     b = Expr(:block)
     rx = fcall(f)
     for fx in fsigs(f)
-        push!(b.args, :($fx = $rx)) # e.g. sin(x::Rec{T}) where {T<:Number} = sin_r(x)
+        push!(b.args, :($fx = $rx)) # e.g. sin(x::Value{T}) where {T<:Number} = sin_r(x)
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)
-            push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Rec{T}) where {T<:Number} = (dy.*cos.(x))
+            push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Value{T}) where {T<:Number} = (dy.*cos.(x))
         end
     end
     return esc(b)
@@ -137,11 +137,11 @@ Define `f` as an AutoGrad primitive operation with zero gradient.
 
     @zerograd  floor(x::Float32)
 
-`@zerograd` allows `f` to handle boxed `Rec` inputs by unboxing them
+`@zerograd` allows `f` to handle boxed `Value` inputs by unboxing them
 like a `@primitive`, but unlike `@primitive` it does not record its
-actions or return a boxed `Rec` result.  Some functions, like
+actions or return a boxed `Value` result.  Some functions, like
 `sign()`, have zero gradient.  Others, like `length()` have discrete
-or constant outputs.  These need to handle `Rec` inputs, but do not
+or constant outputs.  These need to handle `Value` inputs, but do not
 need to record anything and can return regular values.  Their output
 can be treated like a constant in the program.  Use the `@zerograd`
 macro for those.  Use the `@zerograd1` variant if you don't want to
@@ -152,11 +152,11 @@ macro zerograd(f)
     f.head == :(::) && (f=f.args[1])
     f.head == :call || error("'$f' not a method signature")
     b = Expr(:block)
-    for fx in fsigs(f)          # e.g. sign(x::Rec{T}) where {T<:Number}
-        zx = zcall(fx)          # e.g. sign(x.value)
+    for fx in fsigs(f)          # e.g. sign(x::Value{T}) where {T<:Number}
+        zx = zcall(fx)          # e.g. sign(value(x))
         push!(b.args, esc(:($fx = $zx)))
         (bfx,bzx) = bzcall(fx,zx)
-        push!(b.args, esc(:($bfx = $bzx))) # e.g. broadcast(::typeof(sign), x::Rec{T}) where T <: Any) = broadcast(sign, x.value)
+        push!(b.args, esc(:($bfx = $bzx))) # e.g. broadcast(::typeof(sign), x::Value{T}) where T <: Any) = broadcast(sign, value(x))
     end
     return b
 end
@@ -166,8 +166,8 @@ macro zerograd1(f)
     f.head == :(::) && (f=f.args[1])
     f.head == :call || error("'$f' not a method signature")
     b = Expr(:block)
-    for fx in fsigs(f)          # e.g. sign(x::Rec{T}) where {T<:Number}
-        zx = zcall(fx)          # e.g. sign(x.value)
+    for fx in fsigs(f)          # e.g. sign(x::Value{T}) where {T<:Number}
+        zx = zcall(fx)          # e.g. sign(value(x))
         push!(b.args, esc(:($fx = $zx)))
     end
     return b
@@ -192,7 +192,7 @@ function fparse(f)
     return (f,dy,y)
 end    
 
-# Input is of the form: (where (call f (:: x (curly (. AutoGrad Rec) T))) (<: T Int))
+# Input is of the form: (where (call f (:: x (curly (. AutoGrad Value) T))) (<: T Int))
 function zcall(f)
     z = copy(f.args[1])
     z1 = z.args[1]
@@ -205,8 +205,8 @@ function zcall(f)
             error("Unrecognized argtype '$zi'")
         elseif zi.head==:(::)
             (v,t) = zi.args
-            if t==:(AutoGrad.Rec) || (isa(t,Expr) && t.head==:curly && t.args[1]==:(AutoGrad.Rec))
-                z.args[i] = :($v.value)
+            if t==:(AutoGrad.Value) || (isa(t,Expr) && t.head==:curly && t.args[1]==:(AutoGrad.Value))
+                z.args[i] = :(value($v))
             else
                 z.args[i] = v
             end
@@ -230,7 +230,7 @@ function bzcall(fx,zx)
     bzx.args[1] = :broadcasted
     insert!(bzx.args, a, fname)
     return (bfx,bzx)
-end    
+end
 
 function fcall(f)
     rx = notypes(f)
@@ -268,11 +268,11 @@ function notypes(ex)
     end
 end
 
-# create type signatures for f where one or more args are Rec's.
-# With multiple args add Rec to each subset combinatorially.
+# create type signatures for f where one or more args are Value's.
+# With multiple args add Value to each subset combinatorially.
 # The input has the form (call f (:: x Int))
-# The 0.6 output was     (call (curly f (<: T Int)) (:: x (curly Rec T)))
-# The 0.7 output is      (where (call f (:: x (curly Rec T))) (<: T Int))
+# The 0.6 output was     (call (curly f (<: T Int)) (:: x (curly Value T)))
+# The 0.7 output is      (where (call f (:: x (curly Value T))) (<: T Int))
 function fsigs(f)
     f1 = copy(f)
     a1 = Expr(:where,f1)
@@ -307,7 +307,7 @@ function fsigs(f)
             in(ai.head, (:parameters, :(...))) && continue
             ai.head == :(::) || error("Bad arg '$ai'")
             if nodes & (1<<iargs) == 0
-                ai.args[2] = :(AutoGrad.Rec{$(ai.args[2])}) #Expr(:curly,:Rec,ai.args[2])
+                ai.args[2] = :(AutoGrad.Value{$(ai.args[2])}) #Expr(:curly,:Value,ai.args[2])
             end
             iargs += 1
         end
@@ -317,7 +317,7 @@ function fsigs(f)
 end
 
 # The first input to gsig is an output of fsigs, e.g.
-# (where (call f (:: x (curly Rec T))) (<: T Int))
+# (where (call f (:: x (curly Value T))) (<: T Int))
 function gsig(f,dy,y,i)
     fcopy = copy(f)
     g = fcopy.args[1]
@@ -332,8 +332,8 @@ function gsig(f,dy,y,i)
 end
 
 # This is for the broadcast version
-# Input: (where (call f (:: x (curly Rec T))) (<: T Int))
-# Output: (where (call broadcast :(::Type{Grad{2}}) dy y :(::typeof(f)) :(x::Rec{T})) (<: T Int))
+# Input: (where (call f (:: x (curly Value T))) (<: T Int))
+# Output: (where (call broadcast :(::Type{Grad{2}}) dy y :(::typeof(f)) :(x::Value{T})) (<: T Int))
 function bsig(f,dy,y,i)
     fcopy = copy(f)
     g = fcopy.args[1]

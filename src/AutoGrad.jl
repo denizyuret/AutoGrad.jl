@@ -1,33 +1,39 @@
 module AutoGrad
+
 using LinearAlgebra, Statistics, SpecialFunctions
-
-# Use AutoGrad.dir(path...) to construct paths relative to AutoGrad root.
-dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
-
-# Uncomment the following line and include("../util/debug.jl") for debugging:
-# macro dbg(x); esc(:((DBG && println(join(_dbg.($x),' '))))); end; DBG=false; dbg(x)=(global DBG=x); _dbg(x)=summary(x)
-macro dbg(x); end
-
-# To perform profiling of AutoGrad internals, uncomment the following lines. Make sure to Pkg.add("TimerOutputs").
-# using TimerOutputs
-# macro prof(label,ex); :(@timeit $(esc(label)) $(esc(ex))); end
-macro prof(label,ex); esc(ex); end
-
-export grad, gradloss, getval
+export Param, differentiate, gradient, value, grad, gradloss, getval
 export @primitive, @zerograd, @primitive1, @zerograd1
 
 include("core.jl")
 include("broadcast.jl")
 include("macros.jl")
+include("getindex.jl")
+include("iterate.jl")
+include("sum_outgrads.jl")
 include("base.jl")
 include("math.jl")
 include("statistics.jl")
 include("linearalgebra.jl")
 include("specialfunctions.jl")
-include("getindex.jl")
-include("iterate.jl")
 include("cat.jl")
+include("show.jl")
 include("../test/gradcheck.jl")
 #include("../util/debug.jl")
+
+"Use `using AutoGrad.Abbrev` to get the shortcuts gr, df, pa."
+module Abbrev
+using ..AutoGrad
+const gr = gradient
+const df = differentiate
+const pa = Param
+export gr,df,pa
+end
+
+"Use `AutoGrad.dir(path...)` to construct paths relative to AutoGrad root."
+dir(path...) = joinpath(dirname(dirname(@__FILE__)),path...)
+
+# Deprecations:
+@deprecate Rec Value
+@deprecate getval value
 
 end # module
