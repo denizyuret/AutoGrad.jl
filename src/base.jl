@@ -60,8 +60,8 @@ import Base.Broadcast: broadcasted
 dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* dy; else; dy.*x2.*x1.^(x2 .- 1); end) # optimize common cases
 
 # x^p for any literal integer p is lowered to Base.literal_pow(^, x, Val(p))
-literal_pow(::typeof(^), x::Rec, ::Val{N}) where N = forw(^,x,N)
-broadcasted(::typeof(literal_pow), ::typeof(^), x::Rec, ::Val{N}) where N = forw(broadcast,^,x,N)
+literal_pow(::typeof(^), x::Value, ::Val{N}) where N = forw(^,x,N)
+broadcasted(::typeof(literal_pow), ::typeof(^), x::Value, ::Val{N}) where N = forw(broadcast,^,x,N)
 
 # |   Int function
 # |>  Function chaining
@@ -302,7 +302,7 @@ broadcasted(::typeof(literal_pow), ::typeof(^), x::Rec, ::Val{N}) where N = forw
 # setdiff,
 # setindex!,
 @zerograd similar(x,i...)
-similar(x::Rec, dims::Base.DimOrInd...) = similar(x.value, dims...) # 0.7 ambiguity fix
+similar(x::Value, dims::Base.DimOrInd...) = similar(value(x), dims...) # 0.7 ambiguity fix
 # sizehint!,
 # splice!,
 # symdiff!,
@@ -311,7 +311,7 @@ similar(x::Rec, dims::Base.DimOrInd...) = similar(x.value, dims...) # 0.7 ambigu
 # union,
 # unique!,
 # unique,
-values(a::Rec{T})  where {T<:AbstractDict} = (a[k] for k in keys(a.value))
+values(a::Value{T})  where {T<:AbstractDict} = (a[k] for k in keys(value(a)))
 # valtype,
 # ∈,
 # ∉,

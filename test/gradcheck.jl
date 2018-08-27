@@ -37,7 +37,7 @@ function gradcheck(f, x...; kw=(), args=:, nsample=10, verbose=1, rtol=0.05, ato
     xrec  = Any[x...]
     for i in args; xrec[i] = Param(xrec[i]); end
     result = differentiate(gcsum, f, xrec...; kw...)
-    f0 = getval(result)
+    f0 = value(result)
     xptr = Any[x...]
     gptr = Array{Any}(undef, length(x))
     for i in args; gptr[i] = gradient(result, xrec[i]); end
@@ -48,7 +48,7 @@ end
 
 function gcsum(f,x...;o...)
     y = f(x...;o...)
-    v = getval(y)
+    v = value(y)
     if isa(v,Number)
         return y
     elseif isempty(v)

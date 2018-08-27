@@ -1,7 +1,17 @@
+# This file is deprecated.
+
 using Printf
 using Base.Broadcast: Broadcasted
 using AutoGrad: Node, Rec, Tape, UngetIndex, _tapes, Result, Param
 import AutoGrad: _dbg, dumptape
+
+# Uncomment the following line and include("../util/debug.jl") for debugging:
+# macro dbg(x); esc(:((DBG && println(join(_dbg.($x),' '))))); end; DBG=false; dbg(x)=(global DBG=x); _dbg(x)=summary(x)
+macro dbg(x); end
+
+# To perform profiling of AutoGrad internals, uncomment the following line. Make sure to Pkg.add("TimerOutputs").
+# using TimerOutputs; macro prof(label,ex); :(@timeit $(esc(label)) $(esc(ex))); end
+macro prof(label,ex); esc(ex); end
 
 # For disambiguating objects:
 _objdict = Dict{String,Array{UInt64,1}}()
