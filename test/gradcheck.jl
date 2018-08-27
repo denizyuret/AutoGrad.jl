@@ -70,7 +70,7 @@ function gcwalk(i, xptr, gptr, f0, f, x, kw, nsample, verbose, delta, rtol, atol
         result = isapprox(nd, ad, rtol=rtol, atol=atol)
         if verbose >= 2 || (!result && verbose >= 1)
             fn = (f==broadcast ? x[1] : f)
-            @show fn,xi,f0,nd,ad,x
+            @show fn,xi,f0,nd,ad
         end
         return result
     elseif !isempty(methods(length,(typeof(xptr[i]),)))

@@ -109,14 +109,17 @@ end
 
 Base.last(t::Tape)=t[NIL].parents[1] # cons! makes sure this works.
 
-function grad(fun::Function, argnum::Int=1)
+function grad(fun::Function, argnum::Int=1, loss=false)
     function gradfun(args...; kwargs...)
         arg_wrt = args[argnum]
         if !isa(arg_wrt,Value); arg_wrt = Param(arg_wrt); end
         args = Any[args...]
         args[argnum] = arg_wrt
         result = differentiate(fun, args...; kwargs...)
-        isa(result, Tape) ? last(result).outgrad : nothing
+        xgrad = isa(result, Tape) ? last(result).outgrad : nothing
+        return loss ? (xgrad,value(result)) : xgrad
     end
     return gradfun
 end
+
+gradloss(f,a=1)=grad(f,a,true)
