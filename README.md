@@ -10,8 +10,8 @@
 [![coveralls](https://coveralls.io/repos/github/denizyuret/AutoGrad.jl/badge.svg?branch=master)](https://coveralls.io/github/denizyuret/AutoGrad.jl?branch=master)
 [![codecov](https://codecov.io/gh/denizyuret/AutoGrad.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/denizyuret/AutoGrad.jl)
 
-AutoGrad.jl is an automatic differentiation package for Julia.  It is
-based on the popular Python
+AutoGrad.jl is an automatic differentiation package for Julia.  It
+started as a port of the popular Python
 [autograd](https://github.com/HIPS/autograd) package and forms the
 foundation of the [Knet](https://github.com/denizyuret/Knet.jl) Julia
 deep learning framework.  AutoGrad can differentiate regular Julia
@@ -19,11 +19,8 @@ code that includes loops, conditionals, helper functions, closures
 etc. by keeping track of the primitive operations and using this
 execution trace to compute gradients.  It uses reverse mode
 differentiation (a.k.a. backpropagation) so it can efficiently handle
-functions with array inputs and scalar outputs.  It can compute
-gradients of gradients to handle higher order derivatives.  Please see
-the comments in
-[core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
-for a description of how the code works in detail.
+functions with large array inputs and scalar outputs.  It can compute
+gradients of gradients to handle higher order derivatives.
 
 ## Installation
 
@@ -37,81 +34,90 @@ In order to use it in your code start with:
 using AutoGrad
 ```
 
+## Interface
+
+```
+x = Param([1,2,3])		# user declares parameters
+x => P([1,2,3])			# they are wrapped in a struct
+sum(abs2,x) => 14		# they act like regular values outside of differentiation
+value(x) => [1,2,3]		# we can get the original value
+y = differentiate(sum,abs2,x)	# ıf you want the gradients
+y => T(14)			# you get another struct
+value(y) => 14			# which represents the same value
+gradient(dy,x) => [2,4,6]	# but also contains gradients for all Params
+```
+
+## Old Interface
+
+Pre v1.1 AutoGrad only supported the following `grad` interface. This
+is still supported.
+
+```
+x = [1,2,3]
+f(x) = sum(abs2,x)
+g = grad(f)
+f(x) => 14
+g(x) => [2,4,6]
+```
+
 ## Example
 
-Here is a linear regression example simplified from
-[housing.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/examples/housing.jl):
+Here is a linear regression example using [callable objects](https://docs.julialang.org/en/stable/manual/methods/#Function-like-objects-1):
 
 ```
-using AutoGrad
+struct Linear; w; b; end		# user defines a model
+(f::Linear)() = (f.w, f.b)              # 0-arg call returns iterator over parameters
+(f::Linear)(x) = (f.w * mat(x) .+ f.b)  # 1-arg call returns a prediction
+(f::Linear)(x,y) = sum(abs2,f(x)-y)     # 2-arg call returns loss
 
-function loss(w)
-    global xtrn,ytrn
-    ypred = w[1]*xtrn .+ w[2]
-    sum(abs2, ypred - ytrn) / size(ypred,2)
-end
+# Initialize a model as a callable object with parameters:
+f = Linear(Param(randn(10,100), Param(randn(10))))
 
-function train(w; lr=.1, epochs=20)
-    lossgrad = grad(loss)
-    for epoch=1:epochs
-        g = lossgrad(w)
-        for i in 1:length(w)
-            w[i] -= lr * g[i]
-        end
+# SGD training loop:
+for (x,y) in data
+    loss = differentiate(f,x,y)
+    for w in f()
+        g = gradient(loss,w)
+	w = w - 0.01*g
     end
-    return w
 end
 ```
-
-The `loss` function takes parameters as input and returns the loss to
-be minimized.  The parameter `w` for this example is a pair: `w[1]` is
-a weight matrix, and `w[2]` is a bias vector.  The training data
-`xtrn,ytrn` are in global variables.  `ypred` is the predicted output,
-and the last line computes the quadratic loss.  The `loss` function is
-implemented in regular Julia.
-
-The `train` function takes initial parameters and returns optimized
-parameters.  `grad` is the only AutoGrad function used: it creates a
-function `lossgrad` that takes the same arguments as `loss`, but
-returns the gradient instead.  The returned gradient will have the
-same type and shape as the input argument.  The `for` loop implements
-gradient descent, where we calculate the gradient and subtract a
-scaled version of it from the weights.
 
 See the [examples
 directory](https://github.com/denizyuret/AutoGrad.jl/blob/master/examples)
-for more examples, and the extensively documented
-[core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
-for details.
+for more examples.
 
 ## Extending AutoGrad
 
 AutoGrad can only handle a function if the primitives it uses have
-known gradients.  You can add your own primitives with gradients as
-described in detail in
-[core.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/core.jl)
-or using the `@primitive` and `@zerograd` macros in
+known gradients.  You can add your own primitives with gradients using
+the `@primitive` and `@zerograd` macros in
 [macros.jl](https://github.com/denizyuret/AutoGrad.jl/blob/master/src/macros.jl)
 Here is an example:
 
 ```
-@primitive hypot(x1,x2),dy,y  (dy.*x1./y)  (dy.*x2./y)
+@primitive log(x),dy,y  (dy .* (1 ./ x))
 ```
 
-The `@primitive` macro marks the `hypot(::Any,::Any)` method as
-a new primitive and the next two expressions define gradient functions
-wrt the first and second argument.  The gradient expressions can refer
-to the parameters `(x1,x2)`, the return variable `y` and its gradient
-`dy` (optionally indicated after the argument list) in the method
-declaration.
+The `@primitive` macro marks the `log(::Any)` method as a new
+primitive and the next expression defines a gradient function wrt the
+first argument.  The gradient expressions can refer to the
+parameter(s) `x`, the return variable `y` and its gradient `dy`
+(optionally indicated after the argument list) in the method
+declaration. For functions with multiple inputs multiple gradient
+expressions may be given. Non-existent or zero gradients can be
+specified by omitting a gradient expression or using `nothing` in
+place of one. By default the broadcasting version `log.(x)` is also
+defined as a primitive, use the `@primitive1` macro if you don't want
+this.
 
 Note that Julia supports multiple-dispatch, i.e. a function may have
 multiple methods each supporting different argument types.  For
-example `hypot(x1::Number,x2::Number)` and
-`hypot(x1::Array,x2::Array)` are two different hypot methods.  In
-AutoGrad.jl each method can independently be defined as a primitive
-and can have its own specific gradient. Generally AutoGrad defines
-gradients without using argument types to keep the rules generic.
+example `log(::Float32)` and `log(::BigFloat)` are two different log
+methods.  In AutoGrad.jl each method can be defined independently as a
+primitive and can have its own specific gradient. Generally AutoGrad
+defines gradients without using argument types to keep the rules
+generic.
 
 ## Code structure
 
@@ -148,9 +154,15 @@ tutorial](https://github.com/HIPS/autograd/blob/master/docs/tutorial.md)
 for some Python examples, and Dougal's PhD thesis for design
 principles.  [JuliaDiff](http://www.juliadiff.org/) and
 [FluxML](https://github.com/FluxML) have alternative differentiation
-tools for Julia.  I would like to thank Carlo Lucibello, Mike Innes,
-Rene Donner, Ekin Akyurek, Ozan Arkan Can and Emre Yolcu for their
-contributions.
+tools for Julia.  I would like to thank the current contributors:
+
+* Carlo Lucibello
+* Ekin Akyürek
+* Emre Yolcu
+* Jarrett Revels
+* Mike Innes
+* Ozan Arkan Can
+* Rene Donner
 
 The suggested citation for AutoGrad is:
 
