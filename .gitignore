@@ -10,3 +10,5 @@ setup.sh
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
+Untitled.ipynb
+.ipynb_checkpoints
