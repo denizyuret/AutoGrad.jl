@@ -14,6 +14,12 @@ include("header.jl")
     # PR #75: Tape confusion fix
     @test grad(x -> x*grad(y -> x+y)(x))(5.0) == 1
     @test grad(x -> x*grad(y -> x+y)(1x))(5.0) == 1
+    
+    # WIP
+    # @test (s->gradient((@diff (x->x*(t->gradient((@diff (y->x+y)(t)),t))(x))(s)),s))(Param(5)) == 1
+    # @test (s->gradient((@diff (x->x*(t->gradient((@diff (y->x+y)(t)),t))(1x))(s)),s))(Param(5)) == 1
+    # @test (s->gradient(differentiate(x->x*(t->gradient(differentiate(y->x+y,t),t))(x),s),s))(Param(5)) == 1
+    # @test (s->gradient(differentiate(x->x*(t->gradient(differentiate(y->x+y,t),t))(1x),s),s))(Param(5)) == 1
 
     # Issue #44: third gradient of exp(x*x) gives nothing
     @test exp(1) == grad(exp)(1) == grad(grad(exp))(1)

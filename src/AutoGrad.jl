@@ -1,6 +1,6 @@
 module AutoGrad
 export Param, differentiate, gradient, value, grad, gradloss, getval
-export @primitive, @zerograd, @primitive1, @zerograd1
+export @primitive, @zerograd, @primitive1, @zerograd1, @diff
 
 ### New interface:
 """

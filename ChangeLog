@@ -1,3 +1,35 @@
+2018-08-29  dyuret  <dyuret@login03.kuacc.ku.edu.tr>
+
+	* differentiate->@diff: differentiate(nll, f(x), y) does not work because f(x) gets
+	evaluated before differentiate can create tapes.  @diff nll(f(x),y) works and looks
+	better. Can use the shorter name (function diff was taken by Base). We still can't
+	get rid of the global tape stack.
+
+	* loss: f(x,y)->nll(f(x),y) -- instead of the two-arg call to the model defining the
+	loss, we will resolve all model calls to be predict calls (which will allow multiple
+	arguments). This has multiple advantages: (1) inner layers never need a loss, (2)
+	multi-args predicts are possible, (3) the same model can be tested with multiple
+	loss functions (e.g. nll vs accuracy). Disadvantage: either have to define separate
+	loss function or make df(loss,f(x),y) work.
+
+	* iteration: f()->f -- instead of the user having to define a zero-arg function call
+	or a params(f) function for each layer/model, we make `for param in model` work
+	automatically using a recursive iterator based on deepcopy.
+
+	* Param-Result-Value: mutable structs are a lot faster as keys for an IdDict!
+
+	* Tape: valN=>nodeN, ..., val1=>node1, NIL=>node0
+	# Special node0 marks both ends of the tape:
+	# node[n].cdr = node[n-1]
+	# node1.cdr = node0
+	# node0.cdr = nodeN
+	# Special Value NIL acts as a key to node0.
+	# Tape is iterated in reverse, last in first out
+	# This automatically makes first(tape) the final result node
+	# last(tape) is the initial parameter node, but default slow.
+	# The last(::Tape) hack is to make old style grad faster.
+
+
 2018-08-05  Deniz Yuret  <dyuret@ku.edu.tr>
 
 	* TODO:

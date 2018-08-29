@@ -70,6 +70,10 @@ function differentiate(f, x...; o...)
     return tape
 end
 
+# This allows argument expressions like @diff sin(sqrt(x)) which fail with differentiate
+# because arguments get evaluated before the tape gets created.
+macro diff(fx); :(differentiate(()->$(esc(fx)))); end
+
 duplicate(x)=(isa(x,Value) ? identity(x) : x)
 
 back(::Function, ::Val, dy, y, x...; o...) = nothing

@@ -30,4 +30,9 @@ using Statistics
     ∇ = grad(loss)
     @test isa(∇(m,x,y), Array)
 
+    # differentiate vs @diff with expression arguments
+    x = Param(1)
+    @test gradient((@diff sin(sqrt(x))),x) == cos(x)/2
+    @test gradient(differentiate(sin,sqrt(x)),x) != cos(x)/2
+    
 end
