@@ -2,6 +2,8 @@ abstract type Value{T} end
 
 mutable struct Param{T} <: Value{T}
     value::T
+    opt
+    Param(x::T) where T = new{T}(x)
 end
 
 mutable struct Result{T} <: Value{T}
@@ -65,7 +67,7 @@ function differentiate(f, x...; o...)
             g = back(r.func, Val(i), n.outgrad, r, r.args...; r.kwargs...)
             p.outgrad = sum_outgrads(p.outgrad, g)
         end
-        if isempty(_tapes) && !isa(r,Param); n.outgrad = nothing; end  # saves memory
+        if isempty(_tapes) && isa(r,Result); n.outgrad = nothing; end  # saves memory
     end
     return tape
 end

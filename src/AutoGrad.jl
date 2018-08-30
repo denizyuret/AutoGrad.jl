@@ -6,23 +6,25 @@ export @primitive, @zerograd, @primitive1, @zerograd1, @diff
 """
     x = Param([1 2 3])
     sum(abs2, x) => 14
-    y = differentiate(sum, abs2, x)
+    y = @diff sum(abs2, x)
     gradient(y, x) => [2 4 6]
     value(x) => [1 2 3]
     value(y) => 14
 
-Given a scalar valued function `f` and its arguments, `differentiate` returns `y` such that
-`value(y) == f(x...; o...)` and `gradient(y, p)` gives the gradient of `y` with respect to
-any parameter `p::Param`.  `p` may or may not be a part of the input arguments. `gradient`
-will return `nothing` if `p` has no effect on `value(y)`.
 
 `Param(x)` returns a struct that acts like `x` but marks it as a parameter you want to
 compute gradients with respect to.
 
+`@diff expr` evaluates an expression and returns a struct that contains its value (which
+should be a scalar) and gradient information.
+
+`gradient(y, x)` returns the gradient of `y` (output by @diff) with respect to any parameter
+`x::Param`, or  `nothing` if the gradient is 0.
+
 `value(x)` returns the value associated with `x` if `x` is a `Param` or the output of
-`differentiate`, otherwise returns `x`.
+`@diff`, otherwise returns `x`.
 """
-Param, differentiate, gradient, value
+AutoGrad, Param, :(@diff), gradient, value
 
 ### Old interface:
 """
