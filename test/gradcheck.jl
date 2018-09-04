@@ -36,11 +36,11 @@ function gradcheck(f, x...; kw=(), args=:, nsample=10, verbose=1, rtol=0.05, ato
     args = isa(args, Colon) ? (1:length(x)) : args
     xrec  = Any[x...]
     for i in args; xrec[i] = Param(xrec[i]); end
-    result = differentiate(gcsum, f, xrec...; kw...)
+    result = @diff gcsum(f, xrec...; kw...)
     f0 = value(result)
     xptr = Any[x...]
     gptr = Array{Any}(undef, length(x))
-    for i in args; gptr[i] = gradient(result, xrec[i]); end
+    for i in args; gptr[i] = grad(result, xrec[i]); end
     all(args) do i
         gcwalk(i, xptr, gptr, f0, f, xptr, kw, nsample, verbose, delta, rtol, atol)
     end
