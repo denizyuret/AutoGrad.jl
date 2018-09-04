@@ -29,8 +29,8 @@ newtape() = (n=Node(); n.cdr=n; Tape(NIL => n))
 Base.iterate(t::Tape,s=(t[NIL],t[NIL])) = ((p,n) = s; p = p.cdr; p === n ? nothing : (p, (p, n)))
 Base.collect(t::Tape)=(a=Array{Node}(undef,length(t)-1); i=0; for n in t; a[i+=1]=n; end; a)
 
-gradient(t,x)=nothing
-gradient(t::Tape,x::Value)=(n=get(t,x,nothing); n===nothing ? n : n.outgrad)
+grad(t,x)=nothing
+grad(t::Tape,x::Value)=(n=get(t,x,nothing); n===nothing ? n : n.outgrad)
 
 value(x)=x
 value(x::Value)=x.value

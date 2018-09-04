@@ -39,12 +39,12 @@ using AutoGrad
 ```
 x = Param([1,2,3])		# user declares parameters
 x => P([1,2,3])			# they are wrapped in a struct
-sum(abs2,x) => 14		# they act like regular values outside of differentiation
 value(x) => [1,2,3]		# we can get the original value
-y = differentiate(sum,abs2,x)	# ıf you want the gradients
+sum(abs2,x) => 14		# they act like regular values outside of differentiation
+y = @diff sum(abs2,x)	        # if you want the gradients
 y => T(14)			# you get another struct
 value(y) => 14			# which represents the same value
-gradient(dy,x) => [2,4,6]	# but also contains gradients for all Params
+grad(y,x) => [2,4,6]	        # but also contains gradients for all Params
 ```
 
 ## Old Interface
@@ -66,19 +66,17 @@ Here is a linear regression example using [callable objects](https://docs.julial
 
 ```
 struct Linear; w; b; end		# user defines a model
-(f::Linear)() = (f.w, f.b)              # 0-arg call returns iterator over parameters
-(f::Linear)(x) = (f.w * mat(x) .+ f.b)  # 1-arg call returns a prediction
-(f::Linear)(x,y) = sum(abs2,f(x)-y)     # 2-arg call returns loss
+(f::Linear)(x) = (f.w * x .+ f.b)
 
 # Initialize a model as a callable object with parameters:
 f = Linear(Param(randn(10,100), Param(randn(10))))
 
 # SGD training loop:
 for (x,y) in data
-    loss = differentiate(f,x,y)
-    for w in f()
-        g = gradient(loss,w)
-	w = w - 0.01*g
+    loss = @diff sum(abs2,f(x)-y)
+    for w in params(f)
+        g = grad(loss,w)
+	axpy!(-0.01, g, w)
     end
 end
 ```
