@@ -33,6 +33,9 @@ back(::typeof(cat),::Val{N},y1,y,x...; dims) where {N}=uncat(y1,N,dims,x...)
 # In Julia6+ dims can be Val{N} which breaks uncat:
 uncat(y1,n,dims::Val{N},x...) where {N}=uncat(y1,n,N,x...)
 uncat1(x2,y1,n,dims::Val{N},x...) where {N}=uncat1(x2,y1,n,N,x...)
+# This resolves ambiguity with the @primitive version:
+uncat(y1::Value,n,dims::Val{N},x...) where {N}=uncat(y1,n,N,x...)
+uncat1(x2::Value,y1,n,dims::Val{N},x...) where {N}=uncat1(x2,y1,n,N,x...)
 
 # For the gradient, we need to extract the n'th block from dy which
 # has the same shape as y=cat(x...;dims).  Note that the inputs x[i]
