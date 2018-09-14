@@ -69,7 +69,7 @@ struct Linear; w; b; end		# user defines a model
 (f::Linear)(x) = (f.w * x .+ f.b)
 
 # Initialize a model as a callable object with parameters:
-f = Linear(Param(randn(10,100), Param(randn(10))))
+f = Linear(Param(randn(10,100)), Param(randn(10)))
 
 # SGD training loop:
 for (x,y) in data
