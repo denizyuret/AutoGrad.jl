@@ -11,7 +11,6 @@ mutable struct Result{T} <: Value{T}
     func::Function
     args::Tuple
     kwargs::Base.Iterators.Pairs
-    Result(val::T, func, args...; kwargs...) where T = new{T}(val, func, args, kwargs)
 end
 
 mutable struct Node
@@ -86,7 +85,7 @@ function forw(f, args...; kwargs...)
     argvals = value.(args)
     result = f(argvals...; kwargs...)
     if isempty(_tapes); return result; end
-    result = Result(result, f, args...; kwargs...)
+    result = Result(result, f, args, kwargs)
     for tape in _tapes
         record(result, tape)
     end
