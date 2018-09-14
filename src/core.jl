@@ -38,6 +38,8 @@ value(x::Tape)=first(x).Value.value
 
 _tapes = Tape[]
 
+abstract type Arg{N} end
+
 function differentiate(f, x...; o...)
     global _tapes
     if !isempty(_tapes)       # PR#75: to avoid tape confusion
@@ -64,7 +66,7 @@ function differentiate(f, x...; o...)
         @inbounds for i in 1:length(n.parents)
             if !isassigned(n.parents, i); continue; end
             p = n.parents[i]
-            g = back(r.func, Val(i), n.outgrad, r, r.args...; r.kwargs...)
+            g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...)
             p.outgrad = sum_outgrads(p.outgrad, g)
         end
         if isempty(_tapes) && isa(r,Result); n.outgrad = nothing; end  # saves memory
@@ -78,7 +80,7 @@ macro diff(fx); :(differentiate(()->$(esc(fx)))); end
 
 duplicate(x)=(isa(x,Value) ? identity(x) : x)
 
-back(::Function, ::Val, dy, y, x...; o...) = nothing
+back(x...; o...) = nothing
 
 function forw(f, args...; kwargs...)
     argvals = value.(args)

@@ -21,11 +21,11 @@ end
 # We handle the containers by overloading getindex:
 
 @primitive  getindex(x,i...),dxi,xi  ungetindex(x,dxi,i)
-back(::typeof(getindex),::Val{N},o...) where {N} = nothing # Only the first arg has gradient
+back(::typeof(getindex),::Type{Arg{N}},o...) where {N} = nothing # Only the first arg has gradient
 
 # use ungetindex machinery also for view and selectdim
 @primitive  view(x,i...),dxi,xi  ungetindex(x,dxi,i)
-back(::typeof(view),::Val{N},o...) where {N} = nothing # Only the first arg has gradient
+back(::typeof(view),::Type{Arg{N}},o...) where {N} = nothing # Only the first arg has gradient
 @inline selectdim(A::Value{<:AbstractArray}, d::Integer, i) = Base._selectdim(A, d, i, Base.setindex(map(Base.Slice, axes(A)), i, d))
 
 # For efficiency we use the following sparse container
@@ -65,8 +65,8 @@ ungetindex(x,dxi,i)=UngetIndex(x,dxi,i)
 ungetindex(x,dxi::Value,i)=forw(ungetindex,x,dxi,i)
 ungetindex(x::Value,dxi::Value,i)=ungetindex(value(x),dxi,value(i))
 ungetindex(x::Value,dxi,i)=ungetindex(value(x),dxi,value(i))
-back(::typeof(ungetindex),::Val{2},ddx,dx,x,dxi,i)=getindex(ddx,value(i)...)
-back(::typeof(ungetindex),::Val{N},o...) where {N} = nothing
+back(::typeof(ungetindex),::Type{Arg{2}},ddx,dx,x,dxi,i)=getindex(ddx,value(i)...)
+back(::typeof(ungetindex),::Type{Arg{N}},o...) where {N} = nothing
 
 # gradcheck works with the first arg, we need to check ungetindex grad for its second arg
 # ungetindex2(value, container, index)=ungetindex(container, value, index)

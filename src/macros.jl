@@ -63,17 +63,17 @@ the macro generates all 2^N-1 boxed/unboxed argument combinations.
 In AutoGrad, gradients are defined using gradient methods that have
 the following pattern:
 
-    back(f,Val(i),dy,y,x...) => dx[i]
+    back(f,Arg{i},dy,y,x...) => dx[i]
 
 For the third example here is the generated gradient method:
 
-    back(::typeof(sin), ::Val{1}, dy, y, x::Value{T}) where {T<:Number} = dy .* cos(x)
+    back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number} = dy .* cos(x)
 
 For the last example a different gradient method is generated for each
 argument:
 
-    back(::typeof(hypot), ::Val{1}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x1) ./ y
-    back(::typeof(hypot), ::Val{2}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x2) ./ y
+    back(::typeof(hypot), ::Type{Arg{1}}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x1) ./ y
+    back(::typeof(hypot), ::Type{Arg{2}}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x2) ./ y
 
 In fact @primitive generates four more definitions for the other
 boxed/unboxed argument combinations.
@@ -89,7 +89,7 @@ value is in a broadcasting operation `forw` is called. The
 `@primitive` macro defines the `back` method for broadcasting of a
 particular primitive:
 
-    back(::typeof(broadcast), ::Val{2}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number} = dy .* cos(x)
+    back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number} = dy .* cos(x)
 
 If you do not want the back method for broadcasting, you can use the
 `@primitive1` macro which omits this final definition.
@@ -103,9 +103,9 @@ macro primitive(f,g...)
         push!(b.args, :($fx = $rx)) # e.g. sin(x::Value{T}) where {T<:Number} = forw(sin,x)
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)
-            push!(b.args, :($gx = $(g[i]))) # e.g. back(::typeof(sin), ::Val{1}, dy, y, x::Value{T}) where {T<:Number} = (dy.*cos.(x))
+            push!(b.args, :($gx = $(g[i]))) # e.g. back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number} = (dy.*cos.(x))
             bx = bsig(fx,dy,y,i)
-            push!(b.args, :($bx = $(g[i]))) # e.g. back(::typeof(broadcast), ::Val{2}, dy, y, ::typeof(sin), x::Value) = (dy.*cos.(x))
+            push!(b.args, :($bx = $(g[i]))) # e.g. back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value) = (dy.*cos.(x))
         end
     end
     return esc(b)
@@ -325,7 +325,7 @@ function gsig(f,dy,y,i)
     g.args[1] = :(AutoGrad.back)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::typeof($fname)))
-    insert!(g.args, a+1, :(::Val{$i}))
+    insert!(g.args, a+1, :(::Type{Arg{$i}}))
     insert!(g.args, a+2, dy)
     insert!(g.args, a+3, y)
     return fcopy
@@ -341,7 +341,7 @@ function bsig(f,dy,y,i)
     g.args[1] = :(AutoGrad.back)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::typeof(broadcast)))
-    insert!(g.args, a+1, :(::Val{$(i+1)}))
+    insert!(g.args, a+1, :(::Type{Arg{$(i+1)}}))
     insert!(g.args, a+2, dy)
     insert!(g.args, a+3, y)
     insert!(g.args, a+4, :(::typeof($fname)))

@@ -28,7 +28,7 @@ cat(X::NA...; dims)=Base._cat(dims, X...)
 
 # Then define the method that catches at least one Value:
 cat(X::NAR...; dims)=forw(cat,X...; dims=dims)
-back(::typeof(cat),::Val{N},y1,y,x...; dims) where {N}=uncat(y1,N,dims,x...)
+back(::typeof(cat),::Type{Arg{N}},y1,y,x...; dims) where {N}=uncat(y1,N,dims,x...)
 
 # In Julia6+ dims can be Val{N} which breaks uncat:
 uncat(y1,n,dims::Val{N},x...) where {N}=uncat(y1,n,N,x...)
@@ -162,7 +162,7 @@ function _cat1d(args...)
     return result
 end
 
-function back(::typeof(_cat1d),::Val{N},y1,y,x...) where {N}
+function back(::typeof(_cat1d),::Type{Arg{N}},y1,y,x...) where {N}
     offset2 = 0
     @inbounds for i=1:N
         offset2 += length(x[i])

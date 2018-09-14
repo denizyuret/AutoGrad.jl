@@ -7,7 +7,7 @@ sum_outgrads(a::AbstractArray{T},b::AbstractArray) where T = (if isbitstype(T); 
 sum_outgrads(a::Value,b::Value)=forw(sum_outgrads,a,b)
 sum_outgrads(a::Value,b)=forw(sum_outgrads,a,b)
 sum_outgrads(a,b::Value)=forw(sum_outgrads,a,b)
-back(::typeof(sum_outgrads),::Val{N},dy,y,x1,x2) where N = dy
+back(::typeof(sum_outgrads),::Type{Arg{N}},dy,y,x1,x2) where N = dy
 # we use `nothing` to indicate zero gradients
 sum_outgrads(::Nothing,::Nothing)=nothing
 sum_outgrads(a::Value,::Nothing)=a   # to avoid ambiguity
