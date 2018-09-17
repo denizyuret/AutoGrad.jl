@@ -1,3 +1,9 @@
+# Set TIMER=true if you want profiling information in AutoGrad.to
+TIMER=false
+using TimerOutputs; const to = TimerOutput()
+macro timeforw(expr); (TIMER ? :(@timeit to $(esc(:(f==broadcast ? "$(argvals[1])." : "$f"))) $(esc(expr))) : esc(expr)); end
+macro timeback(expr); (TIMER ? :(@timeit to $(esc(:(r.func==broadcast ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]"))) $(esc(expr))) : esc(expr)); end
+
 abstract type Value{T} end
 
 mutable struct Param{T} <: Value{T}
@@ -65,7 +71,7 @@ function differentiate(f, x...; o...)
         @inbounds for i in 1:length(n.parents)
             if !isassigned(n.parents, i); continue; end
             p = n.parents[i]
-            g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...)
+            @timeback g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...)
             p.outgrad = sum_outgrads(p.outgrad, g)
         end
         if isempty(_tapes) && isa(r,Result); n.outgrad = nothing; end  # saves memory
@@ -83,7 +89,7 @@ back(x...; o...) = nothing
 
 function forw(f, args...; kwargs...)
     argvals = value.(args)
-    result = f(argvals...; kwargs...)
+    @timeforw result = f(argvals...; kwargs...)
     if isempty(_tapes); return result; end
     result = Result(result, f, args, kwargs)
     for tape in _tapes
