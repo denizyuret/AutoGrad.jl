@@ -68,7 +68,7 @@ function differentiate(f, x...; o...)
             if !isassigned(n.parents, i); continue; end
             p = n.parents[i]
             @timer tm(r,i) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
-            @timer "sum"   (p.outgrad = sum_outgrads(p.outgrad, g))
+            @timer "sum_outgrads" (p.outgrad = sum_outgrads(p.outgrad, g))
         end
         if isempty(_tapes) && isa(r,Result); n.outgrad = nothing; end  # saves memory
     end
