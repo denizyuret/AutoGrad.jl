@@ -1,9 +1,3 @@
-# Set TIMER=true if you want profiling information in AutoGrad.to
-TIMER=false
-using TimerOutputs; const to = TimerOutput()
-macro timeforw(expr); (TIMER ? :(@timeit to $(esc(:(f==broadcast ? "$(argvals[1])." : "$f"))) $(esc(expr))) : esc(expr)); end
-macro timeback(expr); (TIMER ? :(@timeit to $(esc(:(r.func==broadcast ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]"))) $(esc(expr))) : esc(expr)); end
-
 abstract type Value{T} end
 
 mutable struct Param{T} <: Value{T}
@@ -57,6 +51,7 @@ function differentiate(f, x...; o...)
     try
         result = f(x...; o...)
     catch e
+        Base.show_backtrace(stdout, Base.catch_backtrace())
         pop!(_tapes); throw(e)
     end
     if pop!(_tapes) !== tape; error("Tape stack error"); end
@@ -65,14 +60,15 @@ function differentiate(f, x...; o...)
     n = first(tape)
     if result !== n.Value; error("Result not on tape"); end
     n.outgrad = one(value(result))
+    tm(r::Result,i::Int)=(r.func==broadcast ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]")
     for n in tape
         if n.outgrad == nothing; continue; end
         r = n.Value
         @inbounds for i in 1:length(n.parents)
             if !isassigned(n.parents, i); continue; end
             p = n.parents[i]
-            @timeback g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...)
-            p.outgrad = sum_outgrads(p.outgrad, g)
+            @timer tm(r,i) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
+            @timer "sum"   (p.outgrad = sum_outgrads(p.outgrad, g))
         end
         if isempty(_tapes) && isa(r,Result); n.outgrad = nothing; end  # saves memory
     end
@@ -89,11 +85,14 @@ back(x...; o...) = nothing
 
 function forw(f, args...; kwargs...)
     argvals = value.(args)
-    @timeforw result = f(argvals...; kwargs...)
+    tm(f::Function,argvals::Tuple)=(f==broadcast ? "$(argvals[1])." : "$f")
+    @timer tm(f,argvals) (result = f(argvals...; kwargs...))
     if isempty(_tapes); return result; end
-    result = Result(result, f, args, kwargs)
-    for tape in _tapes
-        record(result, tape)
+    @timer "record" begin
+        result = Result(result, f, args, kwargs)
+        for tape in _tapes
+            record(result, tape)
+        end
     end
     return result
 end
