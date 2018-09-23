@@ -325,7 +325,7 @@ function gsig(f,dy,y,i)
     g.args[1] = :(AutoGrad.back)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::typeof($fname)))
-    insert!(g.args, a+1, :(::Type{Arg{$i}}))
+    insert!(g.args, a+1, :(::Type{AutoGrad.Arg{$i}}))
     insert!(g.args, a+2, dy)
     insert!(g.args, a+3, y)
     return fcopy
@@ -341,7 +341,7 @@ function bsig(f,dy,y,i)
     g.args[1] = :(AutoGrad.back)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::typeof(broadcast)))
-    insert!(g.args, a+1, :(::Type{Arg{$(i+1)}}))
+    insert!(g.args, a+1, :(::Type{AutoGrad.Arg{$(i+1)}}))
     insert!(g.args, a+2, dy)
     insert!(g.args, a+3, y)
     insert!(g.args, a+4, :(::typeof($fname)))
