@@ -7,7 +7,7 @@ mutable struct Param{T} <: Value{T}
 end
 
 mutable struct Result{T} <: Value{T}
-    value::T
+    value::Union{T,Nothing}     # gcnode sets this to nothing to save memory
     func::Function
     args::Tuple
     kwargs::Base.Iterators.Pairs
@@ -35,6 +35,8 @@ value(x)=x
 value(x::Value)=x.value
 value(x::Tape)=first(x).Value.value
 
+gcnode(n::Node)=(n.outgrad=nothing; n.Value.value=nothing)
+
 _tapes = Tape[]
 
 abstract type Arg{N} end
@@ -57,9 +59,9 @@ function differentiate(f, x...; o...)
     if pop!(_tapes) !== tape; error("Tape stack error"); end
     if !isa(result,Result); return result; end
     if !isa(value(result), Number); error("Only scalar valued functions supported."); end
-    n = first(tape)
-    if result !== n.Value; error("Result not on tape"); end
-    n.outgrad = one(value(result))
+    n1 = first(tape)
+    if result !== n1.Value; error("Result not on tape"); end
+    n1.outgrad = one(value(result))
     tm(r::Result,i::Int)=(r.func==broadcast ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]")
     for n in tape
         if n.outgrad == nothing; continue; end
@@ -70,7 +72,7 @@ function differentiate(f, x...; o...)
             @timer tm(r,i) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
             @timer "sum_outgrads" (p.outgrad = sum_outgrads(p.outgrad, g))
         end
-        if isempty(_tapes) && isa(r,Result); n.outgrad = nothing; end  # saves memory
+        if isempty(_tapes) && isa(r,Result) && n !== n1; gcnode(n); end  # save memory
     end
     return tape
 end
@@ -89,7 +91,7 @@ function forw(f, args...; kwargs...)
     @timer tm(f,argvals) (result = f(argvals...; kwargs...))
     if isempty(_tapes); return result; end
     @timer "record" begin
-        result = Result(result, f, args, kwargs)
+        result = Result{typeof(result)}(result, f, args, kwargs)
         for tape in _tapes
             record(result, tape)
         end
