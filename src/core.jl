@@ -14,17 +14,17 @@ mutable struct Result{T} <: Value{T}
 end
 
 mutable struct Node
-    outgrad
     Value::Value
     parents::Vector{Node}
+    children::Vector{Node}
+    outgrad
     cdr::Node
-    Node(og,rc,pa,pr)=new(og,rc,pa,pr)
-    Node()=new()
+    Node(v::Value) = new(v, Node[], Node[], nothing) # leaves cdr unassigned
 end
 
 const Tape = IdDict{Value,Node}
 const NIL = Param([])
-newtape() = (n=Node(); n.cdr=n; Tape(NIL => n))
+newtape() = (n=Node(NIL); n.cdr=n; Tape(NIL => n))
 Base.iterate(t::Tape,s=(t[NIL],t[NIL])) = ((p,n) = s; p = p.cdr; p === n ? nothing : (p, (p, n)))
 Base.collect(t::Tape)=(a=Array{Node}(undef,length(t)-1); i=0; for n in t; a[i+=1]=n; end; a)
 
@@ -101,24 +101,31 @@ end
 
 function record(r::Result,t::Tape)
     nargs = length(r.args)
-    parents = Array{Node}(undef, nargs)
+    n = Node(r)
+    n.parents = Array{Node}(undef, nargs)
     @inbounds for argnum = 1:nargs
         arg = r.args[argnum]
         if !isa(arg,Value); continue; end	
-        p = get(t,arg,nothing)
-        if p === nothing
-            p = cons!(arg,t)
-        end
-        parents[argnum] = p
+        p = cons!(arg, t)
+        n.parents[argnum] = p
+        push!(p.children, n)
     end
-    cons!(r,t,parents)
+    cons!(n, t)
 end
 
-function cons!(r::Value,t::Tape,parents::Vector{Node}=Node[])
+function cons!(v::Value, t::Tape)
+    n = get(t, v, nothing)
+    if n === nothing
+        n = cons!(Node(v), t)
+    end
+    return n
+end
+
+function cons!(n::Node, t::Tape)
     m = t[NIL]
-    n = Node(nothing, r, parents, m.cdr)
-    if !isdefined(m,:parents); m.parents = [n]; end
-    m.cdr = t[r] = n
+    if !isdefined(m,:parents); m.parents = [n]; end # used by last(tape)
+    n.cdr = m.cdr
+    m.cdr = t[n.Value] = n
 end
 
 Base.last(t::Tape)=t[NIL].parents[1] # cons! makes sure this works.
