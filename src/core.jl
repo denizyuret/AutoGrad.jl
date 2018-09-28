@@ -3,7 +3,7 @@ abstract type Value{T} end
 mutable struct Param{T} <: Value{T}
     value::T
     opt
-    Param(x::T) where T = new{T}(x)
+    Param(x::T,o=nothing) where T = new{T}(x,o)
 end
 
 mutable struct Result{T} <: Value{T}
