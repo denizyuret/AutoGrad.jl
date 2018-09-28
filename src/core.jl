@@ -123,7 +123,7 @@ end
 
 function cons!(n::Node, t::Tape)
     m = t[NIL]
-    if !isdefined(m,:parents); m.parents = [n]; end # used by last(tape)
+    if isempty(m.parents); push!(m.parents, n); end # used by last(tape)
     n.cdr = m.cdr
     m.cdr = t[n.Value] = n
 end
