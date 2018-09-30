@@ -3,10 +3,12 @@ export Param, params, grad, value, @diff
 export gradloss, getval
 export @primitive, @zerograd, @primitive1, @zerograd1
 
-# Set PROFILING=true if you want profiling information in AutoGrad.to
-const PROFILING=false
-using TimerOutputs; to = TimerOutput(); gs()=ccall(("cudaDeviceSynchronize","libcudart"),UInt32,())
-macro timer(name,expr); PROFILING ? :(@timeit to $(esc(name)) (a=$(esc(expr));gs();a)) : esc(expr); end
+# Set ENV["AUTOGRAD_TIMER"]="true" and Pkg.build("AutoGrad") if you want profiling information in AutoGrad.to
+using TimerOutputs, Libdl
+const TIMER=haskey(ENV,"AUTOGRAD_TIMER")
+const to = TimerOutput()
+macro gs(); if !isempty(Libdl.find_library("libcudart")); esc(:(ccall(("cudaDeviceSynchronize","libcudart"),UInt32,()))); end; end
+macro timer(name,expr); TIMER ? :(@timeit to $(esc(name)) (a=$(esc(expr));@gs;a)) : esc(expr); end
 
 """
 Usage:
