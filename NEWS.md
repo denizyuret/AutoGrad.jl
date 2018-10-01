@@ -1,6 +1,31 @@
+AutoGrad v1.1.1 Release Notes
+=============================
+207ffe8 2018-09-30
+
+* General performance improvements.
+* Val()->Arg{}
+* Result(x, f, args...; kwargs...)->Result(x, f, args, kwargs)
+* Improved display for Tapes.
+* Using TimerOutputs to profile core.jl. Use AUTOGRAD_TIMER environment variable.
+* Added gcnode() to save memory, overriding in Knet to free GPU arrays.
+* Added Node.children to be used by gcnode in Knet.
+
+
+AutoGrad v1.1.0 Release Notes
+=============================
+5642caf 2018-09-05
+
+* Solved tape confusion issue.
+* Allow setindex! on Values if not differentiating.
+* Added gradloss.
+* Improved display for Array Params.
+* Added the @diff macro, preferred to the differentiate function.
+* Added the opt field to Param.
+* Switch to using grad instead of gradient.
+
 AutoGrad v1.0.1 Release Notes
 =============================
-daef32c 2018-08-24
+c3a91a8 2018-08-25
 
 * Using forw and back methods instead of the recorder function generator and the Grad type.
 * New gradcheck method checks all arguments, handles tuples and dicts as well as arrays.
