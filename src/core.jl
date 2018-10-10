@@ -34,8 +34,8 @@ grad(t::Tape,x::Value)=(n=get(t,x,nothing); n===nothing ? n : n.outgrad)
 value(x)=x
 value(x::Value)=x.value
 value(x::Tape)=first(x).Value.value
-default_gc(n::Node)  = (n.outgrad=nothing; n.Value.value=nothing)
-gcnode(n::Node)=(n.outgrad=nothing; n.Value.value=nothing)
+default_gc(n::Node) = (n.outgrad=nothing; n.Value.value=nothing)
+gcnode = default_gc
 set_gc_function(f::Function) = (global gcnode = f)
 
 _tapes = Tape[]
