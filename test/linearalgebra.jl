@@ -47,15 +47,15 @@ using LinearAlgebra
         @test gradcheck(norm,w,1; args=1)
         @test gradcheck(norm,w,2; args=1)
         @test gradcheck(norm,w,Inf; args=1)
-        @test_broken gradcheck(qrtest,w) #TODO iterator error
-        @test_broken gradcheck(lqtest,w) #TODO iterator error
-        @test_broken gradcheck(svdtest,w) #TODO iterator error
+        @test_skip gradcheck(qrtest,w) #TODO iterator error
+        @test_skip gradcheck(lqtest,w) #TODO iterator error
+        @test_skip gradcheck(svdtest,w) #TODO iterator error
         @test gradcheck(tr,wsquare)
         @test gradcheck(transpose,w)
         @test gradcheck(tril,w)
         @test gradcheck(triu,w)
         @test gradcheck(*,w,wt)
-        @test_broken gradcheck(^,wsquare,randn()) #TODO: real matrix powers
-        @test_broken gradcheck(^,wsquare,rand(-3:3)) #TODO: integer matrix powers
+        @test_skip gradcheck(^,wsquare,randn()) #TODO: real matrix powers
+        @test_skip gradcheck(^,wsquare,rand(-3:3)) #TODO: integer matrix powers
     end
 end
