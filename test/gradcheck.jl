@@ -7,10 +7,10 @@ using AutoGrad
 Numerically check the gradient of `f(x...)` and return a boolean
 result.
 
-Each argument can be a Number, Array, Tuple or Dict which in turn can
-contain other Arrays etc.  Only 10 random entries in each large
-numeric array are checked by default.  If the output of `f` is not a
-number, we check the gradient of `sum(f(x...))`.
+Each argument can be a Number, Array, Tuple or Dict which in turn can contain other Arrays
+etc.  Only 10 random entries in each large numeric array are checked by default.  If the
+output of `f` is not a number, we check the gradient of `sum(f(x...))`. See also `gcheck`
+for a different take on marking parameters.
 
 # Keywords
 
@@ -122,3 +122,40 @@ function randcheck(f,t1=identity,ts...; args=:, kw...)
     gradcheck(broadcast, f, a64...; args=(args.+1), kw...)
 end
 
+
+"""
+
+    gcheck(f, x...; kw, o...)
+
+Numerically check the gradient of `f(x...; kw...)` and return a boolean result.
+
+Example call: `gcheck(nll,model,x,y)`. The parameters should be marked as `Param` arrays in
+`f`, `x`, and/or `kw`.  Only 10 random entries in each large numeric array are checked by
+default.  If the output of `f` is not a number, we check the gradient of `sum(f(x...;
+kw...))`. See also `gradcheck` for a different take interface for marking parameters.
+
+# Keywords
+
+* `kw=()`: keyword arguments to be passed to `f`, i.e. `f(x...; kw...)`
+
+* `nsample=10`: number of random entries from each param to check
+
+* `atol=rtol=0.01`: tolerance parameters.  See `isapprox` for their meaning.
+
+* `delta=0.0001`: step size for numerical gradient calculation.
+
+* `verbose=1`: 0 prints nothing, 1 shows failing tests, 2 shows all tests.
+
+"""
+function gcheck(f, x...; kw=(), nsample=10, verbose=1, rtol=0.05, atol=0.01, delta=0.0001)
+    y = @diff gcsum(f, x...; kw...)
+    f0 = value(y)
+    ps = params(f)
+    for xi in x; append!(ps, params(xi)); end
+    for (k,v) in kw; append!(ps, params(v)); end
+    vs = value.(ps)
+    gs = (p->grad(y,p)).(ps)
+    all(1:length(ps)) do i
+        gcwalk(i, vs, gs, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
+    end
+end
