@@ -159,3 +159,10 @@ function gcheck(f, x...; kw=(), nsample=10, verbose=1, rtol=0.05, atol=0.01, del
         gcwalk(i, vs, gs, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
     end
 end
+```
+     x = Param(randn(10))
+     @gcheck sum(x) (nsample=20,)
+```
+macro gcheck(fx,options=:(NamedTuple()))
+    :(gcheck(()->$(esc(fx));$(esc(options))...))
+end
