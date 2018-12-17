@@ -53,6 +53,7 @@ function differentiate(f, x...; o...)
     result = nothing
     try
         result = f(x...; o...)
+        if isa(result,Param); result = identity(result); end # fix #101.1: turn Param->Result
     catch e
         Base.show_backtrace(stdout, Base.catch_backtrace())
         pop!(_tapes); throw(e)
@@ -84,7 +85,7 @@ macro diff(fx); :(differentiate(()->$(esc(fx)))); end
 
 duplicate(x)=(isa(x,Value) ? identity(x) : x)
 
-back(x...; o...) = nothing
+back(x...; o...) = throw(ArgumentError("AutoGrad does not yet support back"*string(typeof.(x)))) # fix #101.2: error instead of nothing
 
 function forw(f, args...; kwargs...)
     argvals = value.(args)

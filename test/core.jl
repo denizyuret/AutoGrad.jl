@@ -35,4 +35,11 @@ using Statistics
     @test grad((@diff sin(sqrt(x))),x) == cos(x)/2
     @test grad(AutoGrad.differentiate(sin,sqrt(x)),x) != cos(x)/2
     
+    # Issue #101.1
+    x = Param(1.0); f1(x)=x
+    @test grad((@diff f1(x)), x) == 1
+
+    # Issue #101.2
+    x = Param([1.,2.]); f2(x)=1x
+    @test_throws ArgumentError (@diff sum(f2.(x)))
 end
