@@ -149,13 +149,21 @@ kw...))`. See also `gradcheck` for a different take interface for marking parame
 """
 function gcheck(f, x...; kw=(), nsample=10, verbose=1, rtol=0.05, atol=0.01, delta=0.0001)
     y = @diff gcsum(f, x...; kw...)
+    if !isa(y, Tape); @warn("Output independent of params"); return true; end
     f0 = value(y)
-    ps = params(f)
-    for xi in x; append!(ps, params(xi)); end
-    for (k,v) in kw; append!(ps, params(v)); end
+    ps = Param[ n.Value for n in y if isa(n.Value, Param) ]
+    if isempty(ps); @error("Cannot find any params"); end
     vs = value.(ps)
     gs = (p->grad(y,p)).(ps)
     all(1:length(ps)) do i
         gcwalk(i, vs, gs, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
     end
+end
+
+"""
+     x = Param(randn(10))
+     @gcheck sum(exp.(x)) (nsample=20,)
+"""
+macro gcheck(fx,options=:(NamedTuple()))
+    :(gcheck(()->$(esc(fx));$(esc(options))...))
 end
