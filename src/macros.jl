@@ -10,10 +10,9 @@
 
     @primitive  fx g1 g2...
 
-Define a new primitive operation for AutoGrad and (optionally) specify
-its gradients.  Non-differentiable functions such as `sign`, and
-non-numeric functions such as `size` should be defined using the
-@zerograd macro instead.
+Define a new primitive operation for AutoGrad and (optionally) specify its gradients.
+Non-differentiable functions such as `sign`, and non-numeric functions such as `size` should
+be defined using the @zerograd macro instead.
 
 # Examples
 
@@ -23,21 +22,19 @@ non-numeric functions such as `size` should be defined using the
     @primitive sin(x::Number),dy  (dy.*cos(x))
     @primitive hypot(x1,x2),dy,y  (dy.*x1./y)  (dy.*x2./y)
 
-The first example shows that `fx` is a typed method declaration.
-Julia supports multiple dispatch, i.e. a single function can have
-multiple methods with different arg types.  AutoGrad takes advantage
-of this and supports multiple dispatch for primitives and gradients.
+The first example shows that `fx` is a typed method declaration.  Julia supports multiple
+dispatch, i.e. a single function can have multiple methods with different arg types.
+AutoGrad takes advantage of this and supports multiple dispatch for primitives and
+gradients.
 
-The second example specifies variable names for the output gradient
-`dy` and the output `y` after the method declaration which can be used
-in gradient expressions.  Untyped, ellipsis and keyword arguments are
-ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
+The second example specifies variable names for the output gradient `dy` and the output `y`
+after the method declaration which can be used in gradient expressions.  Untyped, ellipsis
+and keyword arguments are ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
 `f(x::T) where {T<:Number}` cannot be used.
 
-The method declaration can optionally be followed by gradient
-expressions.  The third and fourth examples show how gradients can be
-specified.  Note that the parameters, the return variable and the
-output gradient of the original function can be used in the gradient
+The method declaration can optionally be followed by gradient expressions.  The third and
+fourth examples show how gradients can be specified.  Note that the parameters, the return
+variable and the output gradient of the original function can be used in the gradient
 expressions.
 
 # Under the hood
@@ -46,22 +43,20 @@ The @primitive macro turns the first example into:
 
     sin(x::Value{T}) where {T<:Number} = forw(sin, x)
 
-This will cause calls to `sin` with a boxed argument
-(`Value{T<:Number}`) to be recorded.  The recorded operations are used
-by AutoGrad to construct a dynamic computational graph.  With multiple
-arguments things are a bit more complicated.  Here is what happens
-with the second example:
+This will cause calls to `sin` with a boxed argument (`Value{T<:Number}`) to be recorded.
+The recorded operations are used by AutoGrad to construct a dynamic computational graph.
+With multiple arguments things are a bit more complicated.  Here is what happens with the
+second example:
 
     hypot(x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = forw(hypot, x1, x2)
     hypot(x1::S, x2::Value{T})      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
     hypot(x1::Value{S}, x2::T)      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
 
-We want the forw method to be called if any one of the arguments
-is a boxed `Value`.  There is no easy way to specify this in Julia, so
-the macro generates all 2^N-1 boxed/unboxed argument combinations.
+We want the forw method to be called if any one of the arguments is a boxed `Value`.  There
+is no easy way to specify this in Julia, so the macro generates all 2^N-1 boxed/unboxed
+argument combinations.
 
-In AutoGrad, gradients are defined using gradient methods that have
-the following pattern:
+In AutoGrad, gradients are defined using gradient methods that have the following pattern:
 
     back(f,Arg{i},dy,y,x...) => dx[i]
 
@@ -69,38 +64,36 @@ For the third example here is the generated gradient method:
 
     back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number} = dy .* cos(x)
 
-For the last example a different gradient method is generated for each
-argument:
+For the last example a different gradient method is generated for each argument:
 
     back(::typeof(hypot), ::Type{Arg{1}}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x1) ./ y
     back(::typeof(hypot), ::Type{Arg{2}}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x2) ./ y
 
-In fact @primitive generates four more definitions for the other
-boxed/unboxed argument combinations.
+In fact @primitive generates four more definitions for the other boxed/unboxed argument
+combinations.
 
 # Broadcasting
 
-Broadcasting is handled by extra `forw` and `back` methods. In `broadcast.jl` we define:
+Broadcasting is handled by extra `forw` and `back` methods. `@primitive` defines the following 
+so that broadcasting of a primitive function with a boxed value triggers `forw` and `back`.
 
-    broadcasted(f, x::Value) = forw(broadcast,f,x)
-
-and similar methods that match any function `f`, so that when a boxed
-value is in a broadcasting operation `forw` is called. The
-`@primitive` macro defines the `back` method for broadcasting of a
-particular primitive:
-
+    broadcasted(::typeof(sin), x::Value{T}) where {T<:Number} = forw(broadcast,sin,x)
     back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number} = dy .* cos(x)
 
-If you do not want the back method for broadcasting, you can use the
-`@primitive1` macro which omits this final definition.
+If you do not want the broadcasting methods, you can use the `@primitive1` macro which omits
+the broadcast related definitions.
 
 """
 macro primitive(f,g...)
     (f,dy,y) = fparse(f)
     b = Expr(:block)
     rx = fcall(f)             # e.g. forw(sin,x)
+    rx2 = fcall(f,broadcast=true) # e.g. forw(broadcast,sin,x)
     for fx in fsigs(f)
         push!(b.args, :($fx = $rx)) # e.g. sin(x::Value{T}) where {T<:Number} = forw(sin,x)
+        fx2 = f2b(fx)               # e.g. broadcasted(::typeof(sin), x::Value{T}) where {T<:Number}
+        push!(b.args, :($fx2 = $rx2)) # e.g. '' = forw(broadcast,sin,x)
+        push!(b.args, bcasted(fx))    # e.g. sin(a::Bcasted) = sin.(a.val) |> Bcasted
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)
             push!(b.args, :($gx = $(g[i]))) # e.g. back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number} = (dy.*cos.(x))
@@ -227,12 +220,12 @@ function bzcall(fx,zx)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::typeof($fname)))
     bzx = copy(zx)
-    bzx.args[1] = :broadcasted
+    bzx.args[1] = :(Base.Broadcast.broadcasted)
     insert!(bzx.args, a, fname)
     return (bfx,bzx)
 end
 
-function fcall(f)
+function fcall(f; broadcast = false)
     rx = notypes(f)
     fn = rx.args[1]
     rx.args[1]=:(AutoGrad.forw)
@@ -249,8 +242,10 @@ function fcall(f)
             else; k.args[2]=k.args[1]; end
         end
         insert!(rx.args,3,fn)
+        if broadcast; insert!(rx.args,3,:broadcast); end
     else
         insert!(rx.args,2,fn)
+        if broadcast; insert!(rx.args,2,:broadcast); end
     end
     return rx
 end
@@ -268,17 +263,52 @@ function notypes(ex)
     end
 end
 
+# input: (where (call f (:: x (curly Value T))) (<: T Int))
+# output: (where (call broadcasted (:: (call typeof f)) (:: x (curly Value T))) (<: T Int))
+function f2b(fx)
+    bx = copy(fx)               # where...
+    cx = bx.args[1]             # call...
+    f = cx.args[1]              # func
+    cx.args[1] = :(Base.Broadcast.broadcasted)
+    if cx.args[2].head == :parameters; a = 3; else; a = 2; end
+    insert!(cx.args, a, :(::typeof($f)))
+    return bx
+end
+
+# input: (where (call f (:: x (curly Value T))) (<: T Int))
+# output: f(x::Bcasted) = Bcasted(f.(bval(x)))
+function bcasted(fx)
+    lhs = copy(fx.args[1])      # f(x::Value{T},y)
+    rhs = copy(fx.args[1])
+    for i=2:length(lhs.args)
+        if isa(lhs.args[i], Expr) && lhs.args[i].head == :(::)
+            lhs.args[i].args[2] = :(AutoGrad.Bcasted)
+            rhs.args[i] = :(AutoGrad.bval($(rhs.args[i].args[1])))
+        end
+    end
+    fname = popfirst!(rhs.args)
+    rhs.head = :tuple
+    rhs = Expr(:., fname, rhs)
+    rhs = Expr(:call, :(AutoGrad.Bcasted), rhs)
+    :($lhs = $rhs)
+end
+
 # create type signatures for f where one or more args are Value's.
 # With multiple args add Value to each subset combinatorially.
 # The input has the form (call f (:: x Int))
 # The 0.6 output was     (call (curly f (<: T Int)) (:: x (curly Value T)))
 # The 0.7 output is      (where (call f (:: x (curly Value T))) (<: T Int))
-function fsigs(f)
-    f1 = copy(f)
-    a1 = Expr(:where,f1)
+function fsigs(f)               # sin(x::Number) => sin(x::Value{T}) where {T <: Number}
+    f1 = copy(f)                # sin(x::Number)
+    fname = f1.args[1]
+    if isa(fname, Symbol)
+        m = which(@__MODULE__, fname)
+        f1.args[1] = :(($m).$fname) # Base.sin
+    end
+    a1 = Expr(:where,f1)        # sin(x::Number) where {}
     nargs = 0
     for i=2:length(f1.args)
-        ai = f1.args[i]
+        ai = f1.args[i]         # x::Number
         if isa(ai,Symbol)
             nargs+=1
             ti = gensym()
@@ -299,11 +329,11 @@ function fsigs(f)
     end
     flist = []
     for nodes=0:(1<<nargs-2)
-        fn = copy(a1)
-        f1 = fn.args[1]
+        fn = copy(a1)           # sin(x::T) where {T <: Number}
+        f1 = fn.args[1]         # sin(x::T)
         iargs = 0
         for i=2:length(f1.args)
-            ai = f1.args[i]
+            ai = f1.args[i]     # (x::T)
             in(ai.head, (:parameters, :(...))) && continue
             ai.head == :(::) || error("Bad arg '$ai'")
             if nodes & (1<<iargs) == 0
@@ -311,7 +341,7 @@ function fsigs(f)
             end
             iargs += 1
         end
-        push!(flist, fn)
+        push!(flist, fn)        # sin(x::Value{T}) where {T <: Number}
     end
     return flist
 end

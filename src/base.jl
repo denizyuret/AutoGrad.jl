@@ -19,6 +19,7 @@ import Base.Broadcast: broadcasted
 @primitive *(x),dy  dy
 @primitive1 broadcast(f::typeof(*),x1,x2),dy  nothing  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
 #@primitive1 broadcasted(f::typeof(*),x1,x2),dy  nothing  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+broadcasted(::Style{Value},f::typeof(*),x1,x2) = broadcast(f,x1,x2)
 @primitive1 *(x1::Number,x2::Number),dy                unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
 @primitive1 *(x1::Number,x2),dy                        unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
 @primitive1 *(x1,x2::Number),dy                        unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
@@ -29,6 +30,7 @@ import Base.Broadcast: broadcasted
 @primitive -(x1,x2),dy  unbroadcast(x1,dy)  unbroadcast(x2,-dy)
 @primitive1 broadcast(f::typeof(/),x1,x2),dy  nothing  unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
 #@primitive1 broadcasted(f::typeof(/),x1,x2),dy  nothing  unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+broadcasted(::Style{Value},f::typeof(/),x1,x2) = broadcast(f,x1,x2)
 @primitive1 /(x1::Number,x2::Number),dy                unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
 @primitive1 /(x1::Number,x2),dy                        unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
 @primitive1 /(x1,x2::Number),dy                        unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
@@ -48,6 +50,7 @@ import Base.Broadcast: broadcasted
 # >>> Int function
 @primitive1 broadcast(f::typeof(\),x1,x2),dy  nothing  unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
 #@primitive1 broadcasted(f::typeof(\),x1,x2),dy  nothing  unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
+broadcasted(::Style{Value},f::typeof(\),x1,x2) = broadcast(f,x1,x2)
 @primitive1 \(x1::Number,x2::Number),dy                unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
 @primitive1 \(x1::Number,x2),dy                        unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
 @primitive1 \(x1,x2::Number),dy                        unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
@@ -57,6 +60,7 @@ import Base.Broadcast: broadcasted
 @primitive1 ^(x1::Number,x2::Integer),dy,y  dxndx(x1,x2,dy)  dy*y*log(x1) # ambiguity fix
 @primitive1 broadcast(f::typeof(^),x1,x2),dy,y  nothing  unbroadcast(x1,dxndx(x1,x2,dy))  unbroadcast(x2,dy.*y.*log.(x1))
 #@primitive1 broadcasted(f::typeof(^),x1,x2),dy,y  nothing  unbroadcast(x1,dxndx(x1,x2,dy))  unbroadcast(x2,dy.*y.*log.(x1))
+broadcasted(::Style{Value},f::typeof(^),x1,x2) = broadcast(f,x1,x2)
 dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* dy; else; dy.*x2.*x1.^(x2 .- 1); end) # optimize common cases
 
 # x^p for any literal integer p is lowered to Base.literal_pow(^, x, Val(p))

@@ -28,32 +28,59 @@
 ### copyto!: is responsible for calculating the final result
 
 # Current design avoids generating Broadcasted objects:
+
 # For regular primitives:
 # f(x...) => forw(f,x...)           # (macros.jl; @primitive f if any x is a Value)
-# forw(f,x...) => f(value.(x)...)  # (core.jl; f is the recorded function)
+# forw(f,x...) => f(value.(x)...)   # (core.jl; f is the recorded function)
 # back(f,i,dy,y,x...)               # (macros.jl; @primitive defines this)
+
 # For broadcasted primitives:
 # f.(x...) => broadcasted(f,x...)                       # (parser)
-# broadcasted(f,x...) => forw(broadcast,f,x...)         # (broadcast.jl; if one of first two x is a Value)
-# forw(broadcast,f,x...) => broadcast(f,value.(x)...)  # (core.jl; broadcast is the recorded function)
+# broadcasted(f,x...) => forw(broadcast,f,x...)         # (macros.jl; @primitive defines this, @primitive1 does not)
+# forw(broadcast,f,x...) => broadcast(f,value.(x)...)   # (core.jl; broadcast is the recorded function)
 # back(broadcast,i,dy,y,f,x...)                         # (macros.jl; @primitive defines this, @primitive1 does not)
+
 # For direct use of broadcast:
 # broadcast(f,x...) => materialize(broadcasted(f,x...)) # (base/broadcast.jl fallback for unknown Value types)
 # broadcasted(f,x...) => forw(broadcast,f,x...)         # (forw calling broadcast with unboxed args returning Value)
-# materialize(x::Value) => x                              # (broadcast.jl; defined below)
+#DEPRECATED: materialize(x::Value) => x                            # (broadcast.jl; defined below)
 
-import Base.Broadcast: broadcasted, materialize
-broadcasted(f, x::Value, y...) = forw(broadcast,f,x,y...)
-broadcasted(f, x, y::Value, z...) = forw(broadcast,f,x,y,z...) # useful for x.^2 => broadcasted(literal_pow,^,x,Val(2))
-broadcasted(f, x::Value, y::Value, z...) = forw(broadcast,f,x,y,z...) # ambiguity fix
-materialize(x::Value)=x  # This fixes sum(x.*x,dims=1) giving MethodError: no method matching sum(::Base.Broadcast.Broadcasted; dims=1)
+import .Broadcast: broadcasted, materialize, broadcastable, BroadcastStyle, Style
 
+# To catch whenever one arg is a Value in broadcast expressions, we define a style:
+BroadcastStyle(::Type{<:Value}) = Style{Value}()
+BroadcastStyle(s::Style{Value}, ::BroadcastStyle) = s
+broadcastable(x::Value) = x     # This is necessary, default is collect(x) which loses Value
+
+# For user-defined functions we want to call the function with marked arguments:
+struct Bcasted; value; end
+bval(x::Bcasted) = x.value
+bval(x) = x
+
+function broadcasted(::Style{Value}, f, args...)
+    if isempty(_tapes)
+        broadcasted(f, value.(args)...)
+    else
+        bval(f(Bcasted.(args)...))
+    end
+end
+
+# For each primitive function this needs to be overwritten:
+# (1) we want to call forw:
+#    broadcasted(::Style{Value}, f::typeof(sin), x) = forw(broadcast, f, x)
+# (2) we want to handle Bcasted args:
+#    sin(a::Bcasted) = Bcasted(sin.(bval(a)))
+
+# Deprecated:
+# broadcasted(f, x::Value, y...) = forw(broadcast,f,x,y...)
+# broadcasted(f, x, y::Value, z...) = forw(broadcast,f,x,y,z...) # useful for x.^2 => broadcasted(literal_pow,^,x,Val(2))
+# broadcasted(f, x::Value, y::Value, z...) = forw(broadcast,f,x,y,z...) # ambiguity fix
+# materialize(x::Value)=x  # This fixes sum(x.*x,dims=1) giving MethodError: no method matching sum(::Base.Broadcast.Broadcasted; dims=1)
 
 # Design alternatives:
 # - define your own bcast function.
 # - keep a dictionary of zerograd functions.
 # - need some way to define gradients, and some way to define zero gradients
-
 
 # Broadcasting dimensions:
 # y = f(x...) where f is a broadcasting operation.
