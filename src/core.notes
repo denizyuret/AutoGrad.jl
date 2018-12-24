@@ -1,12 +1,75 @@
-# mutable structs are a lot faster as keys for an IdDict!
+## Derivation
 
-# Tape: valN=>nodeN, ..., val1=>node1, NIL=>node0
-# Special node0 marks both ends of the tape: 
-# node[n].cdr = node[n-1]
-# node1.cdr = node0
-# node0.cdr = nodeN
-# Special Value NIL acts as a key to node0.
-# Tape is iterated in reverse, last in first out
-# This automatically makes first(tape) the final result node
-# last(tape) is the initial parameter node, but default slow.
-# The last(::Tape) hack is to make old style grad faster.
+F(X)  =(0)=> f(X), f.(X)
+
+F.(X) =(0)=> b(F,X)
+f.(X) =(0)=> b(f,X)
+
+F.(T) =(0)=> f(X), f.(X)  # T can have anything inside
+F.(V) =(1)=> F(B(V)).val  # careful not to get B(V(B))
+F.(B) =(2)=> F(B).val     # careful not to get B(B(T))
+
+f(T)    =(0)=> X          # T can have anything inside
+f(V(X)) =(3)=> V(f(X))    # and record the op if there is a tape, f(X) otherwise
+f(B(X)) =(4)=> B(f.(X))   # what happens if there is a mix of B,V args?
+
+f.(T)    =(0)=> X         # T can have anything inside
+f.(V(X)) =(5)=> V(f.(X))  # and record the op if there is a tape, f.(X) otherwise
+f.(B(X)) =(6)=> B(f.(X))  # same as (4)
+
+Primitives: V in V out, B in B out. What if V,B in => BV out!
+
+How do we get V,B,BV: User defines Param, F.(V) introduces B
+
+How do we not get VB, BB, VV:
+If we assume X can only be T,VT,BT,BVT
+Rule (1) can only turn VT into BVT
+Rule (2) leaves BT and BVT as is
+Rule (3),(5) can prepend V to anything!
+Rule (4),(6) can prepend B to anything!
+If f(T) and f.(T) results are unbounded!
+If we guarantee f(T) and f.(T) give T, then we are ok.
+
+getindex(Any[B,V,...], i) => will turn T into B,V!
+
+What if we strip all the extra B,V in forw?
+If we see any V: record and return a Result
+If we see any B: broadcast and return a Bcasted
+We can strip and re-add B at any position (preferrably the front)
+So we can keep it to a single B being careful in (4) and (6).
+Does V(V(X)) ever make sense?
+
+We strip all before calling result = f(argvals...; kwargs...)
+The return value could still be a Result due to getindex?
+Any[P,P,P...] params of a model but that getindex does not call forw.
+We should try to keep to f(T)->T.
+
+Otherwise the arg specific types we specify in @primitive won't match.
+Union{T,Value{T},Value{Value{T}}...} (assuming Bcasted <: Value)
+
+Legend:
+F: arbitrary function
+f: primitive function
+b: broadcasted
+B: Bcasted
+V: Param or Result
+T: types other than B,V
+X: any type
+=(0)=>: parser or eval
+=(i)=>: rule that needs to be implemented
+
+
+## Tape
+
+Tape: valN=>nodeN, ..., val1=>node1, NIL=>node0
+mutable structs are a lot faster as keys for an IdDict!
+Special node0 marks both ends of the tape: 
+node[n].cdr = node[n-1]
+node1.cdr = node0
+node0.cdr = nodeN
+Special Value NIL acts as a key to node0.
+Tape is iterated in reverse, last in first out
+This automatically makes first(tape) the final result node
+last(tape) is the initial parameter node, but default slow.
+The last(::Tape) hack is to make old style grad faster.
+Alternative: define a struct for Tape, also addresses https://discourse.julialang.org/t/atom-cant-evaluate-a-line-which-the-regular-repl-can/17549/2

@@ -1,18 +1,51 @@
 abstract type Value{T} end
 
-mutable struct Param{T} <: Value{T}
-    value::T
-    opt
-    Param(x::T,o=nothing) where T = new{T}(x,o)
-end
+abstract type Tracked{T} <: Value{T} end
 
-mutable struct Result{T} <: Value{T}
+mutable struct Param{T} <: Tracked{T}
+    value::T; opt
+    Param{T}(v,o) where {T} = new(v,o)
+    Param{T}(v,o) where {T<:Value} = error("Param cannot take $T as arg.")
+end
+Param(v::T,o=nothing) = Param{T}(v,o)
+
+mutable struct Result{T} <: Tracked{T}
     value::Union{T,Nothing}     # gcnode sets this to nothing to save memory
     func::Function
     args::Tuple
     kwargs::Base.Iterators.Pairs
+    Result{T}(v,f,a,k) where {T} = new(v,f,a,k)
+    Result{T}(v,f,a,k) where {T<:Value} = error("Result cannot take $T as arg.")
 end
+Result(v::T,f,a,k) = Result{T}(v,f,a,k)
 
+mutable struct Bcasted{T} <: Value{T}
+    value::T
+    Bcasted{T}(v) where {T} = new(v)
+    Bcasted{T}(v) where {T<:Bcasted} = v # We do not want Bcasted{Bcasted}
+end
+Bcasted(v::T) = Bcasted{T}(v)
+
+# Value recursion illegal except Bcasted{<:Tracked}
+checktype(x) = true
+checktype(x::Value{<:Value}) = false
+checktype(x::Bcasted{<:Tracked}) = checktype(x.value)
+checktypes(args)=(all(checktype, args) || error("Bad type $(typeof.(args))"))
+
+# value() should give a regular (non-Value) result regardless of recursion
+value(x) = x
+value(x::Value) = x.value
+value(x::Value{<:Value}) = error("Illegal type recursion $(typeof(x))")
+value(x::Bcasted{<:Tracked}) = value(x.value)
+
+# To catch whenever one arg is a Value in broadcast expressions, we define a style:
+import .Broadcast: BroadcastStyle, Style, broadcastable
+BroadcastStyle(::Type{<:Value}) = Style{Value}()
+BroadcastStyle(s::Style{Value}, ::BroadcastStyle) = s
+broadcastable(x::Value) = x     # This is necessary, default is collect(x) which loses Value
+broadcasted(::Style{Value}, f, args...) = isrecording() ? f(Bcasted.(args)...).value : broadcasted(f, value.(args)...)
+
+## Recording machinery
 mutable struct Node
     Value::Value
     parents::Vector{Node}
@@ -22,33 +55,56 @@ mutable struct Node
     Node(v::Value) = new(v, Node[], Node[], nothing) # leaves cdr unassigned
 end
 
-const Tape = IdDict{Value,Node}
-const NIL = Param([])
-newtape() = (n=Node(NIL); n.cdr=n; Tape(NIL => n))
-Base.iterate(t::Tape,s=(t[NIL],t[NIL])) = ((p,n) = s; p = p.cdr; p === n ? nothing : (p, (p, n)))
-Base.collect(t::Tape)=(a=Array{Node}(undef,length(t)-1); i=0; for n in t; a[i+=1]=n; end; a)
+mutable struct Tape
+    nodes::IdDict{Tracked,Node}
+    head::Node
+    tail::Node
+    Tape() = new(IdDict{Value,Node}())  # leaves head/tail unassigned
+end
+
+# Fix iterate, first, last, cons!, collect, get/grad?
+# Fix record => cons!
+# Fix show
+# Fix get
+# Fix put
 
 grad(t,x)=nothing
-grad(t::Tape,x::Value)=(n=get(t,x,nothing); n===nothing ? n : n.outgrad)
+grad(t::Tape,x::Tracked)=(n=get(t.nodes,x,nothing); n===nothing ? n : n.outgrad)
 
-value(x)=x
-value(x::Value)=x.value
-value(x::Tape)=first(x).Value.value
-default_gc(n::Node) = (n.outgrad=nothing; n.Value.value=nothing)
-gcnode = default_gc
-set_gc_function(f::Function) = (global gcnode = f)
+import Base: iterate
 
-_tapes = Tape[]
+function Base.iterate(t::Tape, s=nothing)
+    if s == nothing
+        if isempty(t.nodes)
+            nothing
+        else
+            (t.head, t.head)
+        end
+    else
+
+    end
+end
+
+# value(x::Tape)=first(x).Value.value
+
+# const NIL = Param([])
+# newtape() = (n=Node(NIL); n.cdr=n; Tape(NIL => n))
+# Base.iterate(t::Tape,s=(t[NIL],t[NIL])) = ((p,n) = s; p = p.cdr; p === n ? nothing : (p, (p, n)))
+Base.collect(t::Tape)=(a=Array{Node}(undef,length(t)-1); i=0; for n in t; a[i+=1]=n; end; a)
+
+
+const _tapes = Tape[]
 
 abstract type Arg{N} end
 
 function differentiate(f, x...; o...)
     global _tapes
+    duplicate(x)=(isa(x,Value) ? identity(x) : x)
     if !isempty(_tapes)       # PR#75: to avoid tape confusion
         x = map(duplicate,x)  # duplicate tracked function arguments.
         o = isempty(o) ? () : pairs(map(duplicate,values(o)))
     end
-    tape = newtape()
+    tape = Tape()
     push!(_tapes, tape)
     result = nothing
     try
@@ -79,17 +135,24 @@ function differentiate(f, x...; o...)
     return tape
 end
 
+default_gc(n::Node) = (n.outgrad=nothing; n.Value.value=nothing)
+gcnode = default_gc
+set_gc_function(f::Function) = (global gcnode = f)
+
 # This allows argument expressions like @diff sin(sqrt(x)) which fail with differentiate
 # because arguments get evaluated before the tape gets created.
 macro diff(fx); :(differentiate(()->$(esc(fx)))); end
 
-duplicate(x)=(isa(x,Value) ? identity(x) : x)
-
 back(x...; o...) = throw(ArgumentError("AutoGrad does not yet support back"*string(typeof.(x)))) # fix #101.2: error instead of nothing
 
+# Primitives with special tracked or bcasted args (Values) call forw:
 function forw(f, args...; kwargs...)
+    tm(f::Function,a::Tuple)=(f==broadcast ? "$(a[1])." : "$f")
+    if any(i->isa(i,Bcasted), args)
+        args = (f, args...)
+        f = broadcast
+    end
     argvals = value.(args)
-    tm(f::Function,argvals::Tuple)=(f==broadcast ? "$(argvals[1])." : "$f")
     @timer tm(f,argvals) (result = f(argvals...; kwargs...))
     if isempty(_tapes); return result; end
     @timer "record" begin
