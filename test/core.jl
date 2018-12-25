@@ -41,5 +41,9 @@ using Statistics
 
     # Issue #101.2
     x = Param([1.,2.]); f2(x)=1x
-    @test_throws ArgumentError (@diff sum(f2.(x)))
+    @test grad((@diff sum(f2.(x))), x) == [1.0,1.0]
+
+    # Double broadcasting
+    x = Param([1.,2.]); f3(x)=sin(x); f4(x)=sin.(x)
+    @test grad((@diff sum(f3.(x))), x) == grad((@diff sum(f4.(x))), x) == grad((@diff sum(f4(x))), x)
 end

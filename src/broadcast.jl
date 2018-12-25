@@ -45,50 +45,6 @@
 # broadcasted(f,x...) => forw(broadcast,f,x...)         # (forw calling broadcast with unboxed args returning Value)
 #DEPRECATED: materialize(x::Value) => x                            # (broadcast.jl; defined below)
 
-import .Broadcast: broadcasted, materialize, broadcastable, BroadcastStyle, Style
-
-# To catch whenever one arg is a Value in broadcast expressions, we define a style:
-BroadcastStyle(::Type{<:Value}) = Style{Value}()
-BroadcastStyle(s::Style{Value}, ::BroadcastStyle) = s
-broadcastable(x::Value) = x     # This is necessary, default is collect(x) which loses Value
-
-# For user-defined functions we want to call the function with marked arguments:
-struct Bcasted; value; end
-bval(x::Bcasted) = x.value
-bval(x) = x
-
-function broadcasted(::Style{Value}, f, args...)
-    if isempty(_tapes)
-        broadcasted(f, value.(args)...)
-    else
-        bval(f(Bcasted.(args)...))
-    end
-end
-
-# For each primitive function this needs to be overwritten:
-# (1) we want to call forw:
-#    broadcasted(::Style{Value}, f::typeof(sin), x) = forw(broadcast, f, x)
-# (2) we want to handle Bcasted args:
-#    sin(a::Bcasted) = Bcasted(sin.(bval(a)))
-
-# Deprecated:
-# broadcasted(f, x::Value, y...) = forw(broadcast,f,x,y...)
-# broadcasted(f, x, y::Value, z...) = forw(broadcast,f,x,y,z...) # useful for x.^2 => broadcasted(literal_pow,^,x,Val(2))
-# broadcasted(f, x::Value, y::Value, z...) = forw(broadcast,f,x,y,z...) # ambiguity fix
-# materialize(x::Value)=x  # This fixes sum(x.*x,dims=1) giving MethodError: no method matching sum(::Base.Broadcast.Broadcasted; dims=1)
-
-# Design alternatives:
-# - define your own bcast function.
-# - keep a dictionary of zerograd functions.
-# - need some way to define gradients, and some way to define zero gradients
-
-# Broadcasting dimensions:
-# y = f(x...) where f is a broadcasting operation.
-# size(y) = broadcast_shape(x...)
-# ndims(y) = max ndims(x)
-# size(y,i) = max size(x,i)
-# size(x,i) = 1 or size(y,i) for all x and i<=ndims(x)
-# if ndims(x) < ndims(y) the extra dimensions of x are treated as 1
 
 """
     unbroadcast(x,dx)
@@ -121,3 +77,50 @@ end
 using Base.Broadcast: Broadcasted
 import Base: size
 size(x::Broadcasted,i...)=length.(axes(x,i...))
+
+
+### DEPRECATED
+# import .Broadcast: broadcasted, materialize, broadcastable, BroadcastStyle, Style
+
+# # To catch whenever one arg is a Value in broadcast expressions, we define a style:
+# BroadcastStyle(::Type{<:Value}) = Style{Value}()
+# BroadcastStyle(s::Style{Value}, ::BroadcastStyle) = s
+# broadcastable(x::Value) = x     # This is necessary, default is collect(x) which loses Value
+
+# # For user-defined functions we want to call the function with marked arguments:
+# struct Bcasted; value; end
+# bval(x::Bcasted) = x.value
+# bval(x) = x
+
+# function broadcasted(::Style{Value}, f, args...)
+#     if isempty(_tapes)
+#         broadcasted(f, value.(args)...)
+#     else
+#         bval(f(Bcasted.(args)...))
+#     end
+# end
+
+# # For each primitive function this needs to be overwritten:
+# # (1) we want to call forw:
+# #    broadcasted(::Style{Value}, f::typeof(sin), x) = forw(broadcast, f, x)
+# # (2) we want to handle Bcasted args:
+# #    sin(a::Bcasted) = Bcasted(sin.(bval(a)))
+
+# # Deprecated:
+# # broadcasted(f, x::Value, y...) = forw(broadcast,f,x,y...)
+# # broadcasted(f, x, y::Value, z...) = forw(broadcast,f,x,y,z...) # useful for x.^2 => broadcasted(literal_pow,^,x,Val(2))
+# # broadcasted(f, x::Value, y::Value, z...) = forw(broadcast,f,x,y,z...) # ambiguity fix
+# # materialize(x::Value)=x  # This fixes sum(x.*x,dims=1) giving MethodError: no method matching sum(::Base.Broadcast.Broadcasted; dims=1)
+
+# # Design alternatives:
+# # - define your own bcast function.
+# # - keep a dictionary of zerograd functions.
+# # - need some way to define gradients, and some way to define zero gradients
+
+# # Broadcasting dimensions:
+# # y = f(x...) where f is a broadcasting operation.
+# # size(y) = broadcast_shape(x...)
+# # ndims(y) = max ndims(x)
+# # size(y,i) = max size(x,i)
+# # size(x,i) = 1 or size(y,i) for all x and i<=ndims(x)
+# # if ndims(x) < ndims(y) the extra dimensions of x are treated as 1

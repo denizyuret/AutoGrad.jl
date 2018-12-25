@@ -7,14 +7,14 @@ mutable struct Bcasted{T} <: Value{T}
     Bcasted{T}(v) where {T} = new(v)
     Bcasted{T}(v) where {T<:Bcasted} = v # We do not want Bcasted{Bcasted}
 end
-Bcasted(v::T) = Bcasted{T}(v)
+Bcasted(v::T) where {T} = Bcasted{T}(v)
 
 mutable struct Param{T} <: Tracked{T}
     value::T; opt
     Param{T}(v,o) where {T} = new(v,o)
     Param{T}(v,o) where {T<:Value} = error("Param cannot take $T as arg.")
 end
-Param(v::T,o=nothing) = Param{T}(v,o)
+Param(v::T,o=nothing) where {T} = Param{T}(v,o)
 
 mutable struct Result{T} <: Tracked{T}
     value::Union{T,Nothing}     # gcnode sets this to nothing to save memory
@@ -79,9 +79,9 @@ function fforw(f, args, kwargs)
             if aval === args
                 aval = Any[args...]
             end
-            @assert isa(aval[i], Param)
+            @assert isa(aval[i], Param) "$(typeof(aval[i])) while not recording."
             aval[i] = aval[i].value
-            @assert !isa(aval[i], Value)
+            @assert !isa(aval[i], Value) "Illegal value recursion: $(typeof(args[i]))"
         end
     end
     if aval === args
@@ -132,8 +132,8 @@ function track(f, args, kwargs, bcasted)
     end
 end
 
-function Result(v::T, f, args, kwargs)
-    record!(t::Tape, v::Tracked) = get!(()->record!(t, Node(v)), t.dict, v)
+function Result(v::T, f, args, kwargs) where {T}
+    record!(t::Tape, v::Tracked) = (n = get(t.dict, v, nothing); n === nothing ? record!(t, Node(v)) : n)
     record!(t::Tape, n::Node) = (t.dict[n.Value] = n; pushfirst!(t.list, n); n)
     result = Result{T}(v, f, args, kwargs)
     narg = length(args)
@@ -169,7 +169,7 @@ function differentiate(f, x...; o...)
         result = f(x...; o...)
         if isa(result,Param); result = identity(result); end # fix #101.1: turn Param->Result
     catch e
-        Base.show_backtrace(stdout, Base.catch_backtrace())
+        Base.show_backtrace(stdout, Base.catch_backtrace()); println()
         pop!(_tapes); throw(e)
     end
     if pop!(_tapes) !== tape; error("Tape stack error"); end

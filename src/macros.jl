@@ -93,7 +93,7 @@ macro primitive(f,g...)
         push!(b.args, :($fx = $rx)) # e.g. sin(x::Value{T}) where {T<:Number} = forw(sin,x)
         fx2 = f2b(fx)               # e.g. broadcasted(::typeof(sin), x::Value{T}) where {T<:Number}
         push!(b.args, :($fx2 = $rx2)) # e.g. '' = forw(broadcast,sin,x)
-        push!(b.args, bcasted(fx))    # e.g. sin(a::Bcasted) = sin.(a.val) |> Bcasted
+        #push!(b.args, bcasted(fx))    # e.g. sin(a::Bcasted) = sin.(a.val) |> Bcasted
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)
             push!(b.args, :($gx = $(g[i]))) # e.g. back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number} = (dy.*cos.(x))
