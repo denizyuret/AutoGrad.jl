@@ -84,36 +84,34 @@ If you do not want the broadcasting methods, you can use the `@primitive1` macro
 the broadcast related definitions.
 
 """
-macro primitive(f,g...)
+macro primitive(f,g...)                         # @primitive sin(x::Number),dy,y  (dy.*cos.(x))
     (f,dy,y) = fparse(f)
     b = Expr(:block)
-    rx = fcall(f)             # e.g. forw(sin,x)
-    rx2 = fcall(f,broadcast=true) # e.g. forw(broadcast,sin,x)
-    for fx in fsigs(f)
-        push!(b.args, :($fx = $rx)) # e.g. sin(x::Value{T}) where {T<:Number} = forw(sin,x)
-        fx2 = f2b(fx)               # e.g. broadcasted(::typeof(sin), x::Value{T}) where {T<:Number}
-        push!(b.args, :($fx2 = $rx2)) # e.g. '' = forw(broadcast,sin,x)
-        #push!(b.args, bcasted(fx))    # e.g. sin(a::Bcasted) = sin.(a.val) |> Bcasted
+    forwcall = fcall(f)                	    	# forw(sin,x)
+    forwcast = fcall(f,broadcast=true)          # forw(broadcast,sin,x)
+    for fx in fsigs(f)                          # sin(x::Value{T}) where {T<:Number}
+        push!(b.args, :($fx = $forwcall))
+        bfx = f2b(fx)                           # broadcasted(::typeof(sin), x::Value{T}) where {T<:Number}
+        push!(b.args, :($bfx = $forwcast))
         for i=1:length(g)
-            gx = gsig(fx,dy,y,i)
-            push!(b.args, :($gx = $(g[i]))) # e.g. back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number} = (dy.*cos.(x))
-            bx = bsig(fx,dy,y,i)
-            push!(b.args, :($bx = $(g[i]))) # e.g. back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value) = (dy.*cos.(x))
+            gx = gsig(fx,dy,y,i)                # back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number}
+            push!(b.args, :($gx = $(g[i])))     # '' = (dy.*cos.(x))
+            bgx = bsig(fx,dy,y,i)               # back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number}
+            push!(b.args, :($bgx = $(g[i])))
         end
     end
     return esc(b)
 end
 
-# Do we need the version without broadcasting?
-macro primitive1(f,g...)
+macro primitive1(f,g...)        # non-broadcasting version
     (f,dy,y) = fparse(f)
     b = Expr(:block)
-    rx = fcall(f)
+    forwcall = fcall(f)
     for fx in fsigs(f)
-        push!(b.args, :($fx = $rx)) # e.g. sin(x::Value{T}) where {T<:Number} = sin_r(x)
+        push!(b.args, :($fx = $forwcall))
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)
-            push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Value{T}) where {T<:Number} = (dy.*cos.(x))
+            push!(b.args, :($gx = $(g[i])))
         end
     end
     return esc(b)
@@ -141,30 +139,28 @@ macro for those.  Use the `@zerograd1` variant if you don't want to
 define the broadcasting version. Note that `kwargs` are NOT unboxed.
 
 """
-macro zerograd(f)
-    f.head == :(::) && (f=f.args[1])
-    f.head == :call || error("'$f' not a method signature")
+macro zerograd(f)                               # @zerograd sign(x::Number)
+    (f,dy,y) = fparse(f)
     b = Expr(:block)
-    for fx in fsigs(f)          # e.g. sign(x::Value{T}) where {T<:Number}
-        zx = zcall(fx)          # e.g. sign(value(x))
+    for fx in fsigs(f)                          # sign(x::Value{T}) where {T<:Number}
+        zx = zcall(fx)                          # sign(value(x))
         push!(b.args, esc(:($fx = $zx)))
         (bfx,bzx) = bzcall(fx,zx)
-        push!(b.args, esc(:($bfx = $bzx))) # e.g. broadcast(::typeof(sign), x::Value{T}) where T <: Any) = broadcast(sign, value(x))
+        push!(b.args, esc(:($bfx = $bzx)))      # broadcasted(::typeof(sign), x::Value{T}) where {T <: Number} = broadcasted(sign, value(x))
     end
     return b
 end
 
-# Do we need the version without broadcasting?
-macro zerograd1(f)
-    f.head == :(::) && (f=f.args[1])
-    f.head == :call || error("'$f' not a method signature")
+macro zerograd1(f)   # non-broadcasting version
+    (f,dy,y) = fparse(f)
     b = Expr(:block)
-    for fx in fsigs(f)          # e.g. sign(x::Value{T}) where {T<:Number}
-        zx = zcall(fx)          # e.g. sign(value(x))
+    for fx in fsigs(f)
+        zx = zcall(fx)
         push!(b.args, esc(:($fx = $zx)))
     end
     return b
 end
+
 
 function fparse(f)
     isa(f,Expr) || error("'$f' not a method signature")
@@ -184,6 +180,31 @@ function fparse(f)
     isa(y,Symbol) || error("Return variable '$y' not a symbol")
     return (f,dy,y)
 end    
+
+function fcall(f; broadcast = false)
+    rx = notypes(f)
+    fn = rx.args[1]
+    rx.args[1]=:(AutoGrad.forw)
+    # Need to fix kwargs
+    r2 = rx.args[2]
+    if isa(r2,Expr) && r2.head == :parameters
+        for i in 1:length(r2.args)
+            k = r2.args[i]
+            if isa(k,Symbol); r2.args[i] = Expr(:kw,k,k)
+            elseif !isa(k,Expr); error("Bad kwarg '$k'")
+            elseif k.head == :(...); continue
+            elseif k.head != :kw; error("Bad kwarg '$k'")
+            elseif !isa(k.args[1],Symbol); error("Bad kwarg '$k'")
+            else; k.args[2]=k.args[1]; end
+        end
+        insert!(rx.args,3,fn)
+        if broadcast; insert!(rx.args,3,:broadcast); end
+    else
+        insert!(rx.args,2,fn)
+        if broadcast; insert!(rx.args,2,:broadcast); end
+    end
+    return rx
+end
 
 # Input is of the form: (where (call f (:: x (curly (. AutoGrad Value) T))) (<: T Int))
 function zcall(f)
@@ -225,31 +246,6 @@ function bzcall(fx,zx)
     return (bfx,bzx)
 end
 
-function fcall(f; broadcast = false)
-    rx = notypes(f)
-    fn = rx.args[1]
-    rx.args[1]=:(AutoGrad.forw)
-    # Need to fix kwargs
-    r2 = rx.args[2]
-    if isa(r2,Expr) && r2.head == :parameters
-        for i in 1:length(r2.args)
-            k = r2.args[i]
-            if isa(k,Symbol); r2.args[i] = Expr(:kw,k,k)
-            elseif !isa(k,Expr); error("Bad kwarg '$k'")
-            elseif k.head == :(...); continue
-            elseif k.head != :kw; error("Bad kwarg '$k'")
-            elseif !isa(k.args[1],Symbol); error("Bad kwarg '$k'")
-            else; k.args[2]=k.args[1]; end
-        end
-        insert!(rx.args,3,fn)
-        if broadcast; insert!(rx.args,3,:broadcast); end
-    else
-        insert!(rx.args,2,fn)
-        if broadcast; insert!(rx.args,2,:broadcast); end
-    end
-    return rx
-end
-
 # eliminate type declarations from a function call
 function notypes(ex)
     if isa(ex, Expr)
@@ -273,24 +269,6 @@ function f2b(fx)
     if cx.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(cx.args, a, :(::typeof($f)))
     return bx
-end
-
-# input: (where (call f (:: x (curly Value T))) (<: T Int))
-# output: f(x::Bcasted) = Bcasted(f.(bval(x)))
-function bcasted(fx)
-    lhs = copy(fx.args[1])      # f(x::Value{T},y)
-    rhs = copy(fx.args[1])
-    for i=2:length(lhs.args)
-        if isa(lhs.args[i], Expr) && lhs.args[i].head == :(::)
-            lhs.args[i].args[2] = :(AutoGrad.Bcasted)
-            rhs.args[i] = :(AutoGrad.bval($(rhs.args[i].args[1])))
-        end
-    end
-    fname = popfirst!(rhs.args)
-    rhs.head = :tuple
-    rhs = Expr(:., fname, rhs)
-    rhs = Expr(:call, :(AutoGrad.Bcasted), rhs)
-    :($lhs = $rhs)
 end
 
 # create type signatures for f where one or more args are Value's.

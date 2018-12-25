@@ -73,3 +73,51 @@ This automatically makes first(tape) the final result node
 last(tape) is the initial parameter node, but default slow.
 The last(::Tape) hack is to make old style grad faster.
 Alternative: define a struct for Tape, also addresses https://discourse.julialang.org/t/atom-cant-evaluate-a-line-which-the-regular-repl-can/17549/2
+
+
+#### The way broadcasting works in Julia (from base/broadcast.jl):
+# 
+### Dot notation is lazy, explicit broadcast is not:
+# (a .+ b .* c) => materialize(broadcasted(+, a, broadcasted(*, b, c)))
+# sin.(cos.(x)) => materialize(broadcasted(sin, broadcasted(cos, x)))
+# broadcast(sin, broadcast(cos, x)) => materialize(broadcasted(sin, materialize(broadcasted(cos, x))))
+# 
+### broadcasted creates a Broadcasted structure unless overriden:
+# broadcasted(f,x...) => (xx = broadcastable.(x); broadcasted(combine_styles(xx...),f,xx...))
+# broadcasted(::{S<:BroadcastStyle}, f, args...) = Broadcasted{S}(f, args)
+#
+### Broadcasted is a 4 parameters struct with 3 members:
+# Broadcasted{Style}(f::F, args::Args, axes::Axes=nothing) =
+# Broadcasted{Style, Axes, F, Args}(f, args, axes)
+#
+### materialize calculates the actual result using copy:
+# materialize(bc::Broadcasted) = copy(instantiate(bc))
+# materialize(x) = x
+#
+### instantiate: adds or checks the Axes component:
+# instantiate(bc::Broadcasted{S}) = Broadcasted{S}(bc.f, bc.args, combine_axes(bc.args...))
+# instantiate(x) = x
+# 
+### copy: allocates result container and fills it using copyto!
+# copy(bc::Broadcasted) = copyto!(similar(bc, etype), bc)
+# similar(bc::Broadcasted, ::Type{T}) = similar(Array{T}, axes(bc))
+#
+### copyto!: is responsible for calculating the final result
+
+# Current design avoids generating Broadcasted objects:
+
+# For regular primitives:
+# f(x...) => forw(f,x...)           # (macros.jl; @primitive f if any x is a Value)
+# forw(f,x...) => f(value.(x)...)   # (core.jl; f is the recorded function)
+# back(f,i,dy,y,x...)               # (macros.jl; @primitive defines this)
+
+# For broadcasted primitives:
+# f.(x...) => broadcasted(f,x...)                       # (parser)
+# broadcasted(f,x...) => forw(broadcast,f,x...)         # (macros.jl; @primitive defines this, @primitive1 does not)
+# forw(broadcast,f,x...) => broadcast(f,value.(x)...)   # (core.jl; broadcast is the recorded function)
+# back(broadcast,i,dy,y,f,x...)                         # (macros.jl; @primitive defines this, @primitive1 does not)
+
+# For direct use of broadcast:
+# broadcast(f,x...) => materialize(broadcasted(f,x...)) # (base/broadcast.jl fallback for unknown Value types)
+# broadcasted(f,x...) => forw(broadcast,f,x...)         # (forw calling broadcast with unboxed args returning Value)
+#DEPRECATED: materialize(x::Value) => x                            # (broadcast.jl; defined below)

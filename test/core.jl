@@ -43,6 +43,11 @@ using Statistics
     x = Param([1.,2.]); f2(x)=1x
     @test grad((@diff sum(f2.(x))), x) == [1.0,1.0]
 
+    # Issue #103
+    f(x) = exp(x)
+    @test grad(x->f(x))(1.) == exp(1.)
+    @test grad(x -> sum(f.(x)))([1.]) == [ exp(1.) ]
+
     # Double broadcasting
     x = Param([1.,2.]); f3(x)=sin(x); f4(x)=sin.(x)
     @test grad((@diff sum(f3.(x))), x) == grad((@diff sum(f4.(x))), x) == grad((@diff sum(f4(x))), x)
