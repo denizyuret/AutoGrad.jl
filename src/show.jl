@@ -45,9 +45,9 @@ end
 
 function show(io::IO, ::MIME"text/plain", ts::Vector{Tape}) # to dump _tapes
     if isempty(ts); show(io, ts); end
-    og(t::Tape,r::Value)=(n=get(t,r,nothing); n===nothing ? '-' : n.outgrad===nothing ? '0' : valstr(n.outgrad))
+    og(t::Tape,r::Value)=(n=get(t.dict,r,nothing); n===nothing ? '-' : n.outgrad===nothing ? '0' : valstr(n.outgrad))
     io = IOContext(io,:compact=>true)
-    for (i,n) in enumerate(reverse(collect(ts[1])))
+    for (i,n) in enumerate(reverse(ts[1].list))
         r = n.Value
         if isa(r,Result)
             print(io, "$i. ", valstr(r), " = ", r.func, "(", join(valstr.(r.args),", "), 
