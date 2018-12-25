@@ -46,4 +46,26 @@ using Statistics
     # Double broadcasting
     x = Param([1.,2.]); f3(x)=sin(x); f4(x)=sin.(x)
     @test grad((@diff sum(f3.(x))), x) == grad((@diff sum(f4.(x))), x) == grad((@diff sum(f4(x))), x)
+
+    # Issue #106: Double Result
+    h(x) = exp(-x); h′(x,y) = -y
+    𝓁(x,y) = sum(abs2,x-y)/2
+    function neural_net(mparams, input; h=h, h′=h′, N=length(mparams))
+        δ = [];
+        X = Any[input];
+        for i=1:N
+            x = sum(mparams[i] .* [X[i],1])
+            y = h.(x)
+            push!(δ, h′.(x,y))
+            push!(X,y)
+        end
+        return X,δ
+    end
+    mparams =[[randn(),randn()] for i=1:3]
+    P = Param(mparams)
+    loss(P,x,y)= 𝓁(neural_net(P,x)[1][end],y)
+    x,y=randn(),randn()
+    J = @diff loss(P,x,y)
+    @test isa(J, AutoGrad.Tape)
+    @test_broken @gcheck loss(P,x,y)
 end

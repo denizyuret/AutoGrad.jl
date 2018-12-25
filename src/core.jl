@@ -22,7 +22,7 @@ mutable struct Result{T} <: Tracked{T}
     args
     kwargs
     Result{T}(v,f,a,k) where {T} = new(v,f,a,k)
-    Result{T}(v,f,a,k) where {T<:Value} = error("Result cannot take $T as arg.")
+    # Result{T}(v,f,a,k) where {T<:Value} = error("Result cannot take $T as arg.") # See #106
 end
 
 # value() should give a regular (non-Value) result regardless of recursion
@@ -131,6 +131,9 @@ function track(f, args, kwargs, bcasted)
         @timer "record" Result(v, f, args, kwargs)
     end
 end
+
+Result(v::T, f, args, kwargs) where {T<:Tracked} = v
+Result(v::T, f, args, kwargs) where {T<:Bcasted} = error("Result cannot take $T as arg")
 
 function Result(v::T, f, args, kwargs) where {T}
     record!(t::Tape, v::Tracked) = (n = get(t.dict, v, nothing); n === nothing ? record!(t, Node(v)) : n)

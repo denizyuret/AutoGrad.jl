@@ -151,7 +151,7 @@ function gcheck(f, x...; kw=(), nsample=10, verbose=1, rtol=0.05, atol=0.01, del
     y = @diff gcsum(f, x...; kw...)
     if !isa(y, Tape); @warn("Output independent of params"); return true; end
     f0 = value(y)
-    ps = Param[ n.Value for n in y if isa(n.Value, Param) ]
+    ps = Param[ n.Value for n in y.list if isa(n.Value, Param) ]
     if isempty(ps); @error("Cannot find any params"); end
     vs = value.(ps)
     gs = (p->grad(y,p)).(ps)
