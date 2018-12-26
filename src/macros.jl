@@ -279,8 +279,8 @@ end
 function fsigs(f)               # sin(x::Number) => sin(x::Value{T}) where {T <: Number}
     f1 = copy(f)                # sin(x::Number)
     fname = f1.args[1]
-    if isa(fname, Symbol)
-        m = which(@__MODULE__, fname)
+    if isa(fname, Symbol) && isdefined(@__MODULE__, fname) # @__MODULE__ here resolves to AutoGrad when compiling Knet
+        m = which(@__MODULE__, fname)                      # which does not work for symbols undefined in AutoGrad
         f1.args[1] = :(($m).$fname) # Base.sin
     end
     a1 = Expr(:where,f1)        # sin(x::Number) where {}
