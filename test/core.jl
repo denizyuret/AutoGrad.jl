@@ -73,4 +73,9 @@ using Statistics
     J = @diff loss(P,x,y)
     @test isa(J, AutoGrad.Tape)
     @test_broken @gcheck loss(P,x,y)
+
+    # array-scalar mul
+    a = Param(rand(2,3)); s = Param(rand())
+    @test @gcheck sum(a .* s)   # this seems to be a gcheck problem.
+    @test @gcheck sum(a * s)
 end
