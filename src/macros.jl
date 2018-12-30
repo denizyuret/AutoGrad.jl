@@ -1,11 +1,3 @@
-### @primitive and @zerograd macros:
-
-# I would like to make these type signatures as specific as possible.
-# The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
-# f{T<:Number,A<:AbstractArray{T}}(x::Value{A})
-# f{T<:Number,A<:AbstractArray}(x::Value{A{T}})
-# 20180725: TODO: This may have changed in Julia 0.7
-
 """
 
     @primitive  fx g1 g2...
@@ -48,9 +40,9 @@ The recorded operations are used by AutoGrad to construct a dynamic computationa
 With multiple arguments things are a bit more complicated.  Here is what happens with the
 second example:
 
-    hypot(x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = forw(hypot, x1, x2)
-    hypot(x1::S, x2::Value{T})      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
-    hypot(x1::Value{S}, x2::T)      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
+    hypot(x1::Value{S}, x2::Value{T}) where {S,T} = forw(hypot, x1, x2)
+    hypot(x1::S, x2::Value{T})        where {S,T} = forw(hypot, x1, x2)
+    hypot(x1::Value{S}, x2::T)        where {S,T} = forw(hypot, x1, x2)
 
 We want the forw method to be called if any one of the arguments is a boxed `Value`.  There
 is no easy way to specify this in Julia, so the macro generates all 2^N-1 boxed/unboxed
@@ -66,8 +58,8 @@ For the third example here is the generated gradient method:
 
 For the last example a different gradient method is generated for each argument:
 
-    back(::typeof(hypot), ::Type{Arg{1}}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x1) ./ y
-    back(::typeof(hypot), ::Type{Arg{2}}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x2) ./ y
+    back(::typeof(hypot), ::Type{Arg{1}}, dy, y, x1::Value{S}, x2::Value{T}) where {S,T} = (dy .* x1) ./ y
+    back(::typeof(hypot), ::Type{Arg{2}}, dy, y, x1::Value{S}, x2::Value{T}) where {S,T} = (dy .* x2) ./ y
 
 In fact @primitive generates four more definitions for the other boxed/unboxed argument
 combinations.
@@ -80,9 +72,16 @@ so that broadcasting of a primitive function with a boxed value triggers `forw` 
     broadcasted(::typeof(sin), x::Value{T}) where {T<:Number} = forw(broadcast,sin,x)
     back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number} = dy .* cos(x)
 
-If you do not want the broadcasting methods, you can use the `@primitive1` macro which omits
-the broadcast related definitions.
+If you do not want the broadcasting methods, you can use the `@primitive1` macro. If you
+only want the broadcasting methods use `@primitive2`. As a motivating example, here is how
+`*` is defined for non-scalars:
 
+    @primitive1 *(x1,x2),dy  (dy*x2')  (x1'*dy)
+    @primitive2 *(x1,x2),dy  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+
+Regular `*` is matrix multiplication, broadcasted `*` is elementwise multiplication and the
+two have different gradients as defined above. `unbroadcast(a,b)` reduces `b` to the same
+shape as `a` by performing the necessary summations.
 """
 macro primitive(f,g...)                         # @primitive sin(x::Number),dy,y  (dy.*cos.(x))
     (f,dy,y) = fparse(f)
@@ -117,6 +116,20 @@ macro primitive1(f,g...)        # non-broadcasting version
     return esc(b)
 end
 
+macro primitive2(f,g...)        # broadcasting-only version
+    (f,dy,y) = fparse(f) 
+    b = Expr(:block) 
+    forwcast = fcall(f,broadcast=true) 
+    for fx in fsigs(f) 
+        bfx = f2b(fx) 
+        push!(b.args, :($bfx = $forwcast)) 
+        for i=1:length(g) 
+            bgx = bsig(fx,dy,y,i)
+            push!(b.args, :($bgx = $(g[i])))
+        end
+    end
+    return esc(b)
+end
 
 """
 
@@ -355,4 +368,11 @@ function bsig(f,dy,y,i)
     insert!(g.args, a+4, :(::typeof($fname)))
     return fcopy
 end
+
+
+# I would like to make these type signatures as specific as possible.
+# The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
+# f{T<:Number,A<:AbstractArray{T}}(x::Value{A})
+# f{T<:Number,A<:AbstractArray}(x::Value{A{T}})
+# 20180725: TODO: This may have changed in Julia 0.7
 
