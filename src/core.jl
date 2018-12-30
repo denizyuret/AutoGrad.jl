@@ -58,72 +58,51 @@ broadcasted(::Style{Value}, f, args...) = recording() ? f(Bcasted.(args)...).val
 const _tapes = Tape[]
 recording() = !isempty(_tapes)
 
-forw(f, args...; kwargs...) = recording() ? bcast(f, args, kwargs) : fforw(f, args, kwargs)
-
-function fforw(f, args, kwargs)
-    @timer "fforw" begin
-        @assert !recording()
-        aval = args
-        @inbounds for i in 1:length(aval)
-            if isa(aval[i], Value)
-                if aval === args
-                    aval = Any[args...]
-                end
-                # @assert !isa(aval[i], Result) # This can happen during back
-                @assert !isa(aval[i], Bcasted)
-                aval[i] = aval[i].value
-                @assert !isa(aval[i], Value) "Illegal value recursion: $(typeof(args[i]))"
-            end
+# forw() is called with primitive functions that have Tracked or Bcasted args
+function forw(f, args...; kwargs...)
+    @timer "forwargs"        ((f, nobcast, novalue) = forwargs(f, args))
+    @timer ftimer(f,novalue) (v = f(novalue...; kwargs...))
+    if recording()
+        if novalue !== nobcast  # there are tracked args
+            @timer "record"  (v = Result(v, f, nobcast, kwargs))
         end
-        @assert aval !== args "forw called without Value args"
+        if nobcast !== args     # there are bcasted args
+            @timer "bcasted" (v = Bcasted(v))
+        end
     end
-    f(aval...; kwargs...)
+    return v
 end
 
-function bcast(f, args, kwargs)
-    @timer "bcast" begin
-        @assert recording()
-        aval = args
-        @inbounds for i in 1:length(aval)
-            if isa(aval[i], Bcasted)
-                if aval === args
-                    aval = Any[args...]
-                end
-                aval[i] = aval[i].value
-                @assert !isa(aval[i], Bcasted)
-            end
+# Return two arg lists, one stripped of Bcasted and one stripped of all Values.
+function forwargs(f, args)
+    nobcast = novalue = args
+    @inbounds for i in 1:length(args)
+        if isa(nobcast[i], Bcasted)
+            if nobcast === args; nobcast = Any[args...]; end
+            if novalue === args; novalue = nobcast; end
+            nobcast[i] = nobcast[i].value
+            if isa(nobcast[i], Bcasted); error("Illegal value recursion: $(typeof(args[i]))"); end
         end
-        bcasted = (aval !== args)
-        if bcasted && f !== broadcast
-            aval = pushfirst!(aval, f)
+        if isa(novalue[i], Value)
+            if novalue === args; novalue = Any[args...]
+            elseif novalue === nobcast; novalue = copy(nobcast); end
+            novalue[i] = value(novalue[i])
+        end
+    end
+    if novalue === args
+        error("forw called without Value args")
+    end
+    if nobcast !== args
+        if !recording()
+            error("Bcasted args out of recording context")
+        end
+        if f !== broadcast
+            pushfirst!(nobcast, f)
+            if novalue !== nobcast; pushfirst!(novalue, f); end
             f = broadcast
         end
     end
-    v = track(f, aval, kwargs, bcasted)
-    bcasted ? Bcasted(v) : v
-end
-
-function track(f, args, kwargs, bcasted)
-    @timer "track" begin
-        @assert recording()
-        aval = args
-        @inbounds for i in 1:length(aval)
-            if isa(aval[i], Tracked)
-                if aval === args
-                    aval = isa(args, Array) ? copy(args) : Any[args...]
-                end
-                aval[i] = aval[i].value
-                @assert !isa(aval[i], Value)
-            end
-        end
-    end
-    if aval === args
-        @assert bcasted "Tracking function without Value args."
-        f(args...; kwargs...)
-    else
-        @timer ftimer(f,aval) (v = f(aval...; kwargs...))
-        @timer "record" Result(v, f, args, kwargs)
-    end
+    return (f, nobcast, novalue)
 end
 
 function Result(v::T, f, args, kwargs) where {T}
