@@ -44,7 +44,7 @@ function show(io::IO, n::Node)
 end
 
 function show(io::IO, ::MIME"text/plain", ts::Vector{Tape}) # to dump _tapes
-    if isempty(ts); show(io, ts); end
+    if isempty(ts); show(io, ts); return; end
     og(t::Tape,r::Value)=(n=get(t.dict,r,nothing); n===nothing ? '-' : n.outgrad===nothing ? '0' : valstr(n.outgrad))
     io = IOContext(io,:compact=>true)
     for (i,n) in enumerate(reverse(ts[1].list))
