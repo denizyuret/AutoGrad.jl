@@ -59,13 +59,22 @@ function gcsum(f,x...;o...)
 end
 
 function gcwalk(i, xptr, gptr, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
-    if isa(xptr[i], Number)
-        xi = xptr[i]
-        delta = delta > 0 ? delta : cbrt(eps(xi))
-        xptr[i] = xi >= 0 ? xi + delta : xi - delta
-        f1 = gcsum(f, x...; kw...)
-        nd = (f1 - f0) / (xptr[i] - xi)
-        xptr[i] = xi
+    if isa(value(xptr[i]), Number)
+        if isa(xptr[i], Param)
+            xi = xptr[i].value
+            delta = delta > 0 ? delta : cbrt(eps(xi))
+            xptr[i].value = xi >= 0 ? xi + delta : xi - delta
+            f1 = gcsum(f, x...; kw...)
+            nd = (f1 - f0) / (xptr[i] - xi)
+            xptr[i].value = xi
+        else
+            xi = xptr[i]
+            delta = delta > 0 ? delta : cbrt(eps(xi))
+            xptr[i] = xi >= 0 ? xi + delta : xi - delta
+            f1 = gcsum(f, x...; kw...)
+            nd = (f1 - f0) / (xptr[i] - xi)
+            xptr[i] = xi
+        end
         ad = gcget(gptr,i,0)
         result = isapprox(nd, ad, rtol=rtol, atol=atol)
         if verbose >= 2 || (!result && verbose >= 1)
@@ -153,10 +162,11 @@ function gcheck(f, x...; kw=(), nsample=10, verbose=1, rtol=0.05, atol=0.01, del
     f0 = value(y)
     ps = Param[ n.Value for n in y.list if isa(n.Value, Param) ]
     if isempty(ps); @error("Cannot find any params"); end
-    vs = value.(ps)
+    #vs = value.(ps)
     gs = (p->grad(y,p)).(ps)
     all(1:length(ps)) do i
-        gcwalk(i, vs, gs, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
+        #gcwalk(i, vs, gs, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
+        gcwalk(i, ps, gs, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
     end
 end
 
