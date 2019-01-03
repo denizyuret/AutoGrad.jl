@@ -15,9 +15,10 @@ _valstr(x)=(hasmethod(size,(typeof(x),)) && !isempty(size(x)) ? "$(typeof(x))($(
 _valstr(t::Tuple)="($(join(_valstr.(t),',')))"
 
 # One line show used for show, print, string etc.
-show(io::IO, x::Param)  = print(IOContext(io,:compact=>true), "P(", valstr(x), ")")
-show(io::IO, x::Result) = print(IOContext(io,:compact=>true), "R(", valstr(x), ")")
-show(io::IO, x::Tape)   = print(IOContext(io,:compact=>true), "T(", valstr(x), ")")
+show(io::IO, x::Bcasted)  = print(IOContext(io,:compact=>true), "B(", valstr(x), ")")
+show(io::IO, x::Param)    = print(IOContext(io,:compact=>true), "P(", valstr(x), ")")
+show(io::IO, x::Result)   = print(IOContext(io,:compact=>true), "R(", valstr(x), ")")
+show(io::IO, x::Tape)     = print(IOContext(io,:compact=>true), "T(", valstr(x), ")")
 
 # Multi line show used for display:
 show(io::IO, ::MIME"text/plain", x::Tape) = show(io, x)
@@ -26,8 +27,8 @@ show(io::IO, ::MIME"text/plain", x::Tape) = show(io, x)
 import Base: summary, size, getindex
 struct ArrayValue{T,N} <: AbstractArray{T,N}; p; end
 show(io::IO, m::MIME"text/plain", x::Value{A}) where {A<:AbstractArray} = show(io, m, ArrayValue{eltype(x),ndims(x)}(x))
-size(p::ArrayValue) = size(p.p)
-getindex(p::ArrayValue,i...) = getindex(p.p,i...)
+size(p::ArrayValue) = size(p.p.value)
+getindex(p::ArrayValue,i...) = getindex(p.p.value,i...)
 summary(io::IO, x::Value{A}) where {A<:AbstractArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))
 summary(io::IO, p::ArrayValue) = summary(io, p.p)
 
