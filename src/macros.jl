@@ -170,10 +170,23 @@ macro zerograd1(f)   # non-broadcasting version
     for fx in fsigs(f)
         zx = zcall(fx)
         push!(b.args, esc(:($fx = $zx)))
+        #(bfx,bzx) = bzcall(fx,zx)
+        #push!(b.args, esc(:($bfx = $bzx)))
     end
     return b
 end
 
+macro zerograd2(f)   # broadcasting-only version
+    (f,dy,y) = fparse(f)
+    b = Expr(:block)
+    for fx in fsigs(f)
+        zx = zcall(fx)
+        #push!(b.args, esc(:($fx = $zx)))
+        (bfx,bzx) = bzcall(fx,zx)
+        push!(b.args, esc(:($bfx = $bzx)))
+    end
+    return b
+end
 
 function fparse(f)
     isa(f,Expr) || error("'$f' not a method signature")
