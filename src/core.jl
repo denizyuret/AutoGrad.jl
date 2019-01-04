@@ -74,6 +74,7 @@ function forw(f, args...; kwargs...)
 end
 
 # Return two arg lists, one stripped of Bcasted and one stripped of all Values.
+# Do not allocate unless necessary.
 function forwargs(f, args)
     nobcast = novalue = args
     @inbounds for i in 1:length(args)
@@ -81,7 +82,7 @@ function forwargs(f, args)
             if nobcast === args; nobcast = Any[args...]; end
             if novalue === args; novalue = nobcast; end
             nobcast[i] = nobcast[i].value
-            if isa(nobcast[i], Bcasted); error("Illegal value recursion: $(typeof(args[i]))"); end
+            @assert !isa(nobcast[i], Bcasted) "Illegal value recursion: $(typeof(args[i]))"
         end
         if isa(novalue[i], Value)
             if novalue === args; novalue = Any[args...]
@@ -89,13 +90,9 @@ function forwargs(f, args)
             novalue[i] = value(novalue[i])
         end
     end
-    if novalue === args
-        error("forw called without Value args")
-    end
+    @assert novalue !== args "forw called without Value args"
     if nobcast !== args
-        if !recording()
-            error("Bcasted args out of recording context")
-        end
+        @assert recording() "Bcasted args out of recording context"
         if f !== broadcast
             pushfirst!(nobcast, f)
             if novalue !== nobcast; pushfirst!(novalue, f); end
@@ -145,11 +142,12 @@ function differentiate(f, x...; o...)
         Base.show_backtrace(stdout, Base.catch_backtrace()); println()
         pop!(_tapes); throw(e)
     end
-    if pop!(_tapes) !== tape; error("Tape stack error"); end
+    tape1 = pop!(_tapes)
+    @assert tape1 === tape "Tape stack error"
     if !isa(result,Result); return result; end
-    if !isa(result.value, Number); error("Only scalar valued functions supported."); end
+    @assert isa(result.value, Number) "Only scalar valued functions supported."
     n1 = first(tape.list)
-    if result !== n1.Value; error("Result not on tape"); end
+    @assert result === n1.Value "Result not on tape"
     n1.outgrad = one(result.value)
     for n in tape.list
         if n.outgrad == nothing; continue; end
@@ -166,7 +164,7 @@ function differentiate(f, x...; o...)
 end
 
 # back is defined by the @primitive macro
-back(x...; o...) = throw(ArgumentError("AutoGrad does not yet support back"*string(typeof.(x)))) # fix #101.2: error instead of nothing
+back(x...; o...) = throw(MethodError(back,x)) # fix #101.2: error instead of nothing
 
 # Used by @timer
 btimer(r::Result,i::Int)=(r.func===broadcast ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]")
@@ -186,7 +184,7 @@ value(x) = x
 value(x::Value) = x.value
 value(x::Value{<:Value}) = error("Illegal type recursion $(typeof(x))")
 value(x::Bcasted{<:Tracked}) = value(x.value) # Only type of Value recursion allowed
-value(t::Tape)=first(t.list).Value.value
+value(t::Tape)=(isempty(t.list) ? nothing : first(t.list).Value.value)
 
 # New style grad
 grad(t,x)=nothing
