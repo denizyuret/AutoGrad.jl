@@ -141,15 +141,14 @@ Define `f` as an AutoGrad primitive operation with zero gradient.
 
     @zerograd  floor(x::Float32)
 
-`@zerograd` allows `f` to handle boxed `Value` inputs by unboxing them
-like a `@primitive`, but unlike `@primitive` it does not record its
-actions or return a boxed `Value` result.  Some functions, like
-`sign()`, have zero gradient.  Others, like `length()` have discrete
-or constant outputs.  These need to handle `Value` inputs, but do not
-need to record anything and can return regular values.  Their output
-can be treated like a constant in the program.  Use the `@zerograd`
-macro for those.  Use the `@zerograd1` variant if you don't want to
-define the broadcasting version. Note that `kwargs` are NOT unboxed.
+`@zerograd` allows `f` to handle boxed `Value` inputs by unboxing them like a `@primitive`,
+but unlike `@primitive` it does not record its actions or return a boxed `Value` result.
+Some functions, like `sign()`, have zero gradient.  Others, like `length()` have discrete or
+constant outputs.  These need to handle `Value` inputs, but do not need to record anything
+and can return regular values.  Their output can be treated like a constant in the program.
+Use the `@zerograd` macro for those.  Use the `@zerograd1` variant if you don't want to
+define the broadcasting version and `@zerograd2` if you only want to define the broadcasting
+version. Note that `kwargs` are NOT unboxed.
 
 """
 macro zerograd(f)                               # @zerograd sign(x::Number)

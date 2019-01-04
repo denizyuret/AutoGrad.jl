@@ -4,6 +4,7 @@ efb8ee4 2019-01-03
 
 * Support for broadcasting user defined functions.
 * gcheck and @gcheck for gradient checking with Params.
+* Added @primitive2 and @zerograd2 for broadcast-only primitives.
 
 
 AutoGrad v1.1.1 Release Notes
