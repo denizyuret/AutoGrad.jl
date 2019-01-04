@@ -1,3 +1,11 @@
+AutoGrad v1.1.2 Release Notes
+=============================
+efb8ee4 2019-01-03
+
+* Support for broadcasting user defined functions.
+* gcheck and @gcheck for gradient checking with Params.
+
+
 AutoGrad v1.1.1 Release Notes
 =============================
 207ffe8 2018-09-30
