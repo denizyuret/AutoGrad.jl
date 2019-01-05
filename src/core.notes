@@ -30,7 +30,6 @@ f(V::Tracked) ==> forw(f,V)    # if defined by macros.jl:@primitive(f)
 f(V::Tracked) ==> f(value(V))  # if defined by macros.jl:@zerograd(f) calls f with stripped V
 forw(f,V)   ==> f(value(V))    # calls f with stripped V and records the f, result, args, returns Result
 
-# TODO: result may not always be the last thing on tape!
 
 ## Broadcasting
 
