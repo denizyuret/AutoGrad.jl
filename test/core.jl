@@ -62,6 +62,11 @@ using Statistics
     f(x) = sign(x)
     @test @gcheck sum(f.(x))
 
+    # result may not always be last on tape
+    x = Param(rand(2,3))
+    f(x) = (x1=sum(x); x2=2x; x1)
+    @test @gcheck f(x)
+
     # Issue #106: 
     h(x) = exp(-x); h′(x,y) = -y
     𝓁(x,y) = sum(abs2,x-y)/2
@@ -83,10 +88,5 @@ using Statistics
     J = @diff loss(P,x,y)
     @test isa(J, AutoGrad.Tape)
     @test_broken @gcheck loss(P,x,y)
-
-    # result may not always be last on tape
-    x = Param(rand(2,3))
-    f(x) = (x1=sum(x); x2=2x; x1)
-    @test_broken @gcheck f(x)
 
 end

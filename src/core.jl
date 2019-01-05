@@ -146,9 +146,8 @@ function differentiate(f, x...; o...)
     @assert tape1 === tape "Tape stack error"
     if !isa(result,Result); return result; end
     @assert isa(result.value, Number) "Only scalar valued functions supported."
-    n1 = first(tape.list)
-    @assert result === n1.Value "Result not on tape"
-    n1.outgrad = one(result.value)
+    resultnode = findresult(tape, result)
+    resultnode.outgrad = one(result.value)
     for n in tape.list
         if n.outgrad == nothing; continue; end
         r = n.Value
@@ -158,7 +157,7 @@ function differentiate(f, x...; o...)
             @timer btimer(r,i) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
             @timer "sum_outgrads" (p.outgrad = sum_outgrads(p.outgrad, g))
         end
-        if isempty(_tapes) && isa(r,Result) && n !== n1; gcnode(n); end  # save memory
+        if isempty(_tapes) && isa(r,Result) && n !== resultnode; gcnode(n); end  # save memory
     end
     return tape
 end
@@ -170,6 +169,19 @@ back(x...; o...) = throw(MethodError(back,x)) # fix #101.2: error instead of not
 btimer(r::Result,i::Int)=(r.func===broadcast ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]")
 ftimer(f::Function,a::Array{Any})=(f===broadcast ? "$(a[1])." : "$f")
 
+# 99% result will be on tape.list[1] (last thing recorded), this handles the other 1% where
+# the loss fn computes stuff recorded on tape after result but returns result at the end.
+function findresult(tape::Tape, result::Result)
+    if tape.list[1].Value === result; return tape.list[1]; end
+    @inbounds for i in 2:length(tape.list)
+        if tape.list[i].Value === result
+            tape.list = tape.list[i:end]
+            break
+        end
+    end
+    @assert tape.list[1].Value === result "result not found on tape"
+    return tape.list[1]
+end
 
 ## Exported functions:
 
