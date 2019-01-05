@@ -20,7 +20,7 @@ mutable struct Result{T} <: Tracked{T}
     Result{T}(v,f,a,k) where {T<:Value} = error("Result cannot take $T as arg.")
 end
 
-mutable struct Bcasted{T} <: Value{T}
+struct Bcasted{T} <: Value{T}
     value::T
     Bcasted{T}(v) where {T} = new(v)     # Bcasted{Tracked} is the only Value{Value} allowed
     Bcasted{T}(v) where {T<:Bcasted} = v # We do not want Bcasted{Bcasted}
