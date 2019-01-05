@@ -52,7 +52,17 @@ using Statistics
     x = Param([1.,2.]); f3(x)=sin(x); f4(x)=sin.(x)
     @test grad((@diff sum(f3.(x))), x) == grad((@diff sum(f4.(x))), x) == grad((@diff sum(f4(x))), x)
 
-    # Issue #106: Double Result
+    # array-scalar mul
+    a = Param(rand(2,3)); s = Param(rand())
+    @test @gcheck sum(a .* s)
+    @test @gcheck sum(a * s)
+
+    # @zerograd needs to handle Bcasted
+    x = Param(rand(2,3))
+    f(x) = sign(x)
+    @test @gcheck sum(f.(x))
+
+    # Issue #106: 
     h(x) = exp(-x); h′(x,y) = -y
     𝓁(x,y) = sum(abs2,x-y)/2
     function neural_net(mparams, input; h=h, h′=h′, N=length(mparams))
@@ -74,8 +84,9 @@ using Statistics
     @test isa(J, AutoGrad.Tape)
     @test_broken @gcheck loss(P,x,y)
 
-    # array-scalar mul
-    a = Param(rand(2,3)); s = Param(rand())
-    @test @gcheck sum(a .* s)   # this seems to be a gcheck problem.
-    @test @gcheck sum(a * s)
+    # result may not always be last on tape
+    x = Param(rand(2,3))
+    f(x) = (x1=sum(x); x2=2x; x1)
+    @test_broken @gcheck f(x)
+
 end

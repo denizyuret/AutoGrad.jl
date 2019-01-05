@@ -5,21 +5,7 @@ AutoGrad, primitives need to record their input and output and have `back` metho
 for gradient calculation.  In Knet, primitives need to call the appropriate GPU kernels to
 act on GPU arrays. We accomplish these by defining new methods that dispatch on special
 types. Knet uses KnetArray to mark GPU arrays, and AutoGrad uses Tracked for values to be
-recorded.
-
-In addition, broadcasting needs special treatment. Julia implements broadcast fusion,
-i.e. an expression like `sin.(cos.(x))` will end up applying `sin(cos(xi))` to every element
-xi of x instead of performing `cos.(x)` first, creating a temporary array and applying
-`sin.()` to that array. Fusion breaks both AutoGrad and Knet. AutoGrad records every
-primitive function call, fusion with its O(n) calls instead of O(1) (assuming `sin.()` is
-implemented as a single primitive) increases its overhead. Knet relies on a fixed set of
-CUDA kernels in its library to act on GPU arrays and we can't define a kernel for every
-operator combination like `sin(cos())`. Therefore fusion needs to be stopped.
-
-The way we stop fusion is by using another special type `Bcasted`. We turn a broadcasted
-application of any function to a regular application to `Bcasted` arguments, e.g. `F.(x) =>
-F(Bcasted(x)).value`. Then special methods defined for primitives reverses this at the
-lowest level, e.g. `f(Bcasted(x)) => Bcasted(f.(x))`.
+recorded.  In addition, broadcasting needs special treatment by both AutoGrad and Knet. 
 
 The rest of this document outlines the details. We need to keep in mind that AutoGrad
 primitives and Knet primitives are largely intersecting but may not be exactly the same set
@@ -27,63 +13,40 @@ of functions. We need to think about how combinations of Bcasted, Tracked, and K
 behave.
 
 
-## Broadcasting in AutoGrad:
+## Types
 
-F.(X) ==> broadcasted(F,X)                                      # base
-broadcast(F,X) ==> broadcasted(F,X)                             # base
-broadcasted(F,X) ==> broadcasted(BroadcastStyle(X),F,X)         # base
-broadcasted(f,V::Value) ==> forw(broadcast,f,V)                 # defined by macros.jl:@primitive(f)
-broadcasted(S::BroadcastStye,F,X) ==> Broadcasted{S}(F,X)       # base
-broadcasted(::Style{Value},F,V) ==> broadcasted(F,value(V)) 	# core.jl, if !recording()
-broadcasted(::Style{Value},F,V) ==> F(Bcasted(V))               # core.jl, if recording()
-f(B::Bcasted) ==> forw(f,B)                                     # defined by macros.jl:@primitive(f)
-F(B::Bcasted) ==> F'(B)                                         # generic F calling F' which may be generic, primitive or other.
-F(B::Bcasted) ==> MethodError()                                 # if F not primitive or generic
-forw(f,B::Bcasted) ==> broadcast(f,value(B))                    # core.jl:forw called only for primitive f
-forw(broadcast,f,V::Value) ==> broadcast(f,value(V))            # core.jl:forw called only for primitive f
+Param <: Tracked   # indicates user defined parameter
+Result <: Tracked  # the result of an operation with Param or Result args
+Tracked <: Value   # the types to be recorded on tape
+Bcasted <: Value   # type used to unfuse broadcasting
+Value <: Any       # all Value args cause AutoGrad primitives to call forw()
 
 
-## Broadcasting in Knet:
+## Recording
 
-broadcasted(::Style{KnetArray},F,K) ==> F(Knet.Bcasted(K))      # karray.jl
-F(x::Knet.Bcasted) ==> MethodError                              # if F is not a broadcasting Knet primitive
-f(x::Knet.Bcasted) ==> broadcasted(f, x.value)                  # defined if f is a broadcasting Knet primitive
-broadcasted(::typeof(f),x::Knet.Bcasted) ==> broadcasted(f, x.value)  # ditto, in case we have f.(::Knet.Bcasted)
-broadcasted(f,::KnetArray) ==> ccall()                          # defined if f is a broadcasting Knet primitive
-f(::KnetArray) ==> ccall()                                      # defined if f is a non-broadcasting Knet primitive
+F(V::Tracked) ==> MethodError  # non-primitive, non-generic functions cannot handle Tracked
+F(V::Tracked) ==> F'(V)        # generic F passes V to other functions F' in body
+f(V::Tracked) ==> forw(f,V)    # if defined by macros.jl:@primitive(f)
+f(V::Tracked) ==> f(value(V))  # if defined by macros.jl:@zerograd(f) calls f with stripped V
+forw(f,V)   ==> f(value(V))    # calls f with stripped V and records the f, result, args, returns Result
 
-Notes:
+# TODO: result may not always be the last thing on tape!
 
-1. If we do not have Style{KnetArray}, any F broadcasting over a KnetArray that is not a
-broadcasting Knet primitive will use DefaultArrayStyle and give an Array result using
-inefficient indexing.
+## Broadcasting
 
-2. We give Style{KnetArray} lower precedence than Style{Value} so the AutoGrad mechanism
-runs first. If there is a mix of KnetArray and Value arguments, the Values will be stripped
-first.
+Julia implements broadcast fusion, i.e. an expression like `sin.(cos.(x))` will end up
+applying `sin(cos(xi))` to every element xi of x instead of performing `cos.(x)` first,
+creating a temporary array and applying `sin.()` to that array. Fusion breaks both AutoGrad
+and Knet. AutoGrad records every primitive function call, fusion with its O(n) calls instead
+of O(1) (assuming `sin.()` is implemented as a single primitive) increases its
+overhead. Knet relies on a fixed set of CUDA kernels in its library to act on GPU arrays and
+we can't define a kernel for every operator combination like `sin(cos())`. Therefore fusion
+needs to be stopped.
 
-3. We introduce Knet.Bcasted because using AutoGrad.Bcasted results in infinite loop:
-
-broadcasted(::Style{KnetArray},F,K) ==> F(Bcasted(K))
-F(BK::Bcasted{KnetArray}) ==> forw(F,BK)
-forw(F,BK) ==> broadcast(F,K)
-broadcast(F,K) ==> broadcasted(F,K)
-broadcasted(F,K) ==> broadcasted(::Style{KnetArray},F,K)
-
-4. The reason this is not a problem in AutoGrad is that forw strips out the Value before
-passing the args back to broadcast, and second time around the BroadcastStyle will no longer
-be Style{Value}.
-
-
-## Function types: these bits define 64 types, most not realized.
-# 5,6 gives 4 non-primitive types
-# 1-4 gives 16 primitive types for a total of 20.
-1. Knet non-broadcasting primitive
-2. Knet broadcasting primitive
-3. AutoGrad non-broadcasting primitive
-4. AutoGrad broadcasting primitive
-5. Non-Generic
-6. Base
+The way we stop fusion is by using another special type `Bcasted`. We turn a broadcasted
+application of any function to a regular application to `Bcasted` arguments, e.g. `F.(x) =>
+F(Bcasted(x)).value`. Then special methods defined for primitives reverses this at the
+lowest level, e.g. `f(Bcasted(x)) => Bcasted(f.(x))`.
 
 
 #### The way broadcasting works in Julia (from base/broadcast.jl):
@@ -114,6 +77,79 @@ be Style{Value}.
 # similar(bc::Broadcasted, ::Type{T}) = similar(Array{T}, axes(bc))
 #
 ### copyto!: is responsible for calculating the final result
+
+
+## Broadcasting in AutoGrad:
+
+F.(X) ==> broadcasted(F,X)                                      # base
+broadcast(F,X) ==> broadcasted(F,X)                             # base
+broadcasted(F,X) ==> broadcasted(BroadcastStyle(X),F,X)         # base
+broadcasted(f,V::Value) ==> forw(broadcast,f,V)                 # defined by macros.jl:@primitive(f)
+broadcasted(S::BroadcastStye,F,X) ==> Broadcasted{S}(F,X)       # base
+broadcasted(::Style{Value},F,V) ==> broadcasted(F,value(V)) 	# core.jl, if !recording()
+broadcasted(::Style{Value},F,V) ==> F(Bcasted(V))               # core.jl, if recording()
+f(B::Bcasted) ==> forw(f,B)                                     # defined by macros.jl:@primitive(f)
+F(B::Bcasted) ==> F'(B)                                         # generic F calling F' which may be generic, primitive or other.
+F(B::Bcasted) ==> MethodError()                                 # if F not primitive or generic
+forw(f,B::Bcasted) ==> broadcast(f,value(B))                    # core.jl:forw called only for primitive f
+forw(broadcast,f,V::Value) ==> broadcast(f,value(V))            # core.jl:forw called only for primitive f
+
+
+## Broadcasting in Knet:
+
+broadcasted(::Style{KnetArray},F,K) ==> F(Knet.Bcasted(K))      # karray.jl
+F(x::Knet.Bcasted) ==> MethodError                              # if F is not a broadcasting Knet primitive
+f(x::Knet.Bcasted) ==> bcasted(f, x.value)                      # defined if f is a broadcasting Knet primitive
+broadcasted(::typeof(f),x::Knet.Bcasted) ==> bcasted(f, x.value)  # ditto, in case we have f.(::Knet.Bcasted)
+bcasted(f,x...) ==> MethodError                                 # if bcasting primitive f has not been defined for x...
+bcasted(f,x...) ==> broadcasted(f,x...)                         # if bcasting primitive f has been defined for x...
+broadcasted(f,::KnetArray) ==> ccall()                          # defined if f is a broadcasting Knet primitive
+f(::KnetArray) ==> ccall()                                      # defined if f is a non-broadcasting Knet primitive
+
+Notes:
+
+1. If we do not have Style{KnetArray}, any F broadcasting over a KnetArray that is not a
+broadcasting Knet primitive will use DefaultArrayStyle and give an Array result using
+inefficient indexing.
+
+2. We give Style{KnetArray} lower precedence than Style{Value} so the AutoGrad mechanism
+runs first. If there is a mix of KnetArray and Value arguments, the Values will be stripped
+first.
+
+3. We introduce Knet.Bcasted because using AutoGrad.Bcasted results in infinite loop:
+
+broadcasted(::Style{KnetArray},F,K) ==> F(Bcasted(K))
+F(BK::Bcasted{KnetArray}) ==> forw(F,BK)
+forw(F,BK) ==> broadcast(F,K)
+broadcast(F,K) ==> broadcasted(F,K)
+broadcasted(F,K) ==> broadcasted(::Style{KnetArray},F,K)
+
+4. The reason this is not a problem in AutoGrad is that forw strips out the Value before
+passing the args back to broadcast, and second time around the BroadcastStyle will no longer
+be Style{Value}.
+
+5. The reason the Bcasted methods are defined very type specific is another potential
+infinite loop. Consider a broadcasting primitive f that has been defined for two KnetArrays,
+but not a KnetArray and some other type.
+
+broadcasted(f,K,A) ==> broadcasted(::Style{KnetArray},f,K,A)
+broadcasted(::Style{KnetArray},f,K,A) ==> f(Bcasted(K),Bcasted(A))
+f(Bcasted(K),Bcasted(A)) => broadcasted(f,K,A)
+
+Defining Bcasted methods type specific prevents the last line from triggering and we get a
+MethodError instead.
+
+
+## Function types: these bits define 64 types, most not realized.
+# 5,6 gives 4 non-primitive types
+# 1-4 gives 16 primitive types for a total of 20.
+1. Knet non-broadcasting primitive
+2. Knet broadcasting primitive
+3. AutoGrad non-broadcasting primitive
+4. AutoGrad broadcasting primitive
+5. Non-Generic
+6. Base
+
 
 
 ## Derivation with KnetArray (deprecated)

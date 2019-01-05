@@ -159,6 +159,8 @@ macro zerograd(f)                               # @zerograd sign(x::Number)
         push!(b.args, esc(:($fx = $zx)))
         (bfx,bzx) = bzcall(fx,zx)
         push!(b.args, esc(:($bfx = $bzx)))      # broadcasted(::typeof(sign), x::Value{T}) where {T <: Number} = broadcasted(sign, value(x))
+        bx = v2b(fx)                            # sign(x::Bcasted{T}) where {T<:Number}
+        push!(b.args, esc(:($bx = AutoGrad.Bcasted($bzx)))) # ... = Bcasted(broadcasted(sign, value(x)))
     end
     return b
 end
@@ -169,8 +171,6 @@ macro zerograd1(f)   # non-broadcasting version
     for fx in fsigs(f)
         zx = zcall(fx)
         push!(b.args, esc(:($fx = $zx)))
-        #(bfx,bzx) = bzcall(fx,zx)
-        #push!(b.args, esc(:($bfx = $bzx)))
     end
     return b
 end
@@ -183,6 +183,8 @@ macro zerograd2(f)   # broadcasting-only version
         #push!(b.args, esc(:($fx = $zx)))
         (bfx,bzx) = bzcall(fx,zx)
         push!(b.args, esc(:($bfx = $bzx)))
+        bx = v2b(fx)
+        push!(b.args, esc(:($bx = AutoGrad.Bcasted($bzx))))
     end
     return b
 end
@@ -294,6 +296,17 @@ function f2b(fx)
     if cx.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(cx.args, a, :(::typeof($f)))
     return bx
+end
+
+# change AutoGrad.Value -> AutoGrad.Bcasted
+function v2b(fx)
+    if fx == :(AutoGrad.Value)
+        :(AutoGrad.Bcasted)
+    elseif isa(fx, Expr)
+        Expr(fx.head, v2b.(fx.args)...)
+    else
+        fx
+    end
 end
 
 # create type signatures for f where one or more args are Value's.
