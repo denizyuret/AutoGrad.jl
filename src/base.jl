@@ -16,23 +16,38 @@ import Base.Broadcast: broadcasted
 # %   Same as rem
 # ÷   Same as div
 # &   Int function
-@primitive *(x),dy  dy
-@primitive1 broadcast(f::typeof(*),x1,x2),dy  nothing  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
-#@primitive1 broadcasted(f::typeof(*),x1,x2),dy  nothing  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
-@primitive1 *(x1::Number,x2::Number),dy                unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
-@primitive1 *(x1::Number,x2),dy                        unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
-@primitive1 *(x1,x2::Number),dy                        unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
-#@primitive1 *(x1,x2),dy  (dy*x2')  (x1'*dy) # --> linearalgebra.jl
+
 @primitive +(x),dy  dy
 @primitive +(x1,x2),dy  unbroadcast(x1,dy)  unbroadcast(x2,dy)
 @primitive -(x),dy  -dy
 @primitive -(x1,x2),dy  unbroadcast(x1,dy)  unbroadcast(x2,-dy)
-@primitive1 broadcast(f::typeof(/),x1,x2),dy  nothing  unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
-#@primitive1 broadcasted(f::typeof(/),x1,x2),dy  nothing  unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
-@primitive1 /(x1::Number,x2::Number),dy                unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
-@primitive1 /(x1::Number,x2),dy                        unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
-@primitive1 /(x1,x2::Number),dy                        unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
-# @primitive1 /(x1,x2),dy # TODO for array arguments without broadcast
+
+@primitive *(x),dy                      dy
+@primitive1 *(x1,x2),dy                 (dy*x2')  (x1'*dy)
+@primitive2 *(x1,x2),dy                 unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+@primitive *(x1::Number,x2::Number),dy  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+@primitive *(x1::Number,x2),dy          unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+@primitive *(x1,x2::Number),dy          unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+
+@primitive1 /(x1,x2),dy                 error("A/B grad undefined") error("A/B grad undefined") #TODO
+@primitive2 /(x1,x2),dy                 unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+@primitive /(x1::Number,x2::Number),dy  unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+@primitive /(x1::Number,x2),dy          unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+@primitive /(x1,x2::Number),dy          unbroadcast(x1,dy./x2)  unbroadcast(x2,-dy.*x1./abs2.(x2))
+
+@primitive1 \(x1,x2),dy                 error("A\\B grad undefined") error("A\\B grad undefined") #TODO
+@primitive2 \(x1,x2),dy                 unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
+@primitive \(x1::Number,x2::Number),dy  unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
+@primitive \(x1::Number,x2),dy          unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
+@primitive \(x1,x2::Number),dy          unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
+
+@primitive1 ^(x1,x2),dy,y                  error("A^B grad undefined") error("A^B grad undefined") #TODO: Arr^Int (Arr^Num can be imaginary)
+@primitive2 ^(x1,x2),dy,y                  unbroadcast(x1,dxndx(x1,x2,dy))  unbroadcast(x2,dy.*y.*log.(x1))
+@primitive ^(x1::Number,x2::Number),dy,y   dxndx(x1,x2,dy)  dy*y*log(x1)
+literal_pow(::typeof(^), x::Value, ::Val{N}) where N = forw(^,x,N) # x^p for any literal integer p is lowered to Base.literal_pow(^, x, Val(p))
+broadcasted(::typeof(literal_pow), ::typeof(^), x::Value, ::Val{N}) where N = forw(broadcast,^,x,N)
+dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* dy; else; dy.*x2.*x1.^(x2 .- 1); end) # optimize common cases
+
 # //  Int function
 @zerograd <(x1,x2)
 # <:  Type function
@@ -46,22 +61,6 @@ import Base.Broadcast: broadcasted
 # ≥   Same as >=
 # >>  Int function
 # >>> Int function
-@primitive1 broadcast(f::typeof(\),x1,x2),dy  nothing  unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
-#@primitive1 broadcasted(f::typeof(\),x1,x2),dy  nothing  unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
-@primitive1 \(x1::Number,x2::Number),dy                unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
-@primitive1 \(x1::Number,x2),dy                        unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
-@primitive1 \(x1,x2::Number),dy                        unbroadcast(x1,-dy.*x2./abs2.(x1))  unbroadcast(x2,dy./x1)
-# @primitive1 \(x1,x2),dy # TODO for array arguments without broadcast
-
-@primitive1 ^(x1::Number,x2::Number),dy,y  dxndx(x1,x2,dy)  dy*y*log(x1)
-@primitive1 ^(x1::Number,x2::Integer),dy,y  dxndx(x1,x2,dy)  dy*y*log(x1) # ambiguity fix
-@primitive1 broadcast(f::typeof(^),x1,x2),dy,y  nothing  unbroadcast(x1,dxndx(x1,x2,dy))  unbroadcast(x2,dy.*y.*log.(x1))
-#@primitive1 broadcasted(f::typeof(^),x1,x2),dy,y  nothing  unbroadcast(x1,dxndx(x1,x2,dy))  unbroadcast(x2,dy.*y.*log.(x1))
-dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* dy; else; dy.*x2.*x1.^(x2 .- 1); end) # optimize common cases
-
-# x^p for any literal integer p is lowered to Base.literal_pow(^, x, Val(p))
-literal_pow(::typeof(^), x::Value, ::Val{N}) where N = forw(^,x,N)
-broadcasted(::typeof(literal_pow), ::typeof(^), x::Value, ::Val{N}) where N = forw(broadcast,^,x,N)
 
 # |   Int function
 # |>  Function chaining

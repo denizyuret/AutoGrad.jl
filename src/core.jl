@@ -1,137 +1,208 @@
+## Types:
+
 abstract type Value{T} end
 
-mutable struct Param{T} <: Value{T}
+abstract type Tracked{T} <: Value{T} end
+
+mutable struct Param{T} <: Tracked{T}
     value::T
     opt
-    Param(x::T,o=nothing) where T = new{T}(x,o)
+    Param{T}(v,o) where {T} = new(v,o)
+    Param{T}(v,o) where {T<:Value} = error("Param cannot take $T as arg.")
 end
 
-mutable struct Result{T} <: Value{T}
+mutable struct Result{T} <: Tracked{T}
     value::Union{T,Nothing}     # gcnode sets this to nothing to save memory
-    func::Function
-    args::Tuple
-    kwargs::Base.Iterators.Pairs
+    func
+    args
+    kwargs
+    Result{T}(v,f,a,k) where {T} = new(v,f,a,k)
+    Result{T}(v,f,a,k) where {T<:Value} = error("Result cannot take $T as arg.")
+end
+
+struct Bcasted{T} <: Value{T}
+    value::T
+    Bcasted{T}(v) where {T} = new(v)     # Bcasted{Tracked} is the only Value{Value} allowed
+    Bcasted{T}(v) where {T<:Bcasted} = v # We do not want Bcasted{Bcasted}
 end
 
 mutable struct Node
-    Value::Value
+    Value::Tracked
     parents::Vector{Node}
     children::Vector{Node}
     outgrad
-    cdr::Node
-    Node(v::Value) = new(v, Node[], Node[], nothing) # leaves cdr unassigned
+    Node(v::Tracked) = new(v, Node[], Node[], nothing)
 end
 
-const Tape = IdDict{Value,Node}
-const NIL = Param([])
-newtape() = (n=Node(NIL); n.cdr=n; Tape(NIL => n))
-Base.iterate(t::Tape,s=(t[NIL],t[NIL])) = ((p,n) = s; p = p.cdr; p === n ? nothing : (p, (p, n)))
-Base.collect(t::Tape)=(a=Array{Node}(undef,length(t)-1); i=0; for n in t; a[i+=1]=n; end; a)
-
-grad(t,x)=nothing
-grad(t::Tape,x::Value)=(n=get(t,x,nothing); n===nothing ? n : n.outgrad)
-
-value(x)=x
-value(x::Value)=x.value
-value(x::Tape)=first(x).Value.value
-default_gc(n::Node) = (n.outgrad=nothing; n.Value.value=nothing)
-gcnode = default_gc
-set_gc_function(f::Function) = (global gcnode = f)
-
-_tapes = Tape[]
+mutable struct Tape
+    dict::IdDict{Tracked,Node}
+    list::Vector{Node}
+    Tape() = new(IdDict{Tracked,Node}(), Vector{Node}())
+end
 
 abstract type Arg{N} end
 
+
+## Broadcasting: non-primitive fns broadcasted over Value args call themselves with Bcasted args
+
+import .Broadcast: BroadcastStyle, Style, broadcastable, broadcasted
+BroadcastStyle(::Type{<:Value}) = Style{Value}()
+BroadcastStyle(s::Style{Value}, ::BroadcastStyle) = s
+broadcastable(x::Value) = x     # This is necessary, default is collect(x) which loses Value
+Bcasted(v::T) where {T} = Bcasted{T}(v)
+broadcasted(::Style{Value}, f, args...) = recording() ? f(Bcasted.(args)...).value : broadcasted(f, value.(args)...)
+
+
+## Recording: primitive fns with Value args call forw
+
+const _tapes = Tape[]
+recording() = !isempty(_tapes)
+
+# forw() is called with primitive functions that have Tracked or Bcasted args
+function forw(f, args...; kwargs...)
+    @timer "forwargs"        ((f, nobcast, novalue) = forwargs(f, args))
+    @timer ftimer(f,novalue) (v = f(novalue...; kwargs...))
+    if recording()
+        if novalue !== nobcast  # there are tracked args
+            @timer "record"  (v = Result(v, f, nobcast, kwargs))
+        end
+        if nobcast !== args     # there are bcasted args
+            @timer "bcasted" (v = Bcasted(v))
+        end
+    end
+    return v
+end
+
+# Return two arg lists, one stripped of Bcasted and one stripped of all Values.
+# Do not allocate unless necessary.
+function forwargs(f, args)
+    nobcast = novalue = args
+    @inbounds for i in 1:length(args)
+        if isa(nobcast[i], Bcasted)
+            if nobcast === args; nobcast = Any[args...]; end
+            if novalue === args; novalue = nobcast; end
+            nobcast[i] = nobcast[i].value
+            @assert !isa(nobcast[i], Bcasted) "Illegal value recursion: $(typeof(args[i]))"
+        end
+        if isa(novalue[i], Value)
+            if novalue === args; novalue = Any[args...]
+            elseif novalue === nobcast; novalue = copy(nobcast); end
+            novalue[i] = value(novalue[i])
+        end
+    end
+    @assert novalue !== args "forw called without Value args"
+    if nobcast !== args
+        @assert recording() "Bcasted args out of recording context"
+        if f !== broadcast
+            pushfirst!(nobcast, f)
+            if novalue !== nobcast; pushfirst!(novalue, f); end
+            f = broadcast
+        end
+    end
+    return (f, nobcast, novalue)
+end
+
+function Result(v::T, f, args, kwargs) where {T}
+    record!(t::Tape, v::Tracked) = (n = get(t.dict, v, nothing); n === nothing ? record!(t, Node(v)) : n)
+    record!(t::Tape, n::Node) = (t.dict[n.Value] = n; pushfirst!(t.list, n); n)
+    result = Result{T}(v, f, args, kwargs)
+    narg = length(args)
+    for tape in _tapes
+        node = Node(result)
+        node.parents = Array{Node}(undef, narg)
+        @inbounds for i = 1:narg
+            if isa(args[i], Tracked)
+                node.parents[i] = record!(tape, args[i])
+                push!(node.parents[i].children, node)
+            end
+        end
+        record!(tape, node)
+    end
+    return result
+end
+
+Result(v::T, f, args, kwargs) where {T<:Tracked} = v  # Issue #106: no need to record twice
+
+
+## Differentiate: call f recording primitives on tape, then call back on each primitive
+
 function differentiate(f, x...; o...)
-    global _tapes
+    duplicate(x)=(isa(x,Value) ? identity(x) : x)
     if !isempty(_tapes)       # PR#75: to avoid tape confusion
         x = map(duplicate,x)  # duplicate tracked function arguments.
         o = isempty(o) ? () : pairs(map(duplicate,values(o)))
     end
-    tape = newtape()
+    tape = Tape()
     push!(_tapes, tape)
     result = nothing
     try
         result = f(x...; o...)
         if isa(result,Param); result = identity(result); end # fix #101.1: turn Param->Result
     catch e
-        Base.show_backtrace(stdout, Base.catch_backtrace())
+        Base.show_backtrace(stdout, Base.catch_backtrace()); println()
         pop!(_tapes); throw(e)
     end
-    if pop!(_tapes) !== tape; error("Tape stack error"); end
+    tape1 = pop!(_tapes)
+    @assert tape1 === tape "Tape stack error"
     if !isa(result,Result); return result; end
-    if !isa(value(result), Number); error("Only scalar valued functions supported."); end
-    n1 = first(tape)
-    if result !== n1.Value; error("Result not on tape"); end
-    n1.outgrad = one(value(result))
-    tm(r::Result,i::Int)=(r.func==broadcast ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]")
-    for n in tape
+    @assert isa(result.value, Number) "Only scalar valued functions supported."
+    resultnode = findresult(tape, result)
+    resultnode.outgrad = one(result.value)
+    for n in tape.list
         if n.outgrad == nothing; continue; end
         r = n.Value
         @inbounds for i in 1:length(n.parents)
             if !isassigned(n.parents, i); continue; end
             p = n.parents[i]
-            @timer tm(r,i) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
+            @timer btimer(r,i) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
             @timer "sum_outgrads" (p.outgrad = sum_outgrads(p.outgrad, g))
         end
-        if isempty(_tapes) && isa(r,Result) && n !== n1; gcnode(n); end  # save memory
+        if isempty(_tapes) && isa(r,Result) && n !== resultnode; gcnode(n); end  # save memory
     end
     return tape
 end
+
+# back is defined by the @primitive macro
+back(x...; o...) = throw(MethodError(back,x)) # fix #101.2: error instead of nothing
+
+# Used by @timer
+btimer(r::Result,i::Int)=(r.func===broadcast ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]")
+ftimer(f::Function,a::Array{Any})=(f===broadcast ? "$(a[1])." : "$f")
+
+# 99% result will be on tape.list[1] (last thing recorded), this handles the other 1% where
+# the loss fn computes stuff recorded on tape after result but returns result at the end.
+function findresult(tape::Tape, result::Result)
+    if tape.list[1].Value === result; return tape.list[1]; end
+    @inbounds for i in 2:length(tape.list)
+        if tape.list[i].Value === result
+            tape.list = tape.list[i:end]
+            break
+        end
+    end
+    @assert tape.list[1].Value === result "result not found on tape"
+    return tape.list[1]
+end
+
+## Exported functions:
+
+Param(v::T,o=nothing) where {T} = Param{T}(v,o)
 
 # This allows argument expressions like @diff sin(sqrt(x)) which fail with differentiate
 # because arguments get evaluated before the tape gets created.
 macro diff(fx); :(differentiate(()->$(esc(fx)))); end
 
-duplicate(x)=(isa(x,Value) ? identity(x) : x)
+# value() should give a regular (non-Value) result regardless of recursion
+value(x) = x
+value(x::Value) = x.value
+value(x::Value{<:Value}) = error("Illegal type recursion $(typeof(x))")
+value(x::Bcasted{<:Tracked}) = value(x.value) # Only type of Value recursion allowed
+value(t::Tape)=(isempty(t.list) ? nothing : first(t.list).Value.value)
 
-back(x...; o...) = throw(ArgumentError("AutoGrad does not yet support back"*string(typeof.(x)))) # fix #101.2: error instead of nothing
+# New style grad
+grad(t,x)=nothing
+grad(t::Tape,x::Tracked)=(n=get(t.dict,x,nothing); n===nothing ? n : n.outgrad)
 
-function forw(f, args...; kwargs...)
-    argvals = value.(args)
-    tm(f::Function,argvals::Tuple)=(f==broadcast ? "$(argvals[1])." : "$f")
-    @timer tm(f,argvals) (result = f(argvals...; kwargs...))
-    if isempty(_tapes); return result; end
-    @timer "record" begin
-        result = Result{typeof(result)}(result, f, args, kwargs)
-        for tape in _tapes
-            record(result, tape)
-        end
-    end
-    return result
-end
-
-function record(r::Result,t::Tape)
-    nargs = length(r.args)
-    n = Node(r)
-    n.parents = Array{Node}(undef, nargs)
-    @inbounds for argnum = 1:nargs
-        arg = r.args[argnum]
-        if !isa(arg,Value); continue; end	
-        p = cons!(arg, t)
-        n.parents[argnum] = p
-        push!(p.children, n)
-    end
-    cons!(n, t)
-end
-
-function cons!(v::Value, t::Tape)
-    n = get(t, v, nothing)
-    if n === nothing
-        n = cons!(Node(v), t)
-    end
-    return n
-end
-
-function cons!(n::Node, t::Tape)
-    m = t[NIL]
-    if isempty(m.parents); push!(m.parents, n); end # used by last(tape)
-    n.cdr = m.cdr
-    m.cdr = t[n.Value] = n
-end
-
-Base.last(t::Tape)=t[NIL].parents[1] # cons! makes sure this works.
-
+# Old style grad and gradloss
 function grad(fun::Function, argnum::Int=1, loss=false)
     function gradfun(args...; kwargs...)
         arg_wrt = args[argnum]
@@ -139,10 +210,15 @@ function grad(fun::Function, argnum::Int=1, loss=false)
         args = Any[args...]
         args[argnum] = arg_wrt
         result = differentiate(fun, args...; kwargs...)
-        xgrad = isa(result, Tape) ? last(result).outgrad : nothing
+        xgrad = isa(result, Tape) ? last(result.list).outgrad : nothing
         return loss ? (xgrad,value(result)) : xgrad
     end
     return gradfun
 end
 
 gradloss(f,a=1)=grad(f,a,true)
+
+# Override gcnode for memory cleanup during back pass
+default_gc(n::Node) = nothing # (n.outgrad=nothing; n.Value.value=nothing)
+gcnode = default_gc
+set_gc_function(f::Function) = (global gcnode = f)

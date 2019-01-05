@@ -1,19 +1,10 @@
-### @primitive and @zerograd macros:
-
-# I would like to make these type signatures as specific as possible.
-# The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
-# f{T<:Number,A<:AbstractArray{T}}(x::Value{A})
-# f{T<:Number,A<:AbstractArray}(x::Value{A{T}})
-# 20180725: TODO: This may have changed in Julia 0.7
-
 """
 
     @primitive  fx g1 g2...
 
-Define a new primitive operation for AutoGrad and (optionally) specify
-its gradients.  Non-differentiable functions such as `sign`, and
-non-numeric functions such as `size` should be defined using the
-@zerograd macro instead.
+Define a new primitive operation for AutoGrad and (optionally) specify its gradients.
+Non-differentiable functions such as `sign`, and non-numeric functions such as `size` should
+be defined using the @zerograd macro instead.
 
 # Examples
 
@@ -23,21 +14,19 @@ non-numeric functions such as `size` should be defined using the
     @primitive sin(x::Number),dy  (dy.*cos(x))
     @primitive hypot(x1,x2),dy,y  (dy.*x1./y)  (dy.*x2./y)
 
-The first example shows that `fx` is a typed method declaration.
-Julia supports multiple dispatch, i.e. a single function can have
-multiple methods with different arg types.  AutoGrad takes advantage
-of this and supports multiple dispatch for primitives and gradients.
+The first example shows that `fx` is a typed method declaration.  Julia supports multiple
+dispatch, i.e. a single function can have multiple methods with different arg types.
+AutoGrad takes advantage of this and supports multiple dispatch for primitives and
+gradients.
 
-The second example specifies variable names for the output gradient
-`dy` and the output `y` after the method declaration which can be used
-in gradient expressions.  Untyped, ellipsis and keyword arguments are
-ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
+The second example specifies variable names for the output gradient `dy` and the output `y`
+after the method declaration which can be used in gradient expressions.  Untyped, ellipsis
+and keyword arguments are ok as in `f(a::Int,b,c...;d=1)`.  Parametric methods such as
 `f(x::T) where {T<:Number}` cannot be used.
 
-The method declaration can optionally be followed by gradient
-expressions.  The third and fourth examples show how gradients can be
-specified.  Note that the parameters, the return variable and the
-output gradient of the original function can be used in the gradient
+The method declaration can optionally be followed by gradient expressions.  The third and
+fourth examples show how gradients can be specified.  Note that the parameters, the return
+variable and the output gradient of the original function can be used in the gradient
 expressions.
 
 # Under the hood
@@ -46,22 +35,20 @@ The @primitive macro turns the first example into:
 
     sin(x::Value{T}) where {T<:Number} = forw(sin, x)
 
-This will cause calls to `sin` with a boxed argument
-(`Value{T<:Number}`) to be recorded.  The recorded operations are used
-by AutoGrad to construct a dynamic computational graph.  With multiple
-arguments things are a bit more complicated.  Here is what happens
-with the second example:
+This will cause calls to `sin` with a boxed argument (`Value{T<:Number}`) to be recorded.
+The recorded operations are used by AutoGrad to construct a dynamic computational graph.
+With multiple arguments things are a bit more complicated.  Here is what happens with the
+second example:
 
-    hypot(x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = forw(hypot, x1, x2)
-    hypot(x1::S, x2::Value{T})      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
-    hypot(x1::Value{S}, x2::T)      where {S<:Any,T<:Any} = forw(hypot, x1, x2)
+    hypot(x1::Value{S}, x2::Value{T}) where {S,T} = forw(hypot, x1, x2)
+    hypot(x1::S, x2::Value{T})        where {S,T} = forw(hypot, x1, x2)
+    hypot(x1::Value{S}, x2::T)        where {S,T} = forw(hypot, x1, x2)
 
-We want the forw method to be called if any one of the arguments
-is a boxed `Value`.  There is no easy way to specify this in Julia, so
-the macro generates all 2^N-1 boxed/unboxed argument combinations.
+We want the forw method to be called if any one of the arguments is a boxed `Value`.  There
+is no easy way to specify this in Julia, so the macro generates all 2^N-1 boxed/unboxed
+argument combinations.
 
-In AutoGrad, gradients are defined using gradient methods that have
-the following pattern:
+In AutoGrad, gradients are defined using gradient methods that have the following pattern:
 
     back(f,Arg{i},dy,y,x...) => dx[i]
 
@@ -69,63 +56,80 @@ For the third example here is the generated gradient method:
 
     back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number} = dy .* cos(x)
 
-For the last example a different gradient method is generated for each
-argument:
+For the last example a different gradient method is generated for each argument:
 
-    back(::typeof(hypot), ::Type{Arg{1}}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x1) ./ y
-    back(::typeof(hypot), ::Type{Arg{2}}, dy, y, x1::Value{S}, x2::Value{T}) where {S<:Any,T<:Any} = (dy .* x2) ./ y
+    back(::typeof(hypot), ::Type{Arg{1}}, dy, y, x1::Value{S}, x2::Value{T}) where {S,T} = (dy .* x1) ./ y
+    back(::typeof(hypot), ::Type{Arg{2}}, dy, y, x1::Value{S}, x2::Value{T}) where {S,T} = (dy .* x2) ./ y
 
-In fact @primitive generates four more definitions for the other
-boxed/unboxed argument combinations.
+In fact @primitive generates four more definitions for the other boxed/unboxed argument
+combinations.
 
 # Broadcasting
 
-Broadcasting is handled by extra `forw` and `back` methods. In `broadcast.jl` we define:
+Broadcasting is handled by extra `forw` and `back` methods. `@primitive` defines the following 
+so that broadcasting of a primitive function with a boxed value triggers `forw` and `back`.
 
-    broadcasted(f, x::Value) = forw(broadcast,f,x)
-
-and similar methods that match any function `f`, so that when a boxed
-value is in a broadcasting operation `forw` is called. The
-`@primitive` macro defines the `back` method for broadcasting of a
-particular primitive:
-
+    broadcasted(::typeof(sin), x::Value{T}) where {T<:Number} = forw(broadcast,sin,x)
     back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number} = dy .* cos(x)
 
-If you do not want the back method for broadcasting, you can use the
-`@primitive1` macro which omits this final definition.
+If you do not want the broadcasting methods, you can use the `@primitive1` macro. If you
+only want the broadcasting methods use `@primitive2`. As a motivating example, here is how
+`*` is defined for non-scalars:
 
+    @primitive1 *(x1,x2),dy  (dy*x2')  (x1'*dy)
+    @primitive2 *(x1,x2),dy  unbroadcast(x1,dy.*x2)  unbroadcast(x2,x1.*dy)
+
+Regular `*` is matrix multiplication, broadcasted `*` is elementwise multiplication and the
+two have different gradients as defined above. `unbroadcast(a,b)` reduces `b` to the same
+shape as `a` by performing the necessary summations.
 """
-macro primitive(f,g...)
+macro primitive(f,g...)                         # @primitive sin(x::Number),dy,y  (dy.*cos.(x))
     (f,dy,y) = fparse(f)
     b = Expr(:block)
-    rx = fcall(f)             # e.g. forw(sin,x)
-    for fx in fsigs(f)
-        push!(b.args, :($fx = $rx)) # e.g. sin(x::Value{T}) where {T<:Number} = forw(sin,x)
+    forwcall = fcall(f)                	    	# forw(sin,x)
+    forwcast = fcall(f,broadcast=true)          # forw(broadcast,sin,x)
+    for fx in fsigs(f)                          # sin(x::Value{T}) where {T<:Number}
+        push!(b.args, :($fx = $forwcall))
+        bfx = f2b(fx)                           # broadcasted(::typeof(sin), x::Value{T}) where {T<:Number}
+        push!(b.args, :($bfx = $forwcast))
         for i=1:length(g)
-            gx = gsig(fx,dy,y,i)
-            push!(b.args, :($gx = $(g[i]))) # e.g. back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number} = (dy.*cos.(x))
-            bx = bsig(fx,dy,y,i)
-            push!(b.args, :($bx = $(g[i]))) # e.g. back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value) = (dy.*cos.(x))
+            gx = gsig(fx,dy,y,i)                # back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number}
+            push!(b.args, :($gx = $(g[i])))     # '' = (dy.*cos.(x))
+            bgx = bsig(fx,dy,y,i)               # back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number}
+            push!(b.args, :($bgx = $(g[i])))
         end
     end
     return esc(b)
 end
 
-# Do we need the version without broadcasting?
-macro primitive1(f,g...)
+macro primitive1(f,g...)        # non-broadcasting version
     (f,dy,y) = fparse(f)
     b = Expr(:block)
-    rx = fcall(f)
+    forwcall = fcall(f)
     for fx in fsigs(f)
-        push!(b.args, :($fx = $rx)) # e.g. sin(x::Value{T}) where {T<:Number} = sin_r(x)
+        push!(b.args, :($fx = $forwcall))
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)
-            push!(b.args, :($gx = $(g[i]))) # e.g. sin(::Type{Grad{1}}, dy, y, x::Value{T}) where {T<:Number} = (dy.*cos.(x))
+            push!(b.args, :($gx = $(g[i])))
         end
     end
     return esc(b)
 end
 
+macro primitive2(f,g...)        # broadcasting-only version
+    (f,dy,y) = fparse(f) 
+    b = Expr(:block) 
+    forwcast = fcall(f,broadcast=true) 
+    for fx in fsigs(f) 
+        bfx = f2b(fx) 
+        push!(b.args, :($bfx = $forwcast)) 
+        for i=1:length(g) 
+            bgx = bsig(fx,dy,y,i)
+            push!(b.args, :($bgx = $(g[i])))
+        end
+    end
+    return esc(b)
+end
 
 """
 
@@ -137,38 +141,50 @@ Define `f` as an AutoGrad primitive operation with zero gradient.
 
     @zerograd  floor(x::Float32)
 
-`@zerograd` allows `f` to handle boxed `Value` inputs by unboxing them
-like a `@primitive`, but unlike `@primitive` it does not record its
-actions or return a boxed `Value` result.  Some functions, like
-`sign()`, have zero gradient.  Others, like `length()` have discrete
-or constant outputs.  These need to handle `Value` inputs, but do not
-need to record anything and can return regular values.  Their output
-can be treated like a constant in the program.  Use the `@zerograd`
-macro for those.  Use the `@zerograd1` variant if you don't want to
-define the broadcasting version. Note that `kwargs` are NOT unboxed.
+`@zerograd` allows `f` to handle boxed `Value` inputs by unboxing them like a `@primitive`,
+but unlike `@primitive` it does not record its actions or return a boxed `Value` result.
+Some functions, like `sign()`, have zero gradient.  Others, like `length()` have discrete or
+constant outputs.  These need to handle `Value` inputs, but do not need to record anything
+and can return regular values.  Their output can be treated like a constant in the program.
+Use the `@zerograd` macro for those.  Use the `@zerograd1` variant if you don't want to
+define the broadcasting version and `@zerograd2` if you only want to define the broadcasting
+version. Note that `kwargs` are NOT unboxed.
 
 """
-macro zerograd(f)
-    f.head == :(::) && (f=f.args[1])
-    f.head == :call || error("'$f' not a method signature")
+macro zerograd(f)                               # @zerograd sign(x::Number)
+    (f,dy,y) = fparse(f)
     b = Expr(:block)
-    for fx in fsigs(f)          # e.g. sign(x::Value{T}) where {T<:Number}
-        zx = zcall(fx)          # e.g. sign(value(x))
+    for fx in fsigs(f)                          # sign(x::Value{T}) where {T<:Number}
+        zx = zcall(fx)                          # sign(value(x))
         push!(b.args, esc(:($fx = $zx)))
         (bfx,bzx) = bzcall(fx,zx)
-        push!(b.args, esc(:($bfx = $bzx))) # e.g. broadcast(::typeof(sign), x::Value{T}) where T <: Any) = broadcast(sign, value(x))
+        push!(b.args, esc(:($bfx = $bzx)))      # broadcasted(::typeof(sign), x::Value{T}) where {T <: Number} = broadcasted(sign, value(x))
+        bx = v2b(fx)                            # sign(x::Bcasted{T}) where {T<:Number}
+        push!(b.args, esc(:($bx = AutoGrad.Bcasted($bzx)))) # ... = Bcasted(broadcasted(sign, value(x)))
     end
     return b
 end
 
-# Do we need the version without broadcasting?
-macro zerograd1(f)
-    f.head == :(::) && (f=f.args[1])
-    f.head == :call || error("'$f' not a method signature")
+macro zerograd1(f)   # non-broadcasting version
+    (f,dy,y) = fparse(f)
     b = Expr(:block)
-    for fx in fsigs(f)          # e.g. sign(x::Value{T}) where {T<:Number}
-        zx = zcall(fx)          # e.g. sign(value(x))
+    for fx in fsigs(f)
+        zx = zcall(fx)
         push!(b.args, esc(:($fx = $zx)))
+    end
+    return b
+end
+
+macro zerograd2(f)   # broadcasting-only version
+    (f,dy,y) = fparse(f)
+    b = Expr(:block)
+    for fx in fsigs(f)
+        zx = zcall(fx)
+        #push!(b.args, esc(:($fx = $zx)))
+        (bfx,bzx) = bzcall(fx,zx)
+        push!(b.args, esc(:($bfx = $bzx)))
+        bx = v2b(fx)
+        push!(b.args, esc(:($bx = AutoGrad.Bcasted($bzx))))
     end
     return b
 end
@@ -191,6 +207,31 @@ function fparse(f)
     isa(y,Symbol) || error("Return variable '$y' not a symbol")
     return (f,dy,y)
 end    
+
+function fcall(f; broadcast = false)
+    rx = notypes(f)
+    fn = rx.args[1]
+    rx.args[1]=:(AutoGrad.forw)
+    # Need to fix kwargs
+    r2 = rx.args[2]
+    if isa(r2,Expr) && r2.head == :parameters
+        for i in 1:length(r2.args)
+            k = r2.args[i]
+            if isa(k,Symbol); r2.args[i] = Expr(:kw,k,k)
+            elseif !isa(k,Expr); error("Bad kwarg '$k'")
+            elseif k.head == :(...); continue
+            elseif k.head != :kw; error("Bad kwarg '$k'")
+            elseif !isa(k.args[1],Symbol); error("Bad kwarg '$k'")
+            else; k.args[2]=k.args[1]; end
+        end
+        insert!(rx.args,3,fn)
+        if broadcast; insert!(rx.args,3,:broadcast); end
+    else
+        insert!(rx.args,2,fn)
+        if broadcast; insert!(rx.args,2,:broadcast); end
+    end
+    return rx
+end
 
 # Input is of the form: (where (call f (:: x (curly (. AutoGrad Value) T))) (<: T Int))
 function zcall(f)
@@ -227,32 +268,9 @@ function bzcall(fx,zx)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
     insert!(g.args, a, :(::typeof($fname)))
     bzx = copy(zx)
-    bzx.args[1] = :broadcasted
+    bzx.args[1] = :(Base.Broadcast.broadcasted)
     insert!(bzx.args, a, fname)
     return (bfx,bzx)
-end
-
-function fcall(f)
-    rx = notypes(f)
-    fn = rx.args[1]
-    rx.args[1]=:(AutoGrad.forw)
-    # Need to fix kwargs
-    r2 = rx.args[2]
-    if isa(r2,Expr) && r2.head == :parameters
-        for i in 1:length(r2.args)
-            k = r2.args[i]
-            if isa(k,Symbol); r2.args[i] = Expr(:kw,k,k)
-            elseif !isa(k,Expr); error("Bad kwarg '$k'")
-            elseif k.head == :(...); continue
-            elseif k.head != :kw; error("Bad kwarg '$k'")
-            elseif !isa(k.args[1],Symbol); error("Bad kwarg '$k'")
-            else; k.args[2]=k.args[1]; end
-        end
-        insert!(rx.args,3,fn)
-    else
-        insert!(rx.args,2,fn)
-    end
-    return rx
 end
 
 # eliminate type declarations from a function call
@@ -268,17 +286,45 @@ function notypes(ex)
     end
 end
 
+# input: (where (call f (:: x (curly Value T))) (<: T Int))
+# output: (where (call broadcasted (:: (call typeof f)) (:: x (curly Value T))) (<: T Int))
+function f2b(fx)
+    bx = copy(fx)               # where...
+    cx = bx.args[1]             # call...
+    f = cx.args[1]              # func
+    cx.args[1] = :(Base.Broadcast.broadcasted)
+    if cx.args[2].head == :parameters; a = 3; else; a = 2; end
+    insert!(cx.args, a, :(::typeof($f)))
+    return bx
+end
+
+# change AutoGrad.Value -> AutoGrad.Bcasted
+function v2b(fx)
+    if fx == :(AutoGrad.Value)
+        :(AutoGrad.Bcasted)
+    elseif isa(fx, Expr)
+        Expr(fx.head, v2b.(fx.args)...)
+    else
+        fx
+    end
+end
+
 # create type signatures for f where one or more args are Value's.
 # With multiple args add Value to each subset combinatorially.
 # The input has the form (call f (:: x Int))
 # The 0.6 output was     (call (curly f (<: T Int)) (:: x (curly Value T)))
 # The 0.7 output is      (where (call f (:: x (curly Value T))) (<: T Int))
-function fsigs(f)
-    f1 = copy(f)
-    a1 = Expr(:where,f1)
+function fsigs(f)               # sin(x::Number) => sin(x::Value{T}) where {T <: Number}
+    f1 = copy(f)                # sin(x::Number)
+    fname = f1.args[1]
+    if isa(fname, Symbol) && isdefined(@__MODULE__, fname) # @__MODULE__ here resolves to AutoGrad when compiling Knet
+        m = which(@__MODULE__, fname)                      # which does not work for symbols undefined in AutoGrad
+        f1.args[1] = :(($m).$fname) # Base.sin
+    end
+    a1 = Expr(:where,f1)        # sin(x::Number) where {}
     nargs = 0
     for i=2:length(f1.args)
-        ai = f1.args[i]
+        ai = f1.args[i]         # x::Number
         if isa(ai,Symbol)
             nargs+=1
             ti = gensym()
@@ -299,11 +345,11 @@ function fsigs(f)
     end
     flist = []
     for nodes=0:(1<<nargs-2)
-        fn = copy(a1)
-        f1 = fn.args[1]
+        fn = copy(a1)           # sin(x::T) where {T <: Number}
+        f1 = fn.args[1]         # sin(x::T)
         iargs = 0
         for i=2:length(f1.args)
-            ai = f1.args[i]
+            ai = f1.args[i]     # (x::T)
             in(ai.head, (:parameters, :(...))) && continue
             ai.head == :(::) || error("Bad arg '$ai'")
             if nodes & (1<<iargs) == 0
@@ -311,7 +357,7 @@ function fsigs(f)
             end
             iargs += 1
         end
-        push!(flist, fn)
+        push!(flist, fn)        # sin(x::Value{T}) where {T <: Number}
     end
     return flist
 end
@@ -347,4 +393,11 @@ function bsig(f,dy,y,i)
     insert!(g.args, a+4, :(::typeof($fname)))
     return fcopy
 end
+
+
+# I would like to make these type signatures as specific as possible.
+# The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
+# f{T<:Number,A<:AbstractArray{T}}(x::Value{A})
+# f{T<:Number,A<:AbstractArray}(x::Value{A{T}})
+# 20180725: TODO: This may have changed in Julia 0.7
 

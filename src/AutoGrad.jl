@@ -1,7 +1,7 @@
 module AutoGrad
 export Param, params, grad, value, @diff
 export gradloss, getval
-export @primitive, @zerograd, @primitive1, @zerograd1
+export @primitive, @zerograd, @primitive1, @zerograd1, @primitive2, @zerograd2
 
 # Set ENV["AUTOGRAD_TIMER"]="true" and Pkg.build("AutoGrad") if you want profiling information in AutoGrad.to
 using TimerOutputs, Libdl
@@ -53,11 +53,11 @@ AutoGrad, Param, params, :(@diff), grad, value, gradloss
 
 using LinearAlgebra, Statistics, SpecialFunctions
 include("core.jl")
-include("broadcast.jl")
 include("macros.jl")
 include("getindex.jl")
 include("iterate.jl")
 include("sum_outgrads.jl")
+include("unbroadcast.jl")
 include("base.jl")
 include("math.jl")
 include("statistics.jl")
