@@ -69,8 +69,8 @@ combinations.
 Broadcasting is handled by extra `forw` and `back` methods. `@primitive` defines the following 
 so that broadcasting of a primitive function with a boxed value triggers `forw` and `back`.
 
-    broadcasted(::typeof(sin), x::Value{T}) where {T<:Number} = forw(broadcast,sin,x)
-    back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number} = dy .* cos(x)
+    broadcasted(::typeof(sin), x::Value{T}) where {T<:Number} = forw(broadcasted,sin,x)
+    back(::typeof(broadcasted), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number} = dy .* cos(x)
 
 If you do not want the broadcasting methods, you can use the `@primitive1` macro. If you
 only want the broadcasting methods use `@primitive2`. As a motivating example, here is how
@@ -87,7 +87,7 @@ macro primitive(f,g...)                         # @primitive sin(x::Number),dy,y
     (f,dy,y) = fparse(f)
     b = Expr(:block)
     forwcall = fcall(f)                	    	# forw(sin,x)
-    forwcast = fcall(f,broadcast=true)          # forw(broadcast,sin,x)
+    forwcast = fcall(f,broadcasted=true)        # forw(broadcasted,sin,x)
     for fx in fsigs(f)                          # sin(x::Value{T}) where {T<:Number}
         push!(b.args, :($fx = $forwcall))
         bfx = f2b(fx)                           # broadcasted(::typeof(sin), x::Value{T}) where {T<:Number}
@@ -95,7 +95,7 @@ macro primitive(f,g...)                         # @primitive sin(x::Number),dy,y
         for i=1:length(g)
             gx = gsig(fx,dy,y,i)                # back(::typeof(sin), ::Type{Arg{1}}, dy, y, x::Value{T}) where {T<:Number}
             push!(b.args, :($gx = $(g[i])))     # '' = (dy.*cos.(x))
-            bgx = bsig(fx,dy,y,i)               # back(::typeof(broadcast), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number}
+            bgx = bsig(fx,dy,y,i)               # back(::typeof(broadcasted), ::Type{Arg{2}}, dy, y, ::typeof(sin), x::Value{T}) where {T<:Number}
             push!(b.args, :($bgx = $(g[i])))
         end
     end
@@ -119,7 +119,7 @@ end
 macro primitive2(f,g...)        # broadcasting-only version
     (f,dy,y) = fparse(f) 
     b = Expr(:block) 
-    forwcast = fcall(f,broadcast=true) 
+    forwcast = fcall(f,broadcasted=true) 
     for fx in fsigs(f) 
         bfx = f2b(fx) 
         push!(b.args, :($bfx = $forwcast)) 
@@ -208,7 +208,7 @@ function fparse(f)
     return (f,dy,y)
 end    
 
-function fcall(f; broadcast = false)
+function fcall(f; broadcasted = false)
     rx = notypes(f)
     fn = rx.args[1]
     rx.args[1]=:(AutoGrad.forw)
@@ -224,12 +224,12 @@ function fcall(f; broadcast = false)
             elseif !isa(k.args[1],Symbol); error("Bad kwarg '$k'")
             else; k.args[2]=k.args[1]; end
         end
-        insert!(rx.args,3,fn)
-        if broadcast; insert!(rx.args,3,:broadcast); end
+        a = 3
     else
-        insert!(rx.args,2,fn)
-        if broadcast; insert!(rx.args,2,:broadcast); end
+        a = 2
     end
+    insert!(rx.args,a,fn)
+    if broadcasted; insert!(rx.args,a,:(Base.Broadcast.broadcasted)); end
     return rx
 end
 
@@ -379,14 +379,14 @@ end
 
 # This is for the broadcast version
 # Input: (where (call f (:: x (curly Value T))) (<: T Int))
-# Output: (where (call broadcast :(::Type{Grad{2}}) dy y :(::typeof(f)) :(x::Value{T})) (<: T Int))
+# Output: (where (call broadcasted :(::Type{Grad{2}}) dy y :(::typeof(f)) :(x::Value{T})) (<: T Int))
 function bsig(f,dy,y,i)
     fcopy = copy(f)
     g = fcopy.args[1]
     fname = g.args[1]
     g.args[1] = :(AutoGrad.back)
     if g.args[2].head == :parameters; a = 3; else; a = 2; end
-    insert!(g.args, a, :(::typeof(broadcast)))
+    insert!(g.args, a, :(::typeof(Base.Broadcast.broadcasted)))
     insert!(g.args, a+1, :(::Type{AutoGrad.Arg{$(i+1)}}))
     insert!(g.args, a+2, dy)
     insert!(g.args, a+3, y)

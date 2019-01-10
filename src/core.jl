@@ -45,12 +45,14 @@ abstract type Arg{N} end
 
 ## Broadcasting: non-primitive fns broadcasted over Value args call themselves with Bcasted args
 
-import .Broadcast: BroadcastStyle, Style, broadcastable, broadcasted
+import .Broadcast: BroadcastStyle, broadcastable, broadcasted
+using .Broadcast: Style, Broadcasted
 BroadcastStyle(::Type{<:Value}) = Style{Value}()
 BroadcastStyle(s::Style{Value}, ::BroadcastStyle) = s
 broadcastable(x::Value) = x     # This is necessary, default is collect(x) which loses Value
 Bcasted(v::T) where {T} = Bcasted{T}(v)
 broadcasted(::Style{Value}, f, args...) = recording() ? f(Bcasted.(args)...).value : broadcasted(f, value.(args)...)
+Base.copyto!(x::Value,y) = copyto!(x.value,y) # This is used by p .-= g when p is Param.
 
 
 ## Recording: primitive fns with Value args call forw
@@ -63,6 +65,9 @@ function forw(f, args...; kwargs...)
     @timer "forwargs"        ((f, nobcast, novalue) = forwargs(f, args))
     @timer ftimer(f,novalue) (v = f(novalue...; kwargs...))
     if recording()
+        if v isa Broadcasted
+            @timer "unfuse"  (v = copy(v))
+        end
         if novalue !== nobcast  # there are tracked args
             @timer "record"  (v = Result(v, f, nobcast, kwargs))
         end
@@ -93,10 +98,10 @@ function forwargs(f, args)
     @assert novalue !== args "forw called without Value args"
     if nobcast !== args
         @assert recording() "Bcasted args out of recording context"
-        if f !== broadcast
+        if f !== broadcasted
             pushfirst!(nobcast, f)
             if novalue !== nobcast; pushfirst!(novalue, f); end
-            f = broadcast
+            f = broadcasted
         end
     end
     return (f, nobcast, novalue)
@@ -166,8 +171,8 @@ end
 back(x...; o...) = throw(MethodError(back,x)) # fix #101.2: error instead of nothing
 
 # Used by @timer
-btimer(r::Result,i::Int)=(r.func===broadcast ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]")
-ftimer(f::Function,a::Array{Any})=(f===broadcast ? "$(a[1])." : "$f")
+btimer(r::Result,i::Int)=(r.func===broadcasted ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]")
+ftimer(f::Function,a::Array{Any})=(f===broadcasted ? "$(a[1])." : "$f")
 
 # 99% result will be on tape.list[1] (last thing recorded), this handles the other 1% where
 # the loss fn computes stuff recorded on tape after result but returns result at the end.

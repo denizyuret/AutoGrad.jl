@@ -45,7 +45,7 @@ import Base.Broadcast: broadcasted
 @primitive2 ^(x1,x2),dy,y                  unbroadcast(x1,dxndx(x1,x2,dy))  unbroadcast(x2,dy.*y.*log.(x1))
 @primitive ^(x1::Number,x2::Number),dy,y   dxndx(x1,x2,dy)  dy*y*log(x1)
 literal_pow(::typeof(^), x::Value, ::Val{N}) where N = forw(^,x,N) # x^p for any literal integer p is lowered to Base.literal_pow(^, x, Val(p))
-broadcasted(::typeof(literal_pow), ::typeof(^), x::Value, ::Val{N}) where N = forw(broadcast,^,x,N)
+broadcasted(::typeof(literal_pow), ::typeof(^), x::Value, ::Val{N}) where N = forw(broadcasted,^,x,N)
 dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* dy; else; dy.*x2.*x1.^(x2 .- 1); end) # optimize common cases
 
 # //  Int function
