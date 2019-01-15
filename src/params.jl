@@ -71,3 +71,6 @@ function params_internal(x::Union{Dict,IdDict}, ps::Vector{Param}, stackdict::Id
         params_internal(v, ps, stackdict)
     end
 end
+
+# Tapes can only have params at the top level, so here is a more efficient implementation for tapes:
+params(t::Tape) = (n.Value for n in t.list if n.Value isa Param)

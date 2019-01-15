@@ -13,19 +13,20 @@ macro timer(name,expr); TIMER ? :(@timeit to $(esc(name)) (a=$(esc(expr));@gs;a)
 """
 Usage:
 
-    x = Param([1,2,3])          # user declares parameters
-    x => P([1,2,3])             # they are wrapped in a struct
-    value(x) => [1,2,3]         # we can get the original value
-    sum(abs2,x) => 14           # they act like regular values outside of differentiation
-    y = @diff sum(abs2,x)       # if you want the gradients
+    x = Param([1,2,3])          # user declares parameters with `Param`
+    x => P([1,2,3])             # `Param` is just a struct wrapping a value
+    value(x) => [1,2,3]         # `value` returns the thing wrapped
+    sum(x .* x) => 14           # Params act like regular values
+    y = @diff sum(x .* x)       # Except when we differentiate using `@diff`
     y => T(14)                  # you get another struct
-    value(y) => 14              # which represents the same value
-    grad(y,x) => [2,4,6]        # but also contains gradients for all Params
+    value(y) => 14              # which carries the same result
+    params(y) => [x]            # and the Params that it depends on 
+    grad(y,x) => [2,4,6]        # and the gradients for all Params
     
 `Param(x)` returns a struct that acts like `x` but marks it as a parameter you want to
 compute gradients with respect to.
 
-`@diff expr` evaluates an expression and returns a struct that contains its value (which
+`@diff expr` evaluates an expression and returns a struct that contains the result (which
 should be a scalar) and gradient information.
 
 `grad(y, x)` returns the gradient of `y` (output by @diff) with respect to any parameter
@@ -34,12 +35,12 @@ should be a scalar) and gradient information.
 `value(x)` returns the value associated with `x` if `x` is a `Param` or the output of
 `@diff`, otherwise returns `x`.
 
-`params(x)` returns an array of Params found by a recursive search of object `x`.
+`params(x)` returns an iterator of Params found by a recursive search of object `x`.
 
 Alternative usage:
 
     x = [1 2 3]
-    f(x) = sum(abs2, x)
+    f(x) = sum(x .* x)
     f(x) => 14
     grad(f)(x) => [2 4 6]
     gradloss(f)(x) => ([2 4 6], 14)
