@@ -135,27 +135,24 @@ end
 """
 
     gcheck(f, x...; kw, o...)
+    @gcheck f(x...; kw...) (opt1=val1,opt2=val2,...)
 
 Numerically check the gradient of `f(x...; kw...)` and return a boolean result.
 
-Example call: `gcheck(nll,model,x,y)`. The parameters should be marked as `Param` arrays in
-`f`, `x`, and/or `kw`.  Only 10 random entries in each large numeric array are checked by
-default.  If the output of `f` is not a number, we check the gradient of `sum(f(x...;
-kw...))`. See also `gradcheck` for a different take interface for marking parameters.
-
-# Keywords
+Example call: `gcheck(nll,model,x,y)` or `@gcheck nll(model,x,y)`. The parameters should be
+marked as `Param` arrays in `f`, `x`, and/or `kw`.  Only 10 random entries in each large
+numeric array are checked by default.  If the output of `f` is not a number, we check the
+gradient of `sum(f(x...; kw...))`. Keyword arguments:
 
 * `kw=()`: keyword arguments to be passed to `f`, i.e. `f(x...; kw...)`
-
 * `nsample=10`: number of random entries from each param to check
-
-* `atol=rtol=0.01`: tolerance parameters.  See `isapprox` for their meaning.
-
+* `atol=0.01,rtol=0.05`: tolerance parameters.  See `isapprox` for their meaning.
 * `delta=0.0001`: step size for numerical gradient calculation.
-
 * `verbose=1`: 0 prints nothing, 1 shows failing tests, 2 shows all tests.
 
 """
+gcheck, @gcheck
+
 function gcheck(f, x...; kw=(), nsample=10, verbose=1, rtol=0.05, atol=0.01, delta=0.0001)
     y = @diff gcsum(f, x...; kw...)
     if !isa(y, Tape); @warn("Output independent of params"); return true; end
@@ -170,10 +167,6 @@ function gcheck(f, x...; kw=(), nsample=10, verbose=1, rtol=0.05, atol=0.01, del
     end
 end
 
-"""
-     x = Param(randn(10))
-     @gcheck sum(exp.(x)) (nsample=20,)
-"""
 macro gcheck(fx,options=:(NamedTuple()))
     :(gcheck(()->$(esc(fx));$(esc(options))...))
 end

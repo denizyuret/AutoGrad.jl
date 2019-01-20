@@ -1,7 +1,9 @@
 # params(f) Based on deepcopy_internal:
 
-"Return an array of Params found by a recursive search of the given object."
 params(f) = (ps=Param[]; params_internal(f,ps,IdDict()); ps)
+
+# Tapes can only have params at the top level, so here is a more efficient implementation for tapes:
+params(t::Tape) = (n.Value for n in t.list if n.Value isa Param)
 
 params_internal(p::Param, ps::Vector{Param}, d::IdDict) = if !haskey(d,p); d[p]=true; push!(ps,p); end
 
@@ -72,5 +74,3 @@ function params_internal(x::Union{Dict,IdDict}, ps::Vector{Param}, stackdict::Id
     end
 end
 
-# Tapes can only have params at the top level, so here is a more efficient implementation for tapes:
-params(t::Tape) = (n.Value for n in t.list if n.Value isa Param)

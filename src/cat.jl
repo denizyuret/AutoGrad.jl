@@ -137,6 +137,12 @@ hcat(x::Value...) = cat(x...; dims=Val(2))
 # kernel call overhead.  To make it fast with KnetArrays we need a
 # single GPU kernel call which does all the copying.
 
+"""
+    cat1d(args...)
+
+Return `vcat(vec.(args)...)` but possibly more efficiently. Can be used to concatenate the
+contents of arrays with different shapes and sizes.
+"""
 function cat1d(args...)
     @inbounds for arg in args
         if isa(arg,Value)
