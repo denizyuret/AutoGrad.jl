@@ -83,6 +83,8 @@ Regular `*` is matrix multiplication, broadcasted `*` is elementwise multiplicat
 two have different gradients as defined above. `unbroadcast(a,b)` reduces `b` to the same
 shape as `a` by performing the necessary summations.
 """
+:(@primitive), :(@primitive1), :(@primitive2)
+
 macro primitive(f,g...)                         # @primitive sin(x::Number),dy,y  (dy.*cos.(x))
     (f,dy,y) = fparse(f)
     b = Expr(:block)
@@ -151,6 +153,8 @@ define the broadcasting version and `@zerograd2` if you only want to define the 
 version. Note that `kwargs` are NOT unboxed.
 
 """
+:(@zerograd), :(@zerograd1), :(@zerograd2)
+
 macro zerograd(f)                               # @zerograd sign(x::Number)
     (f,dy,y) = fparse(f)
     b = Expr(:block)

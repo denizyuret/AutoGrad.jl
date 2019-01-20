@@ -151,7 +151,7 @@ gradient of `sum(f(x...; kw...))`. Keyword arguments:
 * `verbose=1`: 0 prints nothing, 1 shows failing tests, 2 shows all tests.
 
 """
-gcheck, @gcheck
+gcheck, :(@gcheck)
 
 function gcheck(f, x...; kw=(), nsample=10, verbose=1, rtol=0.05, atol=0.01, delta=0.0001)
     y = @diff gcsum(f, x...; kw...)
