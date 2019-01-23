@@ -10,17 +10,20 @@ using LinearAlgebra
     end
 
     function qrtest(w) 
-        Q,R = qr(w)
+        qr_obj = qr(w)
+        Q,R = qr_obj.Q, qr_obj.R
         sum(Q) + 2sum(R)
     end
 
     function lqtest(w) 
-        Q,L = lq(w)
+        lq_obj = lq(w)
+        Q,L = lq_obj.Q, lq_obj.L
         sum(Q) + 2sum(L)
     end
 
-    function svdtest(w) 
-        U,S,V = svd(w)
+    function svdtest(w)
+        svd_obj = svd(w)
+        U,S,V = svd_obj.U, svd_obj.S, svd_obj.V
         sum(U) + 2sum(S) + 3sum(V)
     end
 
@@ -47,9 +50,9 @@ using LinearAlgebra
         @test gradcheck(norm,w,1; args=1)
         @test gradcheck(norm,w,2; args=1)
         @test gradcheck(norm,w,Inf; args=1)
-        @test_skip gradcheck(qrtest,w) #TODO iterator error
-        @test_skip gradcheck(lqtest,w) #TODO iterator error
-        @test_skip gradcheck(svdtest,w) #TODO iterator error
+        @test_broken gradcheck(qrtest,w)
+        @test_broken gradcheck(lqtest,w)
+        @test gradcheck(svdtest,w)
         @test gradcheck(tr,wsquare)
         @test gradcheck(transpose,w)
         @test gradcheck(tril,w)

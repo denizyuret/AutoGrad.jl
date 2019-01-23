@@ -113,6 +113,14 @@ include("header.jl")
             g3 = grad(x->sum(selectdim(x,2,1:2).^2.0))
             @test g1(a) == g2(a) == g3(a)
         end
+
+        @testset "getproperty" begin
+            struct TestFoo
+                x::Int
+            end
+            @test grad(x->2x.x+1)(TestFoo(1)).x == 2
+            @test grad(x->2x.x+1)((x=1,)).x == 2
+        end
     end
 
     # Issue #73: incorrect gradient when indexing into a matrix of vectors

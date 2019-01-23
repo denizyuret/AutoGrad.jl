@@ -187,8 +187,10 @@ end
 
 # qr
 function qr_back(y, dy)
-    Q, R = y
-    dQ, dR = dy
+    # Q, R = y
+    # dQ, dR = dy
+    Q, R = y.Q, y.R
+    dQ, dR = dy.Q, dy.R
     dR == nothing && (dR = zero(R))
     dQ == nothing && (dQ = zero(Q))
     dR = triu(dR)
@@ -203,8 +205,10 @@ end
 # lq
 # ref: https://arxiv.org/pdf/1710.08717.pdf
 function lq_back(y, dy)
-    L, Q = y
-    dL, dQ = dy
+    # L, Q = y
+    # dL, dQ = dy
+    L, Q = y.L, y.Q
+    dL, dQ = dy.L, dy.Q
     dL == nothing && (dL = zero(L))
     dQ == nothing && (dQ = zero(Q))
     dL = tril(dL)
@@ -256,8 +260,11 @@ end
 function svd_back(x, y, dy)
     # U, s, V = y
     # dU, ds, dV = dy
-    U, s, V = y.U, y.s, y.V
-    dU, ds, dV = dy.U, dy.s, dy.V
+    U, s, V = y.U, y.S, y.V
+    dU, ds, dV = dy.U, dy.S, dy.V
+
+    eye(x) = Matrix(I, size(x)...)
+    diagm(x) = LinearAlgebra.diagm(0=>x)
 
     F = s'.^2 .- s.^2 
     F = 1 ./ (F + eye(F)) - eye(F) #avoid infinities on the diagonal
