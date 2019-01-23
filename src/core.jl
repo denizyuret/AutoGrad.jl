@@ -51,8 +51,8 @@ BroadcastStyle(::Type{<:Value}) = Style{Value}()
 BroadcastStyle(s::Style{Value}, ::BroadcastStyle) = s
 broadcastable(x::Value) = x     # This is necessary, default is collect(x) which loses Value
 Bcasted(v::T) where {T} = Bcasted{T}(v)
-broadcasted(::Style{Value}, f, args...) = recording() ? f(Bcasted.(args)...).value : broadcasted(f, value.(args)...)
-Base.copyto!(x::Value,y) = copyto!(x.value,y) # This is used by p .-= g when p is Param.
+broadcasted(::Style{Value}, f, args...) = recording() ? fvalue(f(Bcasted.(args)...)) : broadcasted(f, value.(args)...)
+Base.copyto!(x::Value,y) = copyto!(fvalue(x),y) # This is used by p .-= g when p is Param.
 
 
 ## Recording: primitive fns with Value args call forw
@@ -86,7 +86,7 @@ function forwargs(f, args)
         if isa(nobcast[i], Bcasted)
             if nobcast === args; nobcast = Any[args...]; end
             if novalue === args; novalue = nobcast; end
-            nobcast[i] = nobcast[i].value
+            nobcast[i] = fvalue(nobcast[i])
             @assert !isa(nobcast[i], Bcasted) "Illegal value recursion: $(typeof(args[i]))"
         end
         if isa(novalue[i], Value)
@@ -150,16 +150,16 @@ function differentiate(f, x...; o...)
     tape1 = pop!(_tapes)
     @assert tape1 === tape "Tape stack error"
     if !isa(result,Result); return result; end
-    @assert isa(result.value, Number) "Only scalar valued functions supported."
+    @assert isa(fvalue(result), Number) "Only scalar valued functions supported."
     resultnode = findresult(tape, result)
-    resultnode.outgrad = one(result.value)
+    resultnode.outgrad = one(fvalue(result))
     for n in tape.list
         if n.outgrad == nothing; continue; end
         r = n.Value
         @inbounds for i in 1:length(n.parents)
             if !isassigned(n.parents, i); continue; end
             p = n.parents[i]
-            @timer btimer(r,i) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
+            @timer btimer(r,i) (g = back(getfield(r, :func), Arg{i}, n.outgrad, r, getfield(r, :args)...; getfield(r, :kwargs)...))
             @timer "sum_outgrads" (p.outgrad = sum_outgrads(p.outgrad, g))
         end
         if isempty(_tapes) && isa(r,Result) && n !== resultnode; gcnode(n); end  # save memory
@@ -171,7 +171,7 @@ end
 back(x...; o...) = throw(MethodError(back,x)) # fix #101.2: error instead of nothing
 
 # Used by @timer
-btimer(r::Result,i::Int)=(r.func===broadcasted ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]")
+btimer(r::Result,i::Int)=(getfield(r, :func)===broadcasted ? "$(getfield(rm, :args)[1]).[$(i-1)]" : "$(getfield(r, :func))[$i]")
 ftimer(f::Function,a::Array{Any})=(f===broadcasted ? "$(a[1])." : "$f")
 
 # 99% result will be on tape.list[1] (last thing recorded), this handles the other 1% where
@@ -198,10 +198,13 @@ macro diff(fx); :(differentiate(()->$(esc(fx)))); end
 
 # value() should give a regular (non-Value) result regardless of recursion
 value(x) = x
-value(x::Value) = x.value
+value(x::Value) = fvalue(x)
 value(x::Value{<:Value}) = error("Illegal type recursion $(typeof(x))")
-value(x::Bcasted{<:Tracked}) = value(x.value) # Only type of Value recursion allowed
-value(t::Tape)=(isempty(t.list) ? nothing : first(t.list).Value.value)
+value(x::Bcasted{<:Tracked}) = value(fvalue(x)) # Only type of Value recursion allowed
+value(t::Tape)=(isempty(t.list) ? nothing : fvalue(first(t.list).Value))
+
+# on the contrary, fvalue() just get the direct field
+fvalue(x) = getfield(x, :value)
 
 # New style grad
 grad(t,x)=nothing
