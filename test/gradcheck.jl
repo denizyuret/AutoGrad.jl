@@ -61,12 +61,12 @@ end
 function gcwalk(i, xptr, gptr, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
     if isa(value(xptr[i]), Number)
         if isa(xptr[i], Param)
-            xi = xptr[i].value
+            xi = fvalue(xptr[i])
             delta = delta > 0 ? delta : cbrt(eps(xi))
-            xptr[i].value = xi >= 0 ? xi + delta : xi - delta
+            setfield!(xptr[i], :value, xi >= 0 ? xi + delta : xi - delta)
             f1 = gcsum(f, x...; kw...)
             nd = (f1 - f0) / (xptr[i] - xi)
-            xptr[i].value = xi
+            setfield!(xptr[i], :value, xi)
         else
             xi = xptr[i]
             delta = delta > 0 ? delta : cbrt(eps(xi))

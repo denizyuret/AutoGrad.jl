@@ -229,7 +229,7 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* 
 # shuffle,
 # shuffle!,
 @zerograd size(x,i...)
-# selectdim, # implemented in getindex.jl
+# selectdim, # implemented in getelement.jl
 # sort!,
 # sort,
 # sortcols,
@@ -247,7 +247,7 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* 
 # to_indices,
 # vcat  Handled in cat.jl
 @primitive vec(x),dy  reshape(dy,size(x))
-# view, # implemented in getindex.jl
+# view, # implemented in getelement.jl
 # zeros: no longer called with array arguments, using zero instead.
 
 
@@ -274,9 +274,9 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* 
 # foldl,
 # foldr,
 # foreach,
-# get  Handled in getindex.jl
+# get  Handled in getelement.jl
 # get!,
-# getindex  Handled in getindex.jl
+# getindex  Handled in getelement.jl
 # getkey,
 # haskey,
 # in,
@@ -348,8 +348,8 @@ values(a::Value{T})  where {T<:AbstractDict} = (a[k] for k in keys(value(a)))
 
 ### types
 # convert,
-# getproperty,
-# setproperty!,
+# getproperty, # handled in getelement.jl
+# setproperty!, # handled in getelement.jl too
 # fieldoffset,
 # fieldname,
 # fieldnames,

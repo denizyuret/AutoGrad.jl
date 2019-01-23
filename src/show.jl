@@ -27,8 +27,8 @@ show(io::IO, ::MIME"text/plain", x::Tape) = show(io, x)
 import Base: summary, size, getindex
 struct ArrayValue{T,N} <: AbstractArray{T,N}; p; end
 show(io::IO, m::MIME"text/plain", x::Value{A}) where {A<:AbstractArray} = show(io, m, ArrayValue{eltype(x),ndims(x)}(x))
-size(p::ArrayValue) = size(p.p.value)
-getindex(p::ArrayValue,i...) = getindex(p.p.value,i...)
+size(p::ArrayValue) = size(fvalue(p.p))
+getindex(p::ArrayValue,i...) = getindex(fvalue(p.p),i...)
 summary(io::IO, x::Value{A}) where {A<:AbstractArray} = print(io, Base.dims2string(size(x)), " ", typeof(x))
 summary(io::IO, p::ArrayValue) = summary(io, p.p)
 
@@ -39,8 +39,8 @@ function show(io::IO, n::Node)
         print(io, "N(", og(n), ", ", n.Value, ")")
     else
         r = n.Value
-        print(io, "N(", og(n), ", ", r, " = ", r.func, "(", join(valstr.(r.args),", "), 
-              isempty(r.kwargs) ? "" : "; "*join(["$(x[1])=$(valstr(x[2]))" for x in r.kwargs], ", "), "))")
+        print(io, "N(", og(n), ", ", r, " = ", getfield(r, :func), "(", join(valstr.(getfield(r, :args)),", "), 
+              isempty(getfield(r, :kwargs)) ? "" : "; "*join(["$(x[1])=$(valstr(x[2]))" for x in getfield(r, :kwargs)], ", "), "))")
     end
 end
 
@@ -51,8 +51,8 @@ function show(io::IO, ::MIME"text/plain", ts::Vector{Tape}) # to dump _tapes
     for (i,n) in enumerate(reverse(ts[1].list))
         r = n.Value
         if isa(r,Result)
-            print(io, "$i. ", valstr(r), " = ", r.func, "(", join(valstr.(r.args),", "), 
-                  isempty(r.kwargs) ? "" : "; "*join(["$(x[1])=$(valstr(x[2]))" for x in r.kwargs], ", "), "))")
+            print(io, "$i. ", valstr(r), " = ", getfield(r, :func), "(", join(valstr.(getfield(r, :args)),", "), 
+                  isempty(getfield(r, :kwargs)) ? "" : "; "*join(["$(x[1])=$(valstr(x[2]))" for x in getfield(r, :kwargs)], ", "), "))")
         else
             print(io, "$i. ", r)
         end

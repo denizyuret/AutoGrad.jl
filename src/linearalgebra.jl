@@ -254,8 +254,10 @@ end
 
 # ref https://j-towns.github.io/papers/svd-derivative.pdf
 function svd_back(x, y, dy)
-    U, s, V = y
-    dU, ds, dV = dy
+    # U, s, V = y
+    # dU, ds, dV = dy
+    U, s, V = y.U, y.s, y.V
+    dU, ds, dV = dy.U, dy.s, dy.V
 
     F = s'.^2 .- s.^2 
     F = 1 ./ (F + eye(F)) - eye(F) #avoid infinities on the diagonal
