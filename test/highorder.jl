@@ -29,6 +29,14 @@ include("header.jl")
     # Issue #62: bug second derivative tanh
     @test grad(tanh)(1) == 1 - tanh(1)^2
     @test grad(grad(tanh))(1) == -2*tanh(1)*(1-tanh(1)^2)
+
+    # Issue Knet#439: hessians for neural networks
+    hess(f,i=1) = grad((x...)->grad(f)(x...)[i])
+    _nll(p,y)=(p=exp.(p);p=p./sum(p,dims=1);p=p[1,:];mean(-log.(p)))
+    w,b,x,y = randn(2,3),randn(2),randn(3,4),randn(2,4)
+    @test size(w) == size(hess(w->_nll(w*x.+b,y))(w))
+    @test size(b) == size(hess(b->_nll(w*x.+b,y))(b))
+    @test size(x) == size(hess(x->_nll(w*x.+b,y))(x))
 end
 
 nothing
