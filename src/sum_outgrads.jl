@@ -1,6 +1,6 @@
 sum_outgrads(a::Number, b::Number)=a+b
 sum_outgrads(a::Tuple, b::Tuple)=tuple([sum_outgrads(x,y) for (x,y) in zip(a,b)]...)
-sum_outgrads(a::AbstractDict, b::AbstractDict) = (z=similar(a); for d in (a,b), (k,v) in d; z[k]=sum_outgrads(v,get(z,k,nothing)); end; z)
+sum_outgrads(a::AbstractDict, b::AbstractDict) = (z=empty(a); for d in (a,b), (k,v) in d; z[k]=sum_outgrads(v,get(z,k,nothing)); end; z)
 # We could have Array{Array} and Array{Any} added:
 sum_outgrads(a::AbstractArray{T},b::AbstractArray) where T = (if isbitstype(T); (a+b); else; T[sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
 # sum_outgrads needs to be a primitive for higher order gradients:
@@ -39,11 +39,13 @@ end
 # Dict has no multiple/repeated index problem, so simple setindex should work.
 # If we change UngetIndex to have multiple indices, we need to be careful here.
 function sum_outgrads(a::AbstractDict,b::UngetIndex)
+    if recording(); a = copy(a); end  # do not overwrite array if in highorder context
     setindex!(a,sum_outgrads(get(a,b.index...,nothing),b.value),b.index...)
 end
 
 function sum_outgrads(a::AbstractArray,b::UngetIndex)
     # println((size(a),size(b.container),size(b.value),b.index))
+    if recording(); a = copy(a); end  # do not overwrite array if in highorder context
     sum_outgrads_array(a, b.value, to_indices(a,b.index)...)
 end
 

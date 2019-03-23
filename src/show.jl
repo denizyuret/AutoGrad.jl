@@ -47,11 +47,12 @@ end
 function show(io::IO, ::MIME"text/plain", ts::Vector{Tape}) # to dump _tapes
     if isempty(ts); show(io, ts); return; end
     og(t::Tape,r::Value)=(n=get(t.dict,r,nothing); n===nothing ? '-' : n.outgrad===nothing ? '0' : valstr(n.outgrad))
+    argstr(x)=(n=findfirst(a->(a.Value===x),ts[1].list); n===nothing ? valstr(x) : "R$(length(ts[1].list)+1-n)")
     io = IOContext(io,:compact=>true)
     for (i,n) in enumerate(reverse(ts[1].list))
         r = n.Value
         if isa(r,Result)
-            print(io, "$i. ", valstr(r), " = ", r.func, "(", join(valstr.(r.args),", "), 
+            print(io, "$i. ", valstr(r), " = ", r.func, "(", join(argstr.(r.args),", "), 
                   isempty(r.kwargs) ? "" : "; "*join(["$(x[1])=$(valstr(x[2]))" for x in r.kwargs], ", "), "))")
         else
             print(io, "$i. ", r)

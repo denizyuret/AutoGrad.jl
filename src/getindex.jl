@@ -62,7 +62,13 @@ ungetindex(x,dxi,i)=UngetIndex(x,dxi,i)
 # first two args:
 # (a,a), (a,r), (r,r), (r,a), (g2,a), (g2,r), (g,a), (g,r)
 
-ungetindex(x,dxi::Value,i)=forw(ungetindex,x,dxi,i)
+# Issue Knet#439: hessians for neural networks In higher order derivatives, UngetIndex
+# structs may participate in operations like matmul etc.  We do not want to implement every
+# possible operation with UngetIndex, so in these cases we generate the full array instead.
+# This should only trigger for higher order gradients, not during regular training.
+### ungetindex(x,dxi::Value,i)=forw(ungetindex,x,dxi,i)
+ungetindex(x,dxi::Value,i)=forw(sum_outgrads,zeroslike(x),forw(ungetindex,x,dxi,i))
+
 ungetindex(x::Value,dxi::Value,i)=ungetindex(value(x),dxi,value(i))
 ungetindex(x::Value,dxi,i)=ungetindex(value(x),dxi,value(i))
 back(::typeof(ungetindex),::Type{Arg{2}},ddx,dx,x,dxi,i)=getindex(ddx,value(i)...)
