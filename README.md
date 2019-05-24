@@ -123,7 +123,7 @@ julia> [J]  # displaying J in an Array causes pretty printing
 4. Array{Float64,2}(2,4) = broadcast(+, Array{Float64,2}(2,4), Array{Float64,2}(2,1))) ∇=Array{Float64,2}(2,4)
 5. Array{Float64,2}(2,4) = -(Array{Float64,2}(2,4), Array{Float64,2}(2,4))) ∇=Array{Float64,2}(2,4)
 6. 14.695603907991153 = sum(abs2, Array{Float64,2}(2,4))) ∇=1.0
-julia> z = collect(J)  # collect creates a Node array with reverse order
+julia> z = collect(J.list)  # collect creates a Node array with reverse order
 julia> dump(z[5], maxdepth=1)  # allowing you to look at individual Nodes and Values
 AutoGrad.Node
   Value: AutoGrad.Result{Array{Float64,2}}
