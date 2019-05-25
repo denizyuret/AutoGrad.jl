@@ -1,6 +1,12 @@
+AutoGrad v1.1.4 Release Notes
+=============================
+
+* High order gradient fixes.
+
+
 AutoGrad v1.1.3 Release Notes
 =============================
-8f581dd 2019-01-20
+c80fa9c 2019-01-20
 
 * Use `broadcasted` rather than `broadcast` as primitive, allows `p .-= g` where p::Param.
 * Define efficient params(::Tape).
