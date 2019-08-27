@@ -214,7 +214,8 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* 
 # partialsortperm,
 # partialsortperm!,
 # permute!,
-@primitive permutedims(x,d...),dy  permutedims(dy,invperm(d...))
+@primitive permutedims(x,d),dy  permutedims(dy,invperm(d))
+@primitive permutedims(x),dy  reshape(permutedims(dy),size(x)) # need reshape for vectors
 # permutedims!,
 # prod!,
 @primitive prod(x;d...),dy,y  (dy.*(y./x))  # TODO: prod with abs, abs2
