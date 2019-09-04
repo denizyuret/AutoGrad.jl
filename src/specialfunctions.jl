@@ -1,4 +1,4 @@
-import SpecialFunctions: airy, airyai, airyaiprime, airyaiprimex, airyaix, airybi, airybiprime, airybiprimex, airybix, airyprime, airyx, besselh, besselhx, besseli, besselix, besselj, besselj0, besselj1, besseljx, besselk, besselkx, bessely, bessely0, bessely1, besselyx, beta, cosint, dawson, digamma, erf, erfc, erfcinv, erfcx, erfi, erfinv, eta, gamma, hankelh1, hankelh1x, hankelh2, hankelh2x, invdigamma, lbeta, lfact, lfactorial, lgamma, polygamma, sinint, trigamma, zeta
+import SpecialFunctions: airy, airyai, airyaiprime, airyaiprimex, airyaix, airybi, airybiprime, airybiprimex, airybix, airyprime, airyx, besselh, besselhx, besseli, besselix, besselj, besselj0, besselj1, besseljx, besselk, besselkx, bessely, bessely0, bessely1, besselyx, beta, cosint, dawson, digamma, erf, erfc, erfcinv, erfcx, erfi, erfinv, eta, gamma, hankelh1, hankelh1x, hankelh2, hankelh2x, invdigamma, lbeta, lfact, lfactorial, lgamma, logabsgamma, loggamma, polygamma, sinint, trigamma, zeta
 
 # `airy(k,x)` is deprecated, use `airyai(x)`, `airyaiprime(x)`, `airybi(x)` or `airybiprime(x)` instead.
 @primitive airyai(x),dy (dy.*(airyaiprime.(x)))
@@ -45,7 +45,10 @@ import SpecialFunctions: airy, airyai, airyaiprime, airyaiprimex, airyaix, airyb
 # lbeta
 # `lfact` is deprecated, use `lfactorial` instead.
 # lfactorial
-@primitive lgamma(x),dy,y (dy.*(digamma.(x)))
+# logabsgamma
+# `lgamma` is deprecated, use `(logabsgamma(x))[1]` instead. I use `loggamma` which throws a DomainError if gamma(x) is negative.
+# @primitive lgamma(x),dy,y (dy.*(digamma.(x)))
+@primitive loggamma(x),dy,y (dy.*(digamma.(x)))
 @primitive polygamma(x1,x2),dy,y  nothing  unbroadcast(x2,dy.*polygamma(x1+1,x2))
 # sinint
 @primitive trigamma(x),dy,y (dy.*(polygamma.(2,x)))

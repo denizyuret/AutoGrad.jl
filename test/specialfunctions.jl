@@ -57,7 +57,7 @@ using SpecialFunctions
     # lbeta
     # `lfact` is deprecated, use `lfactorial` instead.
     # lfactorial
-    @test randcheck(lgamma,val_gamma; o...) # @primitive lgamma(x),dy,y (dy.*(digamma.(x))) ## avoid <=0 ints
+    @test randcheck(loggamma,val_gt_0; o...) # @primitive loggamma(x),dy,y (dy.*(digamma.(x))) ## avoid <=0
     # @test randcheck(polygamma) # @primitive polygamma(x1,x2),dy,y  nothing  unbroadcast(x2,dy.*polygamma(x1+1,x2))
     # sinint
     @test randcheck(trigamma,val_gamma; o...) # @primitive trigamma(x),dy,y (dy.*(polygamma.(2,x)))
