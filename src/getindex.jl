@@ -37,7 +37,6 @@ back(::typeof(view),::Type{Arg{N}},o...) where {N} = nothing # Only the first ar
 # TODO: we could have values/indices instead of value/index and use UngetIndex as a more efficient accumulator.
 # TODO: use full much more rarely and keep things as UngetIndex. -- note: full is deprecated.
 # TODO: implement KnetArray version of addindex! ???
-# TODO: figure out julia4 problem with Array{CartesianIndex} -- j4 no longer supported.
 
 struct UngetIndex
     container

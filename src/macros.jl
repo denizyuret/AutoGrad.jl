@@ -397,11 +397,3 @@ function bsig(f,dy,y,i)
     insert!(g.args, a+4, :(::typeof($fname)))
     return fcopy
 end
-
-
-# I would like to make these type signatures as specific as possible.
-# The following are not allowed yet, see https://github.com/JuliaLang/julia/issues/3766
-# f{T<:Number,A<:AbstractArray{T}}(x::Value{A})
-# f{T<:Number,A<:AbstractArray}(x::Value{A{T}})
-# 20180725: TODO: This may have changed in Julia 0.7
-
