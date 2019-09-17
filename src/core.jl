@@ -162,7 +162,7 @@ function differentiate(f, x...; o...)
             @timer btimer(r,i) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
             @timer "sum_outgrads" (p.outgrad = sum_outgrads(p.outgrad, g))
         end
-        if isempty(_tapes) && isa(r,Result) && n !== resultnode; gcnode(n); end  # save memory
+        if isempty(_tapes) && isa(r,Result) && n !== resultnode; gcnode(n,tape); end  # save memory
     end
     return tape
 end
@@ -224,6 +224,6 @@ end
 gradloss(f,a=1)=grad(f,a,true)
 
 # Override gcnode for memory cleanup during back pass
-default_gc(n::Node) = nothing # (n.outgrad=nothing; n.Value.value=nothing)
+default_gc(n::Node, t::Tape) = nothing # (n.outgrad=nothing; n.Value.value=nothing)
 gcnode = default_gc
 set_gc_function(f::Function) = (global gcnode = f)
