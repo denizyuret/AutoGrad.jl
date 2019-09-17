@@ -24,10 +24,11 @@ import Statistics: mean, var, std, varm, stdm
 std(x::Value, args...; kws...) = sqrt.(var(x, args...; kws...))
 stdm(x::Value, args...; kws...) = sqrt.(varm(x, args...; kws...))
 
-var(x::Value; corrected::Bool=true, mean=nothing, dims=:)=_varm(x, something(mean, Statistics.mean(x,dims=dims)); corrected=corrected, dims=dims)
+var(x::Value; corrected::Bool=true, mean=nothing, dims=:)=_varm(x, mean; corrected=corrected, dims=dims)
 varm(x::Value, m; corrected::Bool=true, dims=:)=_varm(x, m; corrected=corrected, dims=dims)
 
 function _varm(x, m; corrected::Bool=true, dims=:)
+    if m === nothing; m = mean(x,dims=dims); end
     s = sum(abs2, x .- m; dims=dims)
     r = length(x) ÷ length(s) - Int(corrected)
     s ./ r
