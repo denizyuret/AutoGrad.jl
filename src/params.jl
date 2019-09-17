@@ -7,7 +7,7 @@ params(t::Tape) = (n.Value for n in t.list if n.Value isa Param)
 
 params_internal(p::Param, ps::Vector{Param}, d::IdDict) = if !haskey(d,p); d[p]=true; push!(ps,p); end
 
-params_internal(x::Union{Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,Task},
+params_internal(x::Union{Symbol,Core.MethodInstance,Method,GlobalRef,DataType,Union,UnionAll,Task,Regex},
                 ps::Vector{Param}, stackdict::IdDict) = return
 params_internal(x::Tuple, ps::Vector{Param}, stackdict::IdDict) =
     for p in x; params_internal(p, ps, stackdict); end
@@ -21,7 +21,7 @@ function params_internal(x::Core.SimpleVector, ps::Vector{Param}, stackdict::IdD
         return
     end
     stackdict[x] = true
-    for p in x; params_internal(x, ps, stackdict); end
+    for p in x; params_internal(p, ps, stackdict); end
 end
 
 function params_internal(@nospecialize(x), ps::Vector{Param}, stackdict::IdDict)
