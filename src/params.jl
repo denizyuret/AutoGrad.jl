@@ -57,7 +57,7 @@ function _params_array_t(@nospecialize(x), T, ps::Vector{Param}, stackdict::IdDi
         if ccall(:jl_array_isassigned, Cint, (Any, Csize_t), x, i-1) != 0
             xi = ccall(:jl_arrayref, Any, (Any, Csize_t), x, i-1)
             if !isbits(xi)
-                xi = params_internal(xi, ps, stackdict)
+                params_internal(xi, ps, stackdict)
             end
         end
     end
