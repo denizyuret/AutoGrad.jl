@@ -1,9 +1,10 @@
 include("header.jl")
 
 using SpecialFunctions
+using AutoGrad: lgamma, loggamma # TODO: delete after everyone has SpecialFunctions 0.8
 
 @testset "specialfunctions" begin
-    o = (:delta=>0.0001,:rtol=>0.01,:atol=>0.01)
+    o = (:delta=>0.0001,:rtol=>0.02,:atol=>0.01)
     ϵ = 0.1
     val_0_2(x)=rand() * (2-2ϵ) + ϵ
     val_gt_0(x)=abs(x) + ϵ
