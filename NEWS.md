@@ -1,5 +1,16 @@
+AutoGrad v1.1.5 Release Notes
+=============================
+
+* Fixed single-argument permutedims.
+* SpecialFunctions lgamma->loggamma transition.
+* Support for stdm and varm.
+* Typo fix in params.
+* gcnode now takes Tape as a second argument.
+
+
 AutoGrad v1.1.4 Release Notes
 =============================
+0a4fcd2 2019-05-25
 
 * High order gradient fixes.
 

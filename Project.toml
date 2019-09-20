@@ -1,7 +1,7 @@
 name = "AutoGrad"
 uuid = "6710c13c-97f1-543f-91c5-74e8f7d95b35"
 authors = ["Deniz Yuret <denizyuret@gmail.com>"]
-version = "1.1.4"
+version = "1.1.5"
 
 [deps]
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
