@@ -153,14 +153,15 @@ function differentiate(f, x...; o...)
     @assert isa(result.value, Number) "Only scalar valued functions supported."
     resultnode = findresult(tape, result)
     resultnode.outgrad = one(result.value)
-    for n in tape.list
+    @inbounds for ti in 1:length(tape.list)
+        n = tape.list[ti]
         if n.outgrad == nothing; continue; end
         r = n.Value
         @inbounds for i in 1:length(n.parents)
             if !isassigned(n.parents, i); continue; end
             p = n.parents[i]
-            @timer btimer(r,i) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
-            @timer "sum_outgrads" (p.outgrad = sum_outgrads(p.outgrad, g))
+            @timer btimer(tape,ti,i,r) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
+            @timer stimer(tape,ti,i)   (p.outgrad = sum_outgrads(p.outgrad, g))
         end
         if isempty(_tapes) && isa(r,Result) && n !== resultnode; gcnode(n,tape); end  # save memory
     end
@@ -170,9 +171,21 @@ end
 # back is defined by the @primitive macro
 back(x...; o...) = throw(MethodError(back,x)) # fix #101.2: error instead of nothing
 
+# TODO: reverse tape to make debugging easier.
 # Used by @timer
-btimer(r::Result,i::Int)=(r.func===broadcasted ? "$(r.args[1]).[$(i-1)]" : "$(r.func)[$i]")
-ftimer(f::Function,a::Array{Any})=(f===broadcasted ? "$(a[1])." : "$f")
+function btimer(tape::Tape,ti::Int,i::Int,r::Result)
+    ti = length(tape.list) - ti + 1
+    (r.func===broadcasted ? "[$ti]$(r.args[1]).[$(i-1)]" : "[$ti]$(r.func)[$i]")
+end
+function stimer(tape::Tape,ti::Int,i::Int)
+    ti = length(tape.list) - ti + 1
+    "[$ti]sum_outgrads[$i]"
+end
+function ftimer(f::Function,a::Array{Any})
+    t = (isempty(_tapes) ? "" : "[>$(1+length(_tapes[end].list))]")
+    (f===broadcasted ? "$t$(a[1])." : "$t$f")
+end
+
 
 # 99% result will be on tape.list[1] (last thing recorded), this handles the other 1% where
 # the loss fn computes stuff recorded on tape after result but returns result at the end.
