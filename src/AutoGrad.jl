@@ -55,6 +55,7 @@ AutoGrad, Param, params, :(@diff), grad, value, gradloss
 using LinearAlgebra, Statistics, SpecialFunctions
 include("core.jl")
 include("macros.jl")
+include("sparse.jl")
 include("getindex.jl")
 include("iterate.jl")
 include("sum_outgrads.jl")

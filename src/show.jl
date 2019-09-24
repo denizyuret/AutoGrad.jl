@@ -19,6 +19,7 @@ show(io::IO, x::Bcasted)  = print(IOContext(io,:compact=>true), "B(", valstr(x),
 show(io::IO, x::Param)    = print(IOContext(io,:compact=>true), "P(", valstr(x), ")")
 show(io::IO, x::Result)   = print(IOContext(io,:compact=>true), "R(", valstr(x), ")")
 show(io::IO, x::Tape)     = print(IOContext(io,:compact=>true), "T(", valstr(x), ")")
+show(io::IO, x::Sparse)   = print(IOContext(io,:compact=>true), "Sparse(", valstr(x.container), (size.(x.values)...), ")")
 
 # Multi line show used for display:
 show(io::IO, ::MIME"text/plain", x::Tape) = show(io, x)

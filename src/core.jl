@@ -159,6 +159,8 @@ function differentiate(f, x...; o...)
         r = n.Value
         @inbounds for i in 1:length(n.parents)
             if !isassigned(n.parents, i); continue; end
+            # We cannot support all operations back may use, so at this point we need to get rid of Sparse
+            if n.outgrad isa Sparse; n.outgrad = full(n.outgrad); end
             p = n.parents[i]
             @timer btimer(tape,ti,i,r) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
             @timer stimer(tape,ti,i)   (p.outgrad = sum_outgrads(p.outgrad, g))
