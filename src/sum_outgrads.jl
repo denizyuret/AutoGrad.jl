@@ -68,7 +68,7 @@ function sum_outgrads(a::Tuple,b::Sparse)
     ca = collect(Any,a)
     for (idx, val) in zip(b.indices, b.values)
         @assert length(idx) == 1
-        cb = (length(idx[1]) > 1 ? collect(Any,val) : val)
+        cb = (idx[1] isa Real ? val : collect(Any,val))
         sum_outgrads_array(ca, cb, to_indices(ca,idx)...)
     end
     tuple(ca...)
