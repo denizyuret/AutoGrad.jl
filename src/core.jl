@@ -230,7 +230,7 @@ function grad(fun::Function, argnum::Int=1, loss=false)
         args = Any[args...]
         args[argnum] = arg_wrt
         result = differentiate(fun, args...; kwargs...)
-        xgrad = isa(result, Tape) ? last(result.list).outgrad : nothing
+        xgrad = isa(result, Tape) ? full(last(result.list).outgrad) : nothing
         return loss ? (xgrad,value(result)) : xgrad
     end
     return gradfun

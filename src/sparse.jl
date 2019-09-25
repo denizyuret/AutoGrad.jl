@@ -6,18 +6,22 @@ struct Sparse
     indices
 end
 
-sum(b::Sparse)=sum(sum(v) for v in b.values)
-zero(b::Sparse)=Sparse(b.container,[],[])
-ones(b::Sparse)=ones(b.container)
-length(b::Sparse)=length(b.container)
-size(b::Sparse,d...)=size(b.container,d...)
+# Do we need these?
+# sum(b::Sparse)=sum(sum(v) for v in b.values)
+# zero(b::Sparse)=Sparse(b.container,[],[])
+# ones(b::Sparse)=ones(b.container)
+# length(b::Sparse)=length(b.container)
+# size(b::Sparse,d...)=size(b.container,d...)
 
+full(x)=x
 full(b::Sparse)=sum_outgrads(zeroslike(b.container), b) # Try to avoid full() to conserve memory
 zeroslike(a::AbstractArray{T}) where T = (isbitstype(T) ? zero(a) : Array{Any}(nothing,size(a)))
-zeroslike(a::AbstractDict)=empty(a)
-zeroslike(a::Tuple)=ntuple(i->nothing, length(a))
-zeroslike(a::Sparse)=zeroslike(a.container)
-zeroslike(a::T) where {T<:Number} = T(0)   # This comes up if people use getindex on a single number
+
+# We do not create Sparse for these types any more:
+# zeroslike(a::AbstractDict)=empty(a)
+# zeroslike(a::Tuple)=ntuple(i->nothing, length(a))
+# zeroslike(a::Sparse)=zeroslike(a.container)
+# zeroslike(a::T) where {T<:Number} = T(0)   # This comes up if people use getindex on a single number
 
 import Base: *, +, -, /
 import Base.Broadcast: broadcasted

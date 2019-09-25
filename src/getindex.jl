@@ -30,10 +30,38 @@ back(::typeof(view),::Type{Arg{N}},o...) where {N} = nothing # Only the first ar
 # Gradient of getindex: If xi=getindex(x,i...) and we receive dxi,
 # ungetindex creates dx representing zeros similar to x, with only
 # dx[i...] set to dxi.  We use the sparse container Sparse for
-# efficiency.
+# efficiency when x is an array.
 # x -> getindex -> xi -> grad -> dxi -> ungetindex -> dx -> grad -> ddx -> getindex -> ddxi
 
-ungetindex(x,dxi,i)=Sparse(x,[dxi],[i])
+# ungetindex(x,dxi,i)=Sparse(x,[dxi],[i])
+
+# For Object arrays, Dict, Tuple, Number no need to use Sparse:
+
+ungetindex(x::Number,dxi,i)=dxi
+
+ungetindex(x::AbstractDict,dxi,i)=setindex!(empty(x), dxi, i...)
+
+ungetindex(x::Tuple,dxi,i)=sum_outgrads(ntuple(i->nothing, length(x)), Sparse(x, [dxi], [i]))
+
+function ungetindex(x::AbstractArray{T},dxi,i) where T
+    if isbitstype(T)
+        # Issue Knet#439: hessians for neural networks In higher order derivatives, Sparse
+        # structs may participate in operations like matmul etc.  We do not want to
+        # implement every possible operation with Sparse, so in these cases we generate the
+        # full array instead.  The first two conditions should only trigger for higher order
+        # gradients, not during regular training.
+        if dxi isa Value
+            forw(sum_outgrads, zeroslike(x), forw(ungetindex, x, dxi, i))
+        elseif recording()
+            sum_outgrads_array(zero(x), dxi, i...)
+        else
+            Sparse(x,[dxi],[i])
+        end
+    else
+        # Using sum_outgrads_array instead of setindex! to handle repeated indices
+        sum_outgrads_array(Array{Union{T,Nothing}}(nothing, size(x)), dxi, i...)
+    end
+end
 
 # For higher order derivatives, the operation of ungetindex might be
 # recorded and differentiated, so it must be a primitive.  It is only
@@ -44,15 +72,10 @@ ungetindex(x,dxi,i)=Sparse(x,[dxi],[i])
 # first two args:
 # (a,a), (a,r), (r,r), (r,a), (g2,a), (g2,r), (g,a), (g,r)
 
-# Issue Knet#439: hessians for neural networks In higher order derivatives, Sparse
-# structs may participate in operations like matmul etc.  We do not want to implement every
-# possible operation with Sparse, so in these cases we generate the full array instead.
-# This should only trigger for higher order gradients, not during regular training.
-### ungetindex(x,dxi::Value,i)=forw(ungetindex,x,dxi,i)
-ungetindex(x,dxi::Value,i)=forw(sum_outgrads,zeroslike(x),forw(ungetindex,x,dxi,i))
-
+# Ignore Value in the first and third position
 ungetindex(x::Value,dxi::Value,i)=ungetindex(value(x),dxi,value(i))
 ungetindex(x::Value,dxi,i)=ungetindex(value(x),dxi,value(i))
+
 back(::typeof(ungetindex),::Type{Arg{2}},ddx,dx,x,dxi,i)=getindex(ddx,value(i)...)
 back(::typeof(ungetindex),::Type{Arg{N}},o...) where {N} = nothing
 

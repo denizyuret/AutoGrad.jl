@@ -67,7 +67,8 @@ function sum_outgrads(a::Tuple,b::Sparse)
     @assert matches(a, b.container)
     ca = collect(Any,a)
     for (idx, val) in zip(b.indices, b.values)
-        cb = (val isa Tuple ? collect(Any,val) : val)
+        @assert length(idx) == 1
+        cb = (length(idx[1]) > 1 ? collect(Any,val) : val)
         sum_outgrads_array(ca, cb, to_indices(ca,idx)...)
     end
     tuple(ca...)

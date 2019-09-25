@@ -40,7 +40,7 @@ function gradcheck(f, x...; kw=(), args=:, nsample=10, verbose=1, rtol=0.05, ato
     f0 = value(result)
     xptr = Any[x...]
     gptr = Array{Any}(undef, length(x))
-    for i in args; gptr[i] = grad(result, xrec[i]); end
+    for i in args; gptr[i] = full(grad(result, xrec[i])); end
     all(args) do i
         gcwalk(i, xptr, gptr, f0, f, xptr, kw, nsample, verbose, delta, rtol, atol)
     end
@@ -161,7 +161,7 @@ function gcheck(f, x...; kw=(), nsample=10, verbose=1, rtol=0.05, atol=0.01, del
     ps = Param[ n.Value for n in y.list if isa(n.Value, Param) ]
     if isempty(ps); @error("Cannot find any params"); end
     #vs = value.(ps)
-    gs = (p->grad(y,p)).(ps)
+    gs = (p->full(grad(y,p))).(ps)
     all(1:length(ps)) do i
         #gcwalk(i, vs, gs, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
         gcwalk(i, ps, gs, f0, f, x, kw, nsample, verbose, delta, rtol, atol)
