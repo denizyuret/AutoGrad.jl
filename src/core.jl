@@ -109,7 +109,7 @@ end
 
 function Result(v::T, f, args, kwargs) where {T}
     record!(t::Tape, v::Tracked) = (n = get(t.dict, v, nothing); n === nothing ? record!(t, Node(v)) : n)
-    record!(t::Tape, n::Node) = (t.dict[n.Value] = n; pushfirst!(t.list, n); n)
+    record!(t::Tape, n::Node) = (t.dict[n.Value] = n; push!(t.list, n); n)
     result = Result{T}(v, f, args, kwargs)
     narg = length(args)
     for tape in _tapes
@@ -153,7 +153,7 @@ function differentiate(f, x...; o...)
     @assert isa(result.value, Number) "Only scalar valued functions supported."
     resultnode = findresult(tape, result)
     resultnode.outgrad = one(result.value)
-    @inbounds for ti in 1:length(tape.list)
+    @inbounds for ti in length(tape.list):-1:1
         n = tape.list[ti]
         if n.outgrad == nothing; continue; end
         r = n.Value
@@ -173,34 +173,27 @@ end
 # back is defined by the @primitive macro
 back(x...; o...) = throw(MethodError(back,x)) # fix #101.2: error instead of nothing
 
-# TODO: reverse tape to make debugging easier.
 # Used by @timer
-function btimer(tape::Tape,ti::Int,i::Int,r::Result)
-    ti = length(tape.list) - ti + 1
-    (r.func===broadcasted ? "[$ti]$(r.args[1]).[$(i-1)]" : "[$ti]$(r.func)[$i]")
-end
-function stimer(tape::Tape,ti::Int,i::Int)
-    ti = length(tape.list) - ti + 1
-    "[$ti]addto![$i]"
-end
+btimer(tape::Tape,ti::Int,i::Int,r::Result)=(r.func===broadcasted ? "[$ti]$(r.args[1]).[$(i-1)]" : "[$ti]$(r.func)[$i]")
+stimer(tape::Tape,ti::Int,i::Int)="[$ti]addto![$i]"
 function ftimer(f::Function,a::Array{Any})
     t = (isempty(_tapes) ? "" : "[>$(1+length(_tapes[end].list))]")
     (f===broadcasted ? "$t$(a[1])." : "$t$f")
 end
 
 
-# 99% result will be on tape.list[1] (last thing recorded), this handles the other 1% where
-# the loss fn computes stuff recorded on tape after result but returns result at the end.
+# 99% result will be on tape.list[end], this handles the other 1% where the loss fn computes
+# stuff recorded on tape after result but returns result at the end.
 function findresult(tape::Tape, result::Result)
-    if tape.list[1].Value === result; return tape.list[1]; end
-    @inbounds for i in 2:length(tape.list)
+    if tape.list[end].Value === result; return tape.list[end]; end
+    @inbounds for i in (length(tape.list)-1):-1:1
         if tape.list[i].Value === result
-            tape.list = tape.list[i:end]
+            tape.list = tape.list[1:i]
             break
         end
     end
-    @assert tape.list[1].Value === result "result not found on tape"
-    return tape.list[1]
+    @assert tape.list[end].Value === result "result not found on tape"
+    return tape.list[end]
 end
 
 ## Exported functions:
@@ -216,7 +209,7 @@ value(x) = x
 value(x::Value) = x.value
 value(x::Value{<:Value}) = error("Illegal type recursion $(typeof(x))")
 value(x::Bcasted{<:Tracked}) = value(x.value) # Only type of Value recursion allowed
-value(t::Tape)=(isempty(t.list) ? nothing : first(t.list).Value.value)
+value(t::Tape)=(isempty(t.list) ? nothing : t.list[end].Value.value)
 
 # New style grad
 grad(t,x)=nothing
@@ -230,7 +223,7 @@ function grad(fun::Function, argnum::Int=1, loss=false)
         args = Any[args...]
         args[argnum] = arg_wrt
         result = differentiate(fun, args...; kwargs...)
-        xgrad = isa(result, Tape) ? full(last(result.list).outgrad) : nothing
+        xgrad = isa(result, Tape) ? full(result.list[1].outgrad) : nothing
         return loss ? (xgrad,value(result)) : xgrad
     end
     return gradfun
