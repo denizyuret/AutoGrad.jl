@@ -1,4 +1,7 @@
+using Test
+@testset "AutoGrad" begin
 using Random; Random.seed!(1)
+#TODO include("addto.jl")
 @time include("base.jl")
 @time include("cat.jl")
 @time include("core.jl")
@@ -14,5 +17,5 @@ using Random; Random.seed!(1)
 #TODO include("show.jl")
 @time include("specialfunctions.jl")
 @time include("statistics.jl")
-#TODO include("sum_outgrads.jl")
 #TODO include("unbroadcast.jl")
+end

@@ -163,7 +163,7 @@ function differentiate(f, x...; o...)
             if n.outgrad isa Sparse; n.outgrad = full(n.outgrad); end
             p = n.parents[i]
             @timer btimer(tape,ti,i,r) (g = back(r.func, Arg{i}, n.outgrad, r, r.args...; r.kwargs...))
-            @timer stimer(tape,ti,i)   (p.outgrad = sum_outgrads(p.outgrad, g))
+            @timer stimer(tape,ti,i)   (p.outgrad = addto!(p.outgrad, g))
         end
         if isempty(_tapes) && isa(r,Result) && n !== resultnode; gcnode(n,tape); end  # save memory
     end
@@ -181,7 +181,7 @@ function btimer(tape::Tape,ti::Int,i::Int,r::Result)
 end
 function stimer(tape::Tape,ti::Int,i::Int)
     ti = length(tape.list) - ti + 1
-    "[$ti]sum_outgrads[$i]"
+    "[$ti]addto![$i]"
 end
 function ftimer(f::Function,a::Array{Any})
     t = (isempty(_tapes) ? "" : "[>$(1+length(_tapes[end].list))]")

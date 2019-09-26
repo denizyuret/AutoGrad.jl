@@ -44,7 +44,7 @@ ungetindex(x::AbstractDict,dxi,i)=setindex!(empty(x), dxi, i...)
 function ungetindex(x::Tuple,dxi,i) # use array code in case there are repeated indices
     dx = Array{Any}(nothing, length(x))
     dxi = (i[1] isa Real ? dxi : collect(Any,dxi))
-    sum_outgrads_array(dx, dxi, Base.to_indices(dx,i)...)
+    addtoindex!(dx, dxi, Base.to_indices(dx,i)...)
     tuple(dx...)
 end
 
@@ -56,15 +56,15 @@ function ungetindex(x::AbstractArray{T},dxi,i) where T
         # full array instead.  The first two conditions should only trigger for higher order
         # gradients, not during regular training.
         if dxi isa Value
-            forw(sum_outgrads, zeroslike(x), forw(ungetindex, x, dxi, i))
+            forw(addto!, zero(x), forw(ungetindex, x, dxi, i))
         elseif recording()
-            sum_outgrads_array(zero(x), dxi, i...)
+            addtoindex!(zero(x), dxi, i...)
         else
             Sparse(x,[dxi],[i])
         end
     else
-        # Using sum_outgrads_array instead of setindex! to handle repeated indices
-        sum_outgrads_array(Array{Union{T,Nothing}}(nothing, size(x)), dxi, i...)
+        # Using addtoindex! instead of setindex! to handle repeated indices
+        addtoindex!(Array{Union{T,Nothing}}(nothing, size(x)), dxi, i...)
     end
 end
 

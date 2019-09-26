@@ -41,20 +41,20 @@ function copyto!(a::AbstractArray, bc::Broadcasted{S,A,F,X}) where
     end
     a === b || copyto!(a, b)
     F <: typeof(-) && (c = -c)
-    sum_outgrads(a, c)
+    addto!(a, c)
     return a
 end
 
 # These are used in Knet/src/update.jl:
 import LinearAlgebra: axpy!, norm, lmul!
-axpy!(a, x::Sparse, y::AbstractArray) = sum_outgrads(y, a*x)
+axpy!(a, x::Sparse, y::AbstractArray) = addto!(y, a*x)
 lmul!(a, x::Sparse{T,N}) where {T,N} = Sparse{T,N}(x.container, [ a*v for v in x.values ], x.indices)
 
 # This does not give the correct result when there are repeated indices, but should be good enough for gclip
 norm(x::Sparse) = sqrt(sum(abs2, norm(v) for v in x.values))
 
 # Convert to regular array -- use this as last resort
-full(b::Sparse)=sum_outgrads(zeroslike(b.container), b)
+full(b::Sparse)=addto!(zeroslike(b.container), b)
 zeroslike(a::AbstractArray{T}) where T = (isbitstype(T) ? zero(a) : Array{Any}(nothing,size(a)))
 full(x)=x
 
@@ -69,11 +69,11 @@ broadcasted(::typeof(*), s::Sparse, n::Number) = Sparse(s.container, [ v.*n for 
 broadcasted(::typeof(*), n::Number, s::Sparse) = Sparse(s.container, [ v.*n for v in s.values ], s.indices)
 broadcasted(::typeof(/), s::Sparse, n::Number) = Sparse(s.container, [ v./n for v in s.values ], s.indices)
 
-# Arithmetic with arrays (can use sum_outgrads which overwrites its first argument)
-+(a::AbstractArray, s::Sparse) = sum_outgrads(copy(a), s)
-+(s::Sparse, a::AbstractArray) = sum_outgrads(copy(a), s)
--(a::AbstractArray, s::Sparse) = sum_outgrads(copy(a), -s)
--(s::Sparse, a::AbstractArray) = sum_outgrads(-a, s)
+# Arithmetic with arrays (can use addto! which overwrites its first argument)
++(a::AbstractArray, s::Sparse) = addto!(copy(a), s)
++(s::Sparse, a::AbstractArray) = addto!(copy(a), s)
+-(a::AbstractArray, s::Sparse) = addto!(copy(a), -s)
+-(s::Sparse, a::AbstractArray) = addto!(-a, s)
 -(s::Sparse) = -1*s
 
 

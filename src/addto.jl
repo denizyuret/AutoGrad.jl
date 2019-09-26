@@ -1,33 +1,34 @@
 """
-    sum_outgrads(accumulator, newval)
+    addto!(accumulator, newval)
 
 Add newval to accumulator and return the result. Used in outgrad calculations.  The outgrad
 values start as `nothing` representing a 0 gradient. Then they are incremented using values
 of type Number, Tuple, AbstractDict, AbstractArray, Nothing and AutoGrad.Sparse. The
 accumulator and the newval types must match: Nothing matches all types, Sparse matches types
-that match its container, other types must match themselves.
+that match its container, other types must match themselves. `addto!` handles repeated
+indices in newval by adding all corresponding values to the `accumulator`.
 """
-function sum_outgrads end
+function addto! end
 
-# sum_outgrads needs to be a primitive for higher order gradients:
-sum_outgrads(a::Value,b::Value)=forw(sum_outgrads,a,b)
-sum_outgrads(a::Value,b)=forw(sum_outgrads,a,b)
-sum_outgrads(a,b::Value)=forw(sum_outgrads,a,b)
-back(::typeof(sum_outgrads),::Type{Arg{N}},dy,y,x1,x2) where N = dy
+# addto! needs to be a primitive for higher order gradients:
+addto!(a::Value,b::Value)=forw(addto!,a,b)
+addto!(a::Value,b)=forw(addto!,a,b)
+addto!(a,b::Value)=forw(addto!,a,b)
+back(::typeof(addto!),::Type{Arg{N}},dy,y,x1,x2) where N = dy
 
 ## Types with exact match
-sum_outgrads(a::Number, b::Number)=a+b
-sum_outgrads(a::Tuple, b::Tuple)=tuple([sum_outgrads(x,y) for (x,y) in zip(a,b)]...)
-sum_outgrads(a::AbstractDict, b::AbstractDict) = (z=empty(a); for d in (a,b), (k,v) in d; z[k]=sum_outgrads(v,get(z,k,nothing)); end; z)
-sum_outgrads(a::AbstractArray{T},b::AbstractArray) where T = (if isbitstype(T); (a+b); else; T[sum_outgrads(x,y) for (x,y) in zip(a,b)]; end)
-# We could have Array{Array} and Array{Any} added, so no restriction on b.
+addto!(a::Number, b::Number)=a+b
+addto!(a::Tuple, b::Tuple)=tuple([addto!(x,y) for (x,y) in zip(a,b)]...)
+addto!(a::AbstractDict, b::AbstractDict) = (z=empty(a); for d in (a,b), (k,v) in d; z[k]=addto!(v,get(z,k,nothing)); end; z)
+addto!(a::AbstractArray{T},b::AbstractArray) where T = (if isbitstype(T); (a+b); else; T[addto!(x,y) for (x,y) in zip(a,b)]; end)
+# We could have Array{Array} and Array{Any} added, so no parametric type on b.
 
 ## Nothing indicates zero gradient and matches any type
-sum_outgrads(::Nothing,::Nothing)=nothing
-sum_outgrads(a::Value,::Nothing)=a   # to avoid ambiguity
-sum_outgrads(::Nothing,a::Value)=a   # to avoid ambiguity
-sum_outgrads(a,::Nothing)=a
-sum_outgrads(::Nothing,a)=a
+addto!(::Nothing,::Nothing)=nothing
+addto!(a::Value,::Nothing)=a   # to avoid ambiguity
+addto!(::Nothing,a::Value)=a   # to avoid ambiguity
+addto!(a,::Nothing)=a
+addto!(::Nothing,a)=a
 
 ## Sparse matches any type that matches its container
 matches(::Any,::Any)=false
@@ -37,25 +38,25 @@ matches(a::Tuple,b::Tuple)=(length(a)===length(b))
 matches(a::AbstractArray,b::AbstractArray)=(size(a)==size(b))
 
 ## If both accumulator and newval are sparse, merge:
-function sum_outgrads(a::Sparse, b::Sparse)
+function addto!(a::Sparse, b::Sparse)
     @assert matches(a.container, b.container) "$(summary.((a.container, b.container)))"
     Sparse(a.container, [ a.values; b.values ], [ a.indices; b.indices ])
 end
 
 ## If sparse is the accumulator, reverse:
-sum_outgrads(a::Sparse,b::Number)=sum_outgrads(b,a)
-sum_outgrads(a::Sparse,b::Tuple)=sum_outgrads(b,a)
-sum_outgrads(a::Sparse,b::AbstractDict)=sum_outgrads(b,a)
-sum_outgrads(a::Sparse,b::AbstractArray)=sum_outgrads(b,a)
+addto!(a::Sparse,b::Number)=addto!(b,a)
+addto!(a::Sparse,b::Tuple)=addto!(b,a)
+addto!(a::Sparse,b::AbstractDict)=addto!(b,a)
+addto!(a::Sparse,b::AbstractArray)=addto!(b,a)
 
 ## Other types with Sparse:
 
 # This comes up if people use getindex on a number:
-function sum_outgrads(a::Number, b::Sparse)
+function addto!(a::Number, b::Sparse)
     @assert matches(a, b.container)
     for (idx, val) in zip(b.indices, b.values)
         if !(idx == (1,) && isa(val,Number))
-            throw(ArgumentError("sum_outgrads($a,$b)"))
+            throw(ArgumentError("addto!($a,$b)"))
         end
         a += val
     end
@@ -63,33 +64,33 @@ function sum_outgrads(a::Number, b::Sparse)
 end
 
 # Convert tuples to Any[] and use the array code
-function sum_outgrads(a::Tuple,b::Sparse)
+function addto!(a::Tuple,b::Sparse)
     @assert matches(a, b.container)
     ca = collect(Any,a)
     for (idx, val) in zip(b.indices, b.values)
         @assert length(idx) == 1
         cb = (idx[1] isa Real ? val : collect(Any,val))
-        sum_outgrads_array(ca, cb, to_indices(ca,idx)...)
+        addtoindex!(ca, cb, to_indices(ca,idx)...)
     end
     tuple(ca...)
 end
 
 # Dictionaries just increment for each index,value pair
-function sum_outgrads(a::AbstractDict,b::Sparse)
+function addto!(a::AbstractDict,b::Sparse)
     @assert matches(a, b.container)
     if recording(); a = copy(a); end  # do not overwrite array if in highorder context
     for (idx, val) in zip(b.indices, b.values)
-        setindex!(a,sum_outgrads(get(a,idx...,nothing),val),idx...)
+        setindex!(a,addto!(get(a,idx...,nothing),val),idx...)
     end
     return a
 end
 
 # Need to be careful with arrays because of possible repeated indices
-function sum_outgrads(a::AbstractArray,b::Sparse)
+function addto!(a::AbstractArray,b::Sparse)
     @assert matches(a, b.container)
     if recording(); a = copy(a); end  # do not overwrite array if in highorder context
     for (idx, val) in zip(b.indices, b.values)
-        sum_outgrads_array(a, val, to_indices(a,idx)...)
+        addtoindex!(a, val, to_indices(a,idx)...)
     end
     return a
 end
@@ -101,7 +102,7 @@ end
 using Base: unalias, index_lengths, setindex_shape_check
 using Base.Cartesian # for @nexprs etc.
 
-@generated function sum_outgrads_array(A::AbstractArray, x, I::Union{Real,AbstractArray}...)
+@generated function addtoindex!(A::AbstractArray, x, I::Union{Real,AbstractArray}...)
     N = length(I)
     quote
         x′ = unalias(A, x)
@@ -116,7 +117,7 @@ using Base.Cartesian # for @nexprs etc.
             (val, state) = Xy
 
             ai = @ncall $N getindex A i # <-- different from _unsafe_setindex!
-            val = sum_outgrads(ai, val) # <-- different from _unsafe_setindex!
+            val = addto!(ai, val) # <-- different from _unsafe_setindex!
 
             @ncall $N setindex! A val i
             Xy = iterate(x′, state)
@@ -127,10 +128,7 @@ end
 
 # The following methods can assume there are no repeated indices:
 # Only Array{Int} allows for repeated indices.
-sum_outgrads_array(A::AbstractArray, X, I::Union{Real,Colon,AbstractRange,AbstractArray{Bool}}...) =
-    sum_outgrads_single(A,X,I...)
-sum_outgrads_array(A::AbstractArray, X, I...) =
-    sum_outgrads_single(A,X,I...)
-sum_outgrads_single(A::AbstractArray, X, I...) =
-    setindex!(A, sum_outgrads(getindex(A,I...), X), I...)
-
+addtoindex!(A::AbstractArray, X, I::Union{Real,Colon,AbstractRange,AbstractArray{Bool}}...) =
+    setindex!(A, addto!(getindex(A,I...), X), I...)
+addtoindex!(A::AbstractArray, X, I...) =
+    setindex!(A, addto!(getindex(A,I...), X), I...)
