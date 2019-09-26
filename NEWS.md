@@ -1,5 +1,14 @@
+AutoGrad v1.1.6 Release Notes
+=============================
+
+* Gradients returned can now be of type AutoGrad.Sparse to make large lookup parameters more efficient.
+* Refactoring: UngetIndex -> Sparse, sum_outgrad -> addto!, Tape.list back to normal order.
+* Timer messages include tape position so we can see which op takes how much time forw/back.
+
+
 AutoGrad v1.1.5 Release Notes
 =============================
+ca0d03f 2019-09-20
 
 * Fixed single-argument permutedims.
 * SpecialFunctions lgamma->loggamma transition.
