@@ -1,21 +1,87 @@
-import Base: sum, zero, ones, length, size
+"""
+    Sparse(container, values, indices)
 
-struct Sparse
+Create a sparse container to make gradient calculations efficient. `s::Sparse` represents
+the value `a` as defined below:
+
+    a = zero(s.container)
+    for (idx, val) in zip(s.indices, s.values)
+        a[idx] .+= val
+    end
+
+except when there are repeated indices in `idx`, the corresponding values get added rather
+than being overwritten. See https://github.com/JuliaLang/julia/issues/31392.
+"""
+struct Sparse{T,N} <: AbstractArray{T,N}
     container
     values
     indices
 end
+
+Sparse(a::AbstractArray{T,N},v,i) where {T,N} = Sparse{T,N}(a,v,i)
+
+# To add a Sparse to an Array without allocating extra space, we need to use:
+# a .+= s  OR  a .= a .+ s
+# Both of which translate to:
+# materialize!(a, broadcasted(+, a, s))
+
+import Base: size, copyto!
+using Base.Broadcast: Broadcasted
+
+# This is used in broadcasted
+size(b::Sparse,d...)=size(b.container,d...)
+
+# This is used in materialize!
+function copyto!(a::AbstractArray, bc::Broadcasted{S,A,F,X}) where
+    {S, A, F <: Union{typeof(+),typeof(-)}, X <: Tuple{Any,Sparse}}
+    (b,c) = bc.args
+    if !(size(a) == size(b) == size(c.container))
+        a .= bc.f.(b, full(c))
+        return a
+    end
+    a === b || copyto!(a, b)
+    F <: typeof(-) && (c = -c)
+    sum_outgrads(a, c)
+    return a
+end
+
+# These are used in Knet/src/update.jl:
+import LinearAlgebra: axpy!, norm, lmul!
+axpy!(a, x::Sparse, y::AbstractArray) = sum_outgrads(y, a*x)
+lmul!(a, x::Sparse{T,N}) where {T,N} = Sparse{T,N}(x.container, [ a*v for v in x.values ], x.indices)
+
+# This does not give the correct result when there are repeated indices, but should be good enough for gclip
+norm(x::Sparse) = sqrt(sum(abs2, norm(v) for v in x.values))
+
+# Convert to regular array -- use this as last resort
+full(b::Sparse)=sum_outgrads(zeroslike(b.container), b)
+zeroslike(a::AbstractArray{T}) where T = (isbitstype(T) ? zero(a) : Array{Any}(nothing,size(a)))
+full(x)=x
+
+
+# Arithmetic with numbers
+import Base: *, +, -, /
+import Base.Broadcast: broadcasted
+*(s::Sparse, n::Number) = Sparse(s.container, [ v*n for v in s.values ], s.indices)
+*(n::Number, s::Sparse) = Sparse(s.container, [ v*n for v in s.values ], s.indices)
+/(s::Sparse, n::Number) = Sparse(s.container, [ v/n for v in s.values ], s.indices)
+broadcasted(::typeof(*), s::Sparse, n::Number) = Sparse(s.container, [ v.*n for v in s.values ], s.indices)
+broadcasted(::typeof(*), n::Number, s::Sparse) = Sparse(s.container, [ v.*n for v in s.values ], s.indices)
+broadcasted(::typeof(/), s::Sparse, n::Number) = Sparse(s.container, [ v./n for v in s.values ], s.indices)
+
+# Arithmetic with arrays (can use sum_outgrads which overwrites its first argument)
++(a::AbstractArray, s::Sparse) = sum_outgrads(copy(a), s)
++(s::Sparse, a::AbstractArray) = sum_outgrads(copy(a), s)
+-(a::AbstractArray, s::Sparse) = sum_outgrads(copy(a), -s)
+-(s::Sparse, a::AbstractArray) = sum_outgrads(-a, s)
+-(s::Sparse) = -1*s
+
 
 # Do we need these?
 # sum(b::Sparse)=sum(sum(v) for v in b.values)
 # zero(b::Sparse)=Sparse(b.container,[],[])
 # ones(b::Sparse)=ones(b.container)
 # length(b::Sparse)=length(b.container)
-# size(b::Sparse,d...)=size(b.container,d...)
-
-full(x)=x
-full(b::Sparse)=sum_outgrads(zeroslike(b.container), b) # Try to avoid full() to conserve memory
-zeroslike(a::AbstractArray{T}) where T = (isbitstype(T) ? zero(a) : Array{Any}(nothing,size(a)))
 
 # We do not create Sparse for these types any more:
 # zeroslike(a::AbstractDict)=empty(a)
@@ -23,17 +89,3 @@ zeroslike(a::AbstractArray{T}) where T = (isbitstype(T) ? zero(a) : Array{Any}(n
 # zeroslike(a::Sparse)=zeroslike(a.container)
 # zeroslike(a::T) where {T<:Number} = T(0)   # This comes up if people use getindex on a single number
 
-import Base: *, +, -, /
-import Base.Broadcast: broadcasted
-for f in (:+, :-, :*, :/); @eval begin
-    $f(s::Sparse, n::Number)=Sparse(s.container, [$f(v, n) for v in s.values], s.indices)
-    $f(n::Number, s::Sparse)=Sparse(s.container, [$f(n, v) for v in s.values], s.indices)
-    broadcasted(::typeof($f), s::Sparse, n::Number)=Sparse(s.container, [broadcast($f,v,n) for v in s.values], s.indices)
-    broadcasted(::typeof($f), n::Number, s::Sparse)=Sparse(s.container, [broadcast($f,n,v) for v in s.values], s.indices)
-end; end
-
-+(a::AbstractArray, s::Sparse) = sum_outgrads(a, s)
-+(s::Sparse, a::AbstractArray) = sum_outgrads(a, s)
--(s::Sparse) = -1*s
--(a::AbstractArray, s::Sparse) = sum_outgrads(a, -s)
--(s::Sparse, a::AbstractArray) = sum_outgrads(-a, s)

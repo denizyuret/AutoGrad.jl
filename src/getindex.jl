@@ -41,7 +41,12 @@ ungetindex(x::Number,dxi,i)=dxi
 
 ungetindex(x::AbstractDict,dxi,i)=setindex!(empty(x), dxi, i...)
 
-ungetindex(x::Tuple,dxi,i)=sum_outgrads(ntuple(i->nothing, length(x)), Sparse(x, [dxi], [i]))
+function ungetindex(x::Tuple,dxi,i) # use array code in case there are repeated indices
+    dx = Array{Any}(nothing, length(x))
+    dxi = (i[1] isa Real ? dxi : collect(Any,dxi))
+    sum_outgrads_array(dx, dxi, Base.to_indices(dx,i)...)
+    tuple(dx...)
+end
 
 function ungetindex(x::AbstractArray{T},dxi,i) where T
     if isbitstype(T)

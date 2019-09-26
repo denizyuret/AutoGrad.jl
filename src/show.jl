@@ -23,6 +23,7 @@ show(io::IO, x::Sparse)   = print(IOContext(io,:compact=>true), "Sparse(", valst
 
 # Multi line show used for display:
 show(io::IO, ::MIME"text/plain", x::Tape) = show(io, x)
+show(io::IO, ::MIME"text/plain", x::Sparse) = show(io, x)
 
 # Hack to take advantage of array display:
 import Base: summary, size, getindex
