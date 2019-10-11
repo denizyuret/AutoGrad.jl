@@ -37,10 +37,12 @@ matches(::AbstractDict,::AbstractDict)=true
 matches(a::Tuple,b::Tuple)=(length(a)===length(b))
 matches(a::AbstractArray,b::AbstractArray)=(size(a)==size(b))
 
-## If both accumulator and newval are sparse, merge:
+## If both accumulator and newval are sparse, merge, modifying first arg. Use + if you do not want to modify:
 function addto!(a::Sparse, b::Sparse)
     @assert matches(a.container, b.container) "$(summary.((a.container, b.container)))"
-    Sparse(a.container, [ a.values; b.values ], [ a.indices; b.indices ])
+    append!(a.values, b.values)
+    append!(a.indices, b.indices)
+    return a
 end
 
 ## If sparse is the accumulator, reverse:
