@@ -47,8 +47,8 @@ end
 
 # These are used in Knet/src/update.jl:
 import LinearAlgebra: axpy!, norm, lmul!
-axpy!(a, x::Sparse, y::AbstractArray) = addto!(y, a*x)
-lmul!(a, x::Sparse{T,N}) where {T,N} = Sparse{T,N}(x.container, [ a*v for v in x.values ], x.indices)
+axpy!(a::Number, x::Sparse, y::AbstractArray) = addto!(y, a*x)
+lmul!(a::Number, x::Sparse{T,N}) where {T,N} = Sparse{T,N}(x.container, [ a*v for v in x.values ], x.indices)
 
 # This does not give the correct result when there are repeated indices, but should be good enough for gclip
 norm(x::Sparse) = sqrt(sum(abs2, norm(v) for v in x.values))
