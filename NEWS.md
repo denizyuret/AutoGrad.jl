@@ -1,5 +1,10 @@
+AutoGrad v1.1.7 Release Notes
+=============================
+
+
 AutoGrad v1.1.6 Release Notes
 =============================
+1dcce22 2019-09-30
 
 * Gradients returned can now be of type AutoGrad.Sparse to make large lookup parameters more efficient.
 * Refactoring: UngetIndex -> Sparse, sum_outgrad -> addto!, Tape.list back to normal order.

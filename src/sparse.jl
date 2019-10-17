@@ -47,8 +47,8 @@ end
 
 # These are used in Knet/src/update.jl:
 import LinearAlgebra: axpy!, norm, lmul!
-axpy!(a, x::Sparse, y::AbstractArray) = addto!(y, a*x)
-lmul!(a, x::Sparse{T,N}) where {T,N} = Sparse{T,N}(x.container, [ a*v for v in x.values ], x.indices)
+axpy!(a::Number, x::Sparse, y::AbstractArray) = addto!(y, a*x)
+lmul!(a::Number, x::Sparse{T,N}) where {T,N} = Sparse{T,N}(x.container, [ a*v for v in x.values ], x.indices)
 
 # This does not give the correct result when there are repeated indices, but should be good enough for gclip
 norm(x::Sparse) = sqrt(sum(abs2, norm(v) for v in x.values))
@@ -76,6 +76,11 @@ broadcasted(::typeof(/), s::Sparse, n::Number) = Sparse(s.container, [ v./n for 
 -(s::Sparse, a::AbstractArray) = addto!(-a, s)
 -(s::Sparse) = -1*s
 
+# Issue #114: we may need to add multiple gradients
+function +(a::Sparse, b::Sparse)
+    @assert matches(a.container, b.container) "$(summary.((a.container, b.container)))"
+    Sparse(a.container, [ a.values; b.values ], [ a.indices; b.indices ])
+end
 
 # Do we need these?
 # sum(b::Sparse)=sum(sum(v) for v in b.values)
