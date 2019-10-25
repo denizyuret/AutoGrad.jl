@@ -1,5 +1,7 @@
-AutoGrad v1.1.7 Release Notes
+AutoGrad v1.2.0 Release Notes
 =============================
+
+* Enhancements and bugfixes for the AutoGrad.Sparse type.
 
 
 AutoGrad v1.1.6 Release Notes
