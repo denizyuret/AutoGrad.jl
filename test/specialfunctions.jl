@@ -24,17 +24,18 @@ using AutoGrad: lgamma, loggamma # TODO: delete after everyone has SpecialFuncti
     # airybix
     # `airyprime(z::Number)` is deprecated, use `airyaiprime(z)` instead.
     # `airyx(k,x)` is deprecated, use `airyaix(x)`, `airyaiprimex(x)`, `airybix(x)` or `airybiprimex(x)` instead.
-    # besselh
+    @test randcheck((x->besselh.(2,1,x)),val_gt_0; o...)
+    @test randcheck((x->besselh.(2,2,x)),val_gt_0; o...)
     # besselhx
-    # besseli
+    @test randcheck((x->besseli.(2,x)); o...)
     # besselix
-    # besselj
+    @test randcheck((x->besselj.(2,x)); o...)
     @test randcheck(besselj0; o...) # @primitive besselj0(x),dy (dy.*(-(besselj1.(x))))
     @test randcheck(besselj1; o...) # @primitive besselj1(x),dy (dy.*((besselj0.(x) - besselj.(2,x)) / 2))
     # besseljx
-    # besselk
+    @test randcheck((x->besselk.(2,x)),val_gt_0; o...)
     # besselkx
-    # bessely
+    @test randcheck((x->bessely.(2,x)),val_gt_0; o...)
     @test randcheck(bessely0,val_gt_0; o...) # @primitive bessely0(x),dy (dy.*(-(bessely1.(x))))
     @test randcheck(bessely1,val_gt_0; o...) # @primitive bessely1(x),dy (dy.*((bessely0.(x) - bessely.(2,x)) / 2))
     # besselyx
@@ -50,9 +51,9 @@ using AutoGrad: lgamma, loggamma # TODO: delete after everyone has SpecialFuncti
     @test randcheck(erfinv,abs_lt_1; o...) # @primitive erfinv(x),dy,y (dy.*(exp.(abs2.(y)) * convert(eltype(x), √π / 2)))
     # eta
     @test randcheck(gamma,val_gamma; o...) # @primitive gamma(x),dy,y (dy.*(y .* digamma.(x))) ## avoid <=0 ints
-    # hankelh1
+    @test randcheck((x->hankelh1.(2,x)),val_gt_0; o...)
     # hankelh1x
-    # hankelh2
+    @test randcheck((x->hankelh2.(2,x)),val_gt_0; o...)
     # hankelh2x
     @test randcheck(invdigamma, val_lt_1; o...) # @primitive invdigamma(x),dy,y (dy.*(1 ./ trigamma.(y)))
     # lbeta
