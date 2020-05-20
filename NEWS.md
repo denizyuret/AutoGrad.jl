@@ -1,5 +1,19 @@
+AutoGrad v1.2.2 Release Notes
+=============================
+
+* Support for bessel derivatives.
+
+
+AutoGrad v1.2.1 Release Notes
+=============================
+28017b9 2020-02-01
+
+* New version of SpecialFunctions.
+
+
 AutoGrad v1.2.0 Release Notes
 =============================
+b6d4e68 2019-10-25
 
 * Enhancements and bugfixes for the AutoGrad.Sparse type.
 
