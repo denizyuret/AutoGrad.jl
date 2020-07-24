@@ -33,7 +33,7 @@ back(::typeof(view),::Type{Arg{N}},o...) where {N} = nothing # Only the first ar
 # efficiency when x is an array.
 # x -> getindex -> xi -> grad -> dxi -> ungetindex -> dx -> grad -> ddx -> getindex -> ddxi
 
-# ungetindex(x,dxi,i)=Sparse(x,[dxi],[i])
+# ungetindex(x,dxi,i)=Sparse(x,Any[dxi],Any[i])
 
 # For Object arrays, Dict, Tuple, Number no need to use Sparse:
 
@@ -60,7 +60,7 @@ function ungetindex(x::AbstractArray{T},dxi,i) where T
         elseif recording()
             addtoindex!(zero(x), dxi, i...)
         else
-            Sparse(x,[dxi],[i])
+            Sparse(x,Any[dxi],Any[i])
         end
     else
         # Using addtoindex! instead of setindex! to handle repeated indices

@@ -1,5 +1,12 @@
+AutoGrad v1.2.3 Release Notes
+=============================
+
+* Fix #116, #121: Sparse values and indices should be Vector{Any}
+
+
 AutoGrad v1.2.2 Release Notes
 =============================
+2230d03 2020-05-20
 
 * Support for bessel derivatives.
 

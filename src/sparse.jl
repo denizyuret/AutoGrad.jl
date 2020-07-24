@@ -14,11 +14,11 @@ than being overwritten. See https://github.com/JuliaLang/julia/issues/31392.
 """
 struct Sparse{T,N} <: AbstractArray{T,N}
     container
-    values
-    indices
+    values::Vector{Any}
+    indices::Vector{Any}
 end
 
-Sparse(a::AbstractArray{T,N},v,i) where {T,N} = Sparse{T,N}(a,v,i)
+Sparse(a::AbstractArray{T,N},v::Vector{Any},i::Vector{Any}) where {T,N} = Sparse{T,N}(a,v,i)
 
 # To add a Sparse to an Array without allocating extra space, we need to use:
 # a .+= s  OR  a .= a .+ s
@@ -48,7 +48,7 @@ end
 # These are used in Knet/src/update.jl:
 import LinearAlgebra: axpy!, norm, lmul!
 axpy!(a::Number, x::Sparse, y::AbstractArray) = addto!(y, a*x)
-lmul!(a::Number, x::Sparse{T,N}) where {T,N} = Sparse{T,N}(x.container, [ a*v for v in x.values ], x.indices)
+lmul!(a::Number, x::Sparse{T,N}) where {T,N} = Sparse{T,N}(x.container, Any[ a*v for v in x.values ], x.indices)
 
 # This does not give the correct result when there are repeated indices, but should be good enough for gclip
 norm(x::Sparse) = sqrt(sum(abs2, norm(v) for v in x.values))
@@ -62,12 +62,12 @@ full(x)=x
 # Arithmetic with numbers
 import Base: *, +, -, /
 import Base.Broadcast: broadcasted
-*(s::Sparse, n::Number) = Sparse(s.container, [ v*n for v in s.values ], s.indices)
-*(n::Number, s::Sparse) = Sparse(s.container, [ v*n for v in s.values ], s.indices)
-/(s::Sparse, n::Number) = Sparse(s.container, [ v/n for v in s.values ], s.indices)
-broadcasted(::typeof(*), s::Sparse, n::Number) = Sparse(s.container, [ v.*n for v in s.values ], s.indices)
-broadcasted(::typeof(*), n::Number, s::Sparse) = Sparse(s.container, [ v.*n for v in s.values ], s.indices)
-broadcasted(::typeof(/), s::Sparse, n::Number) = Sparse(s.container, [ v./n for v in s.values ], s.indices)
+*(s::Sparse, n::Number) = Sparse(s.container, Any[ v*n for v in s.values ], s.indices)
+*(n::Number, s::Sparse) = Sparse(s.container, Any[ v*n for v in s.values ], s.indices)
+/(s::Sparse, n::Number) = Sparse(s.container, Any[ v/n for v in s.values ], s.indices)
+broadcasted(::typeof(*), s::Sparse, n::Number) = Sparse(s.container, Any[ v.*n for v in s.values ], s.indices)
+broadcasted(::typeof(*), n::Number, s::Sparse) = Sparse(s.container, Any[ v.*n for v in s.values ], s.indices)
+broadcasted(::typeof(/), s::Sparse, n::Number) = Sparse(s.container, Any[ v./n for v in s.values ], s.indices)
 
 # Arithmetic with arrays (can use addto! which overwrites its first argument)
 +(a::AbstractArray, s::Sparse) = addto!(copy(a), s)
@@ -79,12 +79,12 @@ broadcasted(::typeof(/), s::Sparse, n::Number) = Sparse(s.container, [ v./n for 
 # Issue #114: we may need to add multiple gradients
 function +(a::Sparse, b::Sparse)
     @assert matches(a.container, b.container) "$(summary.((a.container, b.container)))"
-    Sparse(a.container, [ a.values; b.values ], [ a.indices; b.indices ])
+    Sparse(a.container, Any[ a.values; b.values ], Any[ a.indices; b.indices ])
 end
 
 # Do we need these?
 # sum(b::Sparse)=sum(sum(v) for v in b.values)
-# zero(b::Sparse)=Sparse(b.container,[],[])
+# zero(b::Sparse)=Sparse(b.container,Any[],Any[])
 # ones(b::Sparse)=ones(b.container)
 # length(b::Sparse)=length(b.container)
 
