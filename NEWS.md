@@ -1,5 +1,6 @@
 AutoGrad v1.2.3 Release Notes
 =============================
+3c78a1e 2020-07-24
 
 * Fix #116, #121: Sparse values and indices should be Vector{Any}
 
