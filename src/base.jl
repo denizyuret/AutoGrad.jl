@@ -189,8 +189,8 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* 
 # hcat  Handled in cat.jl
 # hvcat,
 # indexin,
-# argmax,
-# argmin,
+@zerograd argmax(x;dims=:)
+@zerograd argmin(x;dims=:)
 # invperm,
 # invpermute!,
 @zerograd isassigned(x,i...)
