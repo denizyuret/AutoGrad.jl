@@ -42,7 +42,7 @@ function show(io::IO, n::Node)
     else
         r = n.Value
         print(io, "N(", og(n), ", ", r, " = ", r.func, "(", join(valstr.(r.args),", "), 
-              isempty(r.kwargs) ? "" : "; "*join(["$(x[1])=$(valstr(x[2]))" for x in r.kwargs], ", "), "))")
+              (r.kwargs===nothing || isempty(r.kwargs)) ? "" : "; "*join(["$(x[1])=$(valstr(x[2]))" for x in r.kwargs], ", "), "))")
     end
 end
 
@@ -54,8 +54,12 @@ function show(io::IO, ::MIME"text/plain", ts::Vector{Tape}) # to dump _tapes
     for (i,n) in enumerate(ts[1].list)
         r = n.Value
         if isa(r,Result)
-            print(io, "$i. ", valstr(r), " = ", r.func, "(", join(argstr.(r.args),", "), 
-                  isempty(r.kwargs) ? "" : "; "*join(["$(x[1])=$(valstr(x[2]))" for x in r.kwargs], ", "), "))")
+            if r.func === nothing # garbage collected
+                print(io, "$i. R(nothing)")
+            else
+                print(io, "$i. ", valstr(r), " = ", r.func, "(", join(argstr.(r.args),", "), 
+                      (r.kwargs===nothing || isempty(r.kwargs)) ? "" : "; "*join(["$(x[1])=$(valstr(x[2]))" for x in r.kwargs], ", "), "))")
+            end
         else
             print(io, "$i. ", r)
         end
