@@ -14,29 +14,24 @@ macro timer(name,expr); TIMER ? :(@timeit to $(esc(name)) (a=$(esc(expr));@gs;a)
 """
 Usage:
 
-    x = Param([1,2,3])          # user declares parameters with `Param`
-    x => P([1,2,3])             # `Param` is just a struct wrapping a value
-    value(x) => [1,2,3]         # `value` returns the thing wrapped
-    sum(x .* x) => 14           # Params act like regular values
-    y = @diff sum(x .* x)       # Except when we differentiate using `@diff`
-    y => T(14)                  # you get another struct
-    value(y) => 14              # which carries the same result
-    params(y) => [x]            # and the Params that it depends on 
-    grad(y,x) => [2,4,6]        # and the gradients for all Params
-    
+    x = Param([1,2,3])          # The user declares parameters with `Param`
+    y = @diff sum(x .* x)       # computes gradients using `@diff`
+    grad(y,x) => [2,4,6]        # looks up the gradient of a parameter with `grad`
+
 `Param(x)` returns a struct that acts like `x` but marks it as a parameter you want to
 compute gradients with respect to.
 
-`@diff expr` evaluates an expression and returns a struct that contains the result (which
-should be a scalar) and gradient information.
+`@diff expr` evaluates an expression and returns a struct that contains its value (which
+should be a scalar) and gradients with respect to the `Param`s used in the computation.
 
-`grad(y, x)` returns the gradient of `y` (output by @diff) with respect to any parameter
-`x::Param`, or  `nothing` if the gradient is 0.
+`grad(y, x)` returns the gradient of a `@diff` result `y` with respect to any parameter
+`x::Param`. (`nothing` may be returned if the gradient is 0).
 
 `value(x)` returns the value associated with `x` if `x` is a `Param` or the output of
 `@diff`, otherwise returns `x`.
 
-`params(x)` returns an iterator of Params found by a recursive search of object `x`.
+`params(x)` returns an iterator of `Param`s found by a recursive search of object `x`, which
+is typically a model or a `@diff` result.
 
 Alternative usage:
 
