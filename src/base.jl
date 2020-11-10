@@ -345,7 +345,7 @@ values(a::Value{T})  where {T<:AbstractDict} = (a[k] for k in keys(value(a)))
 @zerograd isless(x,y)
 # ifelse,
 # objectid,
-# sizeof,
+@zerograd sizeof(x)
 
 ### types
 # convert,
