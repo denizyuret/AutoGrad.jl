@@ -1,4 +1,4 @@
-import Base: getindex, setindex!, get, view, selectdim
+import Base: getindex, setindex!, get, view, selectdim, dotview
 
 # Here we will define indexing (getindex,setindex!,firstindex,lastindex) 
 # interface for generic Value types.
@@ -14,6 +14,16 @@ function setindex!(x::Value,v,I...)
         error("Array overwriting during gradient calculation not supported.")
     else
         setindex!(value(x),v,I...)
+    end
+end
+
+# x[...] .= f.(y...) ---> broadcast!(f, dotview(x, ...), y...)
+
+function dotview(x::Value, I...)
+    if !isempty(_tapes)
+        error("Array overwriting during gradient calculation not supported.")
+    else
+        view(x, I...)
     end
 end
 
