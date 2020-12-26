@@ -62,14 +62,14 @@ function gcwalk(i, xptr, gptr, f0, f, x, kw, nsample, verbose, delta, rtol, atol
     if isa(value(xptr[i]), Number)
         if isa(xptr[i], Param)
             xi = xptr[i].value
-            delta = delta > 0 ? oftype(xi,delta) : cbrt(eps(xi))
+            delta = delta > 0 ? oftype(float(xi),delta) : cbrt(eps(xi))
             xptr[i].value = xi >= 0 ? xi + delta : xi - delta
             f1 = gcsum(f, x...; kw...)
             nd = (f1 - f0) / (xptr[i] - xi)
             xptr[i].value = xi
         else
             xi = xptr[i]
-            delta = delta > 0 ? oftype(xi,delta) : cbrt(eps(xi))
+            delta = delta > 0 ? oftype(float(xi),delta) : cbrt(eps(xi))
             xptr[i] = xi >= 0 ? xi + delta : xi - delta
             f1 = gcsum(f, x...; kw...)
             nd = (f1 - f0) / (xptr[i] - xi)
