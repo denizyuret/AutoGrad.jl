@@ -14,18 +14,18 @@ for a different take on marking parameters.
 
 # Keywords
 
-* `args=:`: the argument indices to check gradients with respect
-  to. Could be an array or range of indices or a single index. By
-  default all arguments that have a `length` method are checked.
+* `args=:`: the argument indices to check gradients with respect to. Could be an array or
+  range of indices or a single index. By default all arguments that have a `length` method
+  are checked.
 
 * `kw=()`: keyword arguments to be passed to `f`.
 
-* `nsample=10`: number of random entries from each numeric array in
-  gradient `dw=(grad(f))(w,x...;o...)` compared to their numerical
-  estimates.
+* `nsample=10`: number of random entries from each numeric array in gradient
+  `dw=(grad(f))(w,x...;o...)` compared to their numerical estimates.
 
-* `atol=rtol=0.01`: tolerance parameters.  See `isapprox` for
-  their meaning.
+* `atol=0.01`: tolerance parameter.  See `isapprox` for an explanation.
+
+* `rtol=0.05`: tolerance parameter.  See `isapprox` for an explanation.
 
 * `delta=0.0001`: step size for numerical gradient calculation.
 
