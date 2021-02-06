@@ -104,7 +104,7 @@ dxndx(x1,x2,dy)=(if x2==0; zero(dy); elseif x2==1; dy; elseif x2==2; 2 .* x1 .* 
 # imag,
 # inv,
 # invmod,
-# isapprox,
+@zerograd isapprox(x,y;o...)
 # iseven,
 @zerograd isfinite(x)
 @zerograd isinf(x)
