@@ -31,7 +31,7 @@ function params_internal(@nospecialize(x), ps::Vector{Param}, stackdict::IdDict)
     if haskey(stackdict, x)
         return
     end
-    if T.mutable
+    if ismutable(x)
         stackdict[x] = true
     end
     for i in 1:nf
