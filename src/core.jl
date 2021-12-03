@@ -220,10 +220,10 @@ function grad(fun::Function, argnum::Int=1, loss=false)
     function gradfun(args...; kwargs...)
         arg_wrt = args[argnum]
         if !isa(arg_wrt,Value); arg_wrt = Param(arg_wrt); end
-        args = Any[args...]
+        args = Any[value.(args)...] # add value.() in case user declares other args as Params
         args[argnum] = arg_wrt
         result = differentiate(fun, args...; kwargs...)
-        xgrad = isa(result, Tape) ? full(result.list[1].outgrad) : nothing
+        xgrad = isa(result, Tape) ? full(result.list[1].outgrad) : nothing # list[1] should be first (and only) Param arg
         return loss ? (xgrad,value(result)) : xgrad
     end
     return gradfun
