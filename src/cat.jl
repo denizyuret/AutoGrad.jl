@@ -31,11 +31,11 @@ cat(X::NAR...; dims)=forw(cat,X...; dims=dims)
 back(::typeof(cat),::Type{Arg{N}},y1,y,x...; dims) where {N}=uncat(y1,N,dims,x...)
 
 # In Julia6+ dims can be Val{N} which breaks uncat:
-uncat(y1,n,dims::Val{N},x...) where {N}=uncat(y1,n,N,x...)
-uncat1(x2,y1,n,dims::Val{N},x...) where {N}=uncat1(x2,y1,n,N,x...)
+uncat(y1,argn,dims::Val{N},x...) where {N}=uncat(y1,argn,N,x...)
+uncat1(x2,y1,argn,dims::Val{N},x...) where {N}=uncat1(x2,y1,argn,N,x...)
 # This resolves ambiguity with the @primitive version:
-uncat(y1::Value,n,dims::Val{N},x...) where {N}=uncat(y1,n,N,x...)
-uncat1(x2::Value,y1,n,dims::Val{N},x...) where {N}=uncat1(x2,y1,n,N,x...)
+uncat(y1::Value,argn,dims::Val{N},x...) where {N}=uncat(y1,argn,N,x...)
+uncat1(x2::Value,y1,argn,dims::Val{N},x...) where {N}=uncat1(x2,y1,argn,N,x...)
 
 # For the gradient, we need to extract the n'th block from dy which
 # has the same shape as y=cat(x...;dims).  Note that the inputs x[i]
@@ -43,38 +43,38 @@ uncat1(x2::Value,y1,n,dims::Val{N},x...) where {N}=uncat1(x2,y1,n,N,x...)
 # cases Julia assumes the missing dimensions are 1.  We need to
 # reshape dx to the same size as x.
 
-function uncat(y1,n,dims,x...)
+function uncat(y1,argn,dims,x...)
     idx = []
     @inbounds for d=1:ndims(y1)
         if in(d,dims)
             pos = 0
-            @inbounds for j=1:n-1
+            @inbounds for j=1:argn-1
                 pos += size(x[j],d)
             end
-            push!(idx,(pos+1):(pos+size(x[n],d)))
+            push!(idx,(pos+1):(pos+size(x[argn],d)))
         else
             push!(idx,1:size(y1,d))
         end
     end
     x1 = y1[idx...]
-    if isa(value(x[n]),Number)
+    if isa(value(x[argn]),Number)
         length(x1)==1 || error("uncat mismatch")
         x1 = x1[1]
     else
-        x1 = reshape(x1, size(x[n]))
+        x1 = reshape(x1, size(x[argn]))
     end
     return x1
 end
 
-function uncat1(x2,y1,n,dims,x...)
+function uncat1(x2,y1,argn,dims,x...)
     idx = []
     @inbounds for d=1:ndims(y1)
         if in(d,dims)
             pos = 0
-            @inbounds for j=1:n-1
+            @inbounds for j=1:argn-1
                 pos += size(x[j],d)
             end
-            push!(idx,(pos+1):(pos+size(x[n],d)))
+            push!(idx,(pos+1):(pos+size(x[argn],d)))
         else
             push!(idx,1:size(y1,d))
         end
@@ -84,8 +84,12 @@ function uncat1(x2,y1,n,dims,x...)
     return y2
 end
 
-@primitive  uncat(y1,n,dims,x...),x2  uncat1(x2,y1,n,dims,x...)
-@primitive  uncat1(x2,y1,n,dims,x...),y3  uncat(y3,n,dims,x...)
+@primitive  uncat(y1,argn,dims,x...),x2  uncat1(x2,y1,argn,dims,x...)
+@primitive  uncat1(x2,y1,argn,dims,x...),y3  uncat(y3,argn,dims,x...)
+
+# Issue 671: all gradients for uncat/uncat1 other than the one wrt first arg are zero:
+back(::typeof(uncat),::Type{Arg{N}},dy,y,x...) where {N}=nothing
+back(::typeof(uncat1),::Type{Arg{N}},dy,y,x...) where {N}=nothing
 
 # Here is a graphic that may explain the variable name choice where xi
 # stands for the i'th order gradient:
