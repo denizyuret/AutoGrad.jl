@@ -4,6 +4,7 @@ AutoGrad v1.2.5 Release Notes
 * SpecialFunctions -> 2.0 (Deniz Yuret)
 * defensive programming for old grad interface (Deniz Yuret)
 * T.mutable -> ismutable(x) for 1.7 compat (Deniz Yuret)
+* rolled back PR #75 tape confusion fix because it was breaking #671, need to find another fix.
 
 
 AutoGrad v1.2.4 Release Notes

@@ -132,11 +132,11 @@ Result(v::T, f, args, kwargs) where {T<:Tracked} = v  # Issue #106: no need to r
 ## Differentiate: call f recording primitives on tape, then call back on each primitive
 
 function differentiate(f, x...; o...)
-    duplicate(x)=(isa(x,Value) ? identity(x) : x)
-    if !isempty(_tapes)       # PR#75: to avoid tape confusion
-        x = map(duplicate,x)  # duplicate tracked function arguments.
-        o = isempty(o) ? () : pairs(map(duplicate,values(o)))
-    end
+    # duplicate(x)=(isa(x,Value) ? identity(x) : x)
+    # if !isempty(_tapes)       # PR#75: to avoid tape confusion
+    #     x = map(duplicate,x)  # duplicate tracked function arguments.
+    #     o = isempty(o) ? () : pairs(map(duplicate,values(o)))
+    # end
     tape = Tape()
     push!(_tapes, tape)
     result = nothing
@@ -218,12 +218,12 @@ grad(t::Tape,x::Tracked)=(n=get(t.dict,x,nothing); n===nothing ? n : n.outgrad)
 # Old style grad and gradloss
 function grad(fun::Function, argnum::Int=1, loss=false)
     function gradfun(args...; kwargs...)
-        arg_wrt = args[argnum]
-        if !isa(arg_wrt,Value); arg_wrt = Param(arg_wrt); end
-        args = Any[value.(args)...] # add value.() in case user declares other args as Params
-        args[argnum] = arg_wrt
+        if !isa(args[argnum], Tracked)
+            args = Any[args...]
+            args[argnum] = Param(args[argnum])
+        end
         result = differentiate(fun, args...; kwargs...)
-        xgrad = isa(result, Tape) ? full(result.list[1].outgrad) : nothing # list[1] should be first (and only) Param arg
+        xgrad = isa(result, Tape) ? full(grad(result, args[argnum])) : nothing
         return loss ? (xgrad,value(result)) : xgrad
     end
     return gradfun
