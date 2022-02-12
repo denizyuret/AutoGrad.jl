@@ -1,3 +1,25 @@
+AutoGrad v1.2.5 Release Notes
+=============================
+
+* SpecialFunctions -> 2.0 (Deniz Yuret)
+* defensive programming for old grad interface (Deniz Yuret)
+* T.mutable -> ismutable(x) for 1.7 compat (Deniz Yuret)
+
+
+AutoGrad v1.2.4 Release Notes
+=============================
+e94af8f 2020-12-26
+
+* update travis to julia-1.5
+* @zerograd argmax, argmin, sizeof
+* show() more robust to garbage collected tape nodes
+* make gcnode a Ref
+* match type fo delta to x during gradcheck
+* simplified AutoGrad docs
+* add SpecialFunctions 1.0 to Project.toml
+* handle dotview(::Value)
+
+
 AutoGrad v1.2.3 Release Notes
 =============================
 3c78a1e 2020-07-24
