@@ -1,4 +1,6 @@
 include("header.jl")
+using Statistics # mean
+
 @testset "highorder" begin
     # info("Test higher order gradients...")
     g1 = grad(sin); @test g1(1)==cos(1)
@@ -12,7 +14,8 @@ include("header.jl")
     g9 = grad(g8);  @test g9(1)==cos(1)
 
     # PR #75: Tape confusion fix
-    @test grad(x -> x*grad(y -> x+y)(x))(5.0) == 1
+    # TODO: The original fix (creating a copy of the input variable) broke #671, find another fix.
+    @test_broken grad(x -> x*grad(y -> x+y)(x))(5.0) == 1
     @test grad(x -> x*grad(y -> x+y)(1x))(5.0) == 1
     
     # WIP
